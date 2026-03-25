@@ -105,7 +105,7 @@
                                                 {{ round($my_product['nb_part'], 2) }}</div>
                                         </div>
                                         <div class="content-label-info">
-                                            <div class="label-">VL achat:</div>
+                                            <div class="label-">VL souscription :</div>
                                             <div class="response-">
                                                 XAF {{ number_format(floor($my_product['vl_achat']), 0, ' ', ' ') }}
                                             </div>

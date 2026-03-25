@@ -43,6 +43,6 @@ class AchatActionPmgMail extends Mailable
      */
     public function build()
     {
-        return $this->view('mail.achatActionPmgMail')->subject('Procédure d\'achat du produit ' . $this->username);
+        return $this->view('mail.achatActionPmgMail')->subject('Procédure de souscription du produit ' . $this->username);
     }
 }

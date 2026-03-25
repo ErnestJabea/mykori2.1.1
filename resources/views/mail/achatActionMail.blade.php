@@ -28,7 +28,7 @@
 
             <p>Nom : <strong>{{ $username }}</strong></p>
             <p>Email : <strong>{{ $useremail }}</strong></p>
-            <p>Valeur Liquidative à l'achat: <strong>XAF {{ $vl_actuel }}</strong></p>
+            <p>Valeur Liquidative à la souscription : <strong>XAF {{ $vl_actuel }}</strong></p>
             <p>Nombre de part : <strong>{{ round($valeurLiquidative, 2) }}</strong></p>
             <p>Montant total à payer : <strong>{{ number_format($montantTotal, 0, ' ', ' ') }} (incluant les frais de
                     souscription à hauteur de {{ $product_name->free }}%)</strong></p>
