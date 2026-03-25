@@ -25,117 +25,10 @@
                         <i class="las la-moon text-2xl"></i>
                     </span>
                 </button>
-                <!-- Notification
-                <div class="relative">
-                    <button id="notification-btn"
-                        class="relative h-10 w-10 rounded-full border border-n30 bg-primary/5 dark:border-n500 dark:bg-bg3 md:h-12 md:w-12">
-                        <i class="las la-bell text-2xl"></i>
-                        <span
-                            class="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-n0">
-                            2
-                        </span>
-                    </button>
-                    <div id="notification"
-                        class="hide absolute top-full z-20 origin-[60%_0] rounded-md bg-n0 shadow-[0px_6px_30px_0px_rgba(0,0,0,0.08)] duration-300 dark:bg-bg4 ltr:-right-[110px] sm:ltr:right-0 sm:ltr:origin-top-right rtl:-left-[120px] sm:rtl:left-0 sm:rtl:origin-top-left">
-                        <div class="flex items-center justify-between border-b p-3 dark:border-n500 lg:px-4">
-                            <h5 class="h5">Notifications</h5>
-                            <a href="#" class="text-sm text-primary"> Tout voir </a>
-                        </div>
-                        <ul class="flex w-[300px] flex-col p-4">
-                            <div class="flex cursor-pointer gap-2 rounded-md p-2 duration-300 hover:bg-primary/10">
-                                <img src="{{ asset('images/user-3.png') }}" width="44" height="40"
-                                    class="shrink-0 rounded-full" alt="img" />
-                                <div class="text-sm">
-                                    <div class="flex gap-1">
-                                        <span class="font-medium">Benjamin</span>
-                                        <span>Sent a message</span>
-                                    </div>
-                                    <span class="text-xs text-n100 dark:text-n50">1 hour ago</span>
-                                </div>
-                            </div>
-                            <div class="flex cursor-pointer gap-2 rounded-md p-2 duration-300 hover:bg-primary/10">
-                                <img src="{{ asset('images/user-4.png') }}" width="44" height="40"
-                                    class="shrink-0 rounded-full" alt="img" />
-                                <div class="text-sm">
-                                    <div class="flex gap-1">
-                                        <span class="font-medium">Benjamin</span>
-                                        <span>Left a Comment</span>
-                                    </div>
-                                    <span class="text-xs text-n100 dark:text-n50">1 hour ago</span>
-                                </div>
-                            </div>
-                            <div class="flex cursor-pointer gap-2 rounded-md p-2 duration-300 hover:bg-primary/10">
-                                <img src="{{ asset('images/user-5.png') }}" width="44" height="40"
-                                    class="shrink-0 rounded-full" alt="img" />
-                                <div class="text-sm">
-                                    <div class="flex gap-1">
-                                        <span class="font-medium">Benjamin</span>
-                                        <span>Sent a message</span>
-                                    </div>
-                                    <span class="text-xs text-n100 dark:text-n50">2 hour ago</span>
-                                </div>
-                            </div>
-                            <div class="flex cursor-pointer gap-2 rounded-md p-2 duration-300 hover:bg-primary/10">
-                                <img src="{{ asset('images/user-7.png') }}" width="44" height="40"
-                                    class="shrink-0 rounded-full" alt="img" />
-                                <div class="text-sm">
-                                    <div class="flex gap-1">
-                                        <span class="font-medium">Samuel</span>
-                                        <span>Uploaded a file</span>
-                                    </div>
-                                    <span class="text-xs text-n100 dark:text-n50">Yesterday</span>
-                                </div>
-                            </div>
-                            <div class="flex cursor-pointer gap-2 rounded-md p-2 duration-300 hover:bg-primary/10">
-                                <img src="{{ asset('images/user-7.png') }}" width="44" height="40"
-                                    class="shrink-0 rounded-full" alt="img" />
-                                <div class="text-sm">
-                                    <div class="flex gap-1">
-                                        <span class="font-medium">David</span>
-                                        <span>Left a Comment</span>
-                                    </div>
-                                    <span class="text-xs text-n100 dark:text-n50">Yesterday</span>
-                                </div>
-                            </div>
-                        </ul>
-                    </div>
-                </div>-->
-                <!-- language dropdown
-                <div class="relative">
-                    <button id="language-btn"
-                        class="flex gap-1 rounded-full border border-n30 bg-primary/5 p-2 dark:border-n500 dark:bg-bg3 md:p-3">
-                        <i class="las la-language"></i>
-                    </button>
-                    <div id="language"
-                        class="hide absolute top-full z-20 rounded-md bg-n0 shadow-[0px_6px_30px_0px_rgba(0,0,0,0.08)] duration-300 dark:bg-bg4 ltr:right-0 ltr:origin-top-right rtl:left-0 rtl:origin-top-left">
-                        <ul class="flex w-32 flex-col rounded-md bg-n0 p-1 dark:bg-bg4">
-                            <li
-                                class="active block cursor-pointer rounded-md px-4 py-2 duration-300 hover:text-primary">
-                                English
-                            </li>
-                            <li class="block cursor-pointer rounded-md px-4 py-2 duration-300 hover:text-primary">
-                                Français
-                            </li>
-                            <li class="block cursor-pointer rounded-md px-4 py-2 duration-300 hover:text-primary">
-                                {{ Auth::user()->id }}
-                            </li>
-                        </ul>
-                    </div>
-                </div>-->
-                <!-- Profile dropdown -->
-                <div class="relative shrink-0">
-                    <div id="profile-btn" class="w-10 cursor-pointer md:w-12">
-                        <div class="round-fill round-full">
-                            @php
-                                $user_ = App\Models\User::where('id', Auth::user()->id)->first();
-                            @endphp
-                            {{ mb_substr($user_->name, 0, 1) }}
-                        </div>
 
-                    </div>
-                    <div id="profile"
-                        class="hide absolute top-full z-20 rounded-md bg-n0 shadow-[0px_6px_30px_0px_rgba(0,0,0,0.08)] duration-300 dark:bg-bg4 ltr:right-0 ltr:origin-top-right rtl:left-0 rtl:origin-top-left">
-                        <div class="flex flex-col items-center border-b p-3 text-center dark:border-n500 lg:p-4">
+                <div class="flex items-center gap-3 md:gap-4">
+                    <div class="user-profile relative">
+                        <button id="profile-btn" class="flex items-center gap-3 rounded-full bg-n0 p-1 dark:bg-bg3">
 
                             <div class="round-fill round-full">
                                 @php
@@ -143,29 +36,34 @@
                                 @endphp
                                 {{ mb_substr($user_->name, 0, 1) }}
                             </div>
-                            <h6 class="h6 mt-2">{{ $user_->name }}</h6>
-                            <span class="text-sm">{{ $user_->email }}</span>
+                            <span class="hidden text-sm font-medium lg:block">
+                                {{ Auth::user()->name }}
+                            </span>
+                            <i class="las la-angle-down hidden text-lg lg:block"></i>
+                        </button>
+                        <div id="profile-dropdown"
+                            class="hide absolute top-full ltr:right-0 rtl:left-0 z-20 w-[200px] origin-top rounded-md bg-n0 p-4 shadow-lg duration-300 dark:bg-bg4">
+                            <ul class="flex flex-col gap-2">
+                                <li>
+                                    <a href="{{ route('profile') }}"
+                                        class="flex items-center gap-2 rounded-md p-2 duration-300 hover:bg-primary hover:text-n0">
+                                        <span>
+                                            <i class="las la-user mt-1 text-xl"></i>
+                                        </span>
+                                        Mon profile
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="{{ route('logout') }}"
+                                        class="flex items-center gap-2 rounded-md p-2 duration-300 hover:bg-primary hover:text-n0">
+                                        <span>
+                                            <i class="las la-sign-out-alt mt-1 text-xl"></i>
+                                        </span>
+                                        Déconnexion
+                                    </a>
+                                </li>
+                            </ul>
                         </div>
-                        <ul class="flex w-[250px] flex-col p-4">
-                            <li>
-                                <a href="{{ route('profile') }}"
-                                    class="flex items-center gap-2 rounded-md p-2 duration-300 hover:bg-primary hover:text-n0">
-                                    <span>
-                                        <i class="las la-user mt-1 text-xl"></i>
-                                    </span>
-                                    Mon profile
-                                </a>
-                            </li>
-                            <li>
-                                <a href="{{ route('logout') }}"
-                                    class="flex items-center gap-2 rounded-md p-2 duration-300 hover:bg-primary hover:text-n0">
-                                    <span>
-                                        <i class="las la-sign-out-alt mt-1 text-xl"></i>
-                                    </span>
-                                    Déconnexion
-                                </a>
-                            </li>
-                        </ul>
                     </div>
                 </div>
             </div>
@@ -191,47 +89,104 @@
                         </button>
                     </div>
                 </div>
-                <div class="menu-container pb-28">
+                <div class=" pb-28">
                     <div class="menu-wrapper">
-                        <p class="menu-heading">Navigation</p>
-                        <ul class="menu-ul">
-                            <li class="menu-li">
-                                <button class="menu-btn border-n30 bg-n0 dark:!border-n500 dark:bg-bg4">
-                                    <a href="{{ route('asset-manager') }}"
-                                        class="flex items-center justify-center gap-2">
-                                        <span class="menu-icon">
-                                            <i class="las la-home"></i>
-                                        </span>
-                                        <span class="menu-title font-medium">Tableau de bord</span>
-                                    </a>
-                                </button>
-                                <ul class="submenu-hide submenu">
-                                </ul>
-                            </li>
-                            <li class="menu-li">
-                                <button class="menu-btn group bg-n0 dark:!border-n500 dark:!bg-bg4">
-                                    <a href="{{ route('customer') }}" class="flex items-center justify-center gap-2">
-                                        <span class="menu-icon">
-                                            <i class="las la-piggy-bank"></i>
-                                        </span>
-                                        <span class="menu-title font-medium">Clients</span>
-                                    </a>
-                                </button>
-                                <ul class="submenu-hide submenu">
-                                </ul>
-                            </li>
+                        <!-- Navigation Asset Manager (Roles != 5) -->
+                        @if (Auth::user()->role_id != 5)
+                            <p class="menu-heading">Navigation Asset Manager</p>
+                            <ul class="menu-ul">
+                                <li class="menu-li">
+                                    <button class="menu-btn border-n30 bg-n0 dark:!border-n500 dark:bg-bg4">
+                                        <a href="{{ route('asset-manager') }}"
+                                            class="flex items-center justify-center gap-2">
+                                            <span class="menu-icon">
+                                                <i class="las la-home"></i>
+                                            </span>
+                                            <span class="menu-title font-medium">Tableau de bord</span>
+                                        </a>
+                                    </button>
+                                    <ul class="submenu-hide submenu">
+                                    </ul>
+                                </li>
+                                <li class="menu-li">
+                                    <button class="menu-btn group bg-n0 dark:!border-n500 dark:!bg-bg4">
+                                        <a href="{{ route('customer') }}"
+                                            class="flex items-center justify-center gap-2">
+                                            <span class="menu-icon">
+                                                <i class="las la-piggy-bank"></i>
+                                            </span>
+                                            <span class="menu-title font-medium">Clients</span>
+                                        </a>
+                                    </button>
+                                    <ul class="submenu-hide submenu">
+                                    </ul>
+                                </li>
+                                <li class="menu-li">
+                                    <button class="menu-btn group bg-n0 dark:!border-n500 dark:!bg-bg4">
+                                        <a href="{{ route('asset-manager.create-customer') }}"
+                                            class="flex items-center justify-center gap-2">
+                                            <span class="menu-icon">
+                                                <i class="las la-user-plus text-primary"></i>
+                                            </span>
+                                            <span class="menu-title font-medium">Créer un client</span>
+                                        </a>
+                                    </button>
+                                    <ul class="submenu-hide submenu">
+                                    </ul>
+                                </li>
+                            </ul>
+                        @endif
+
+                        <!-- Navigation Compliance (Roles 5 or Admin) -->
+                        @if (Auth::user()->role_id == 5 || Auth::user()->role_id == 1)
+                            <p class="menu-heading">Navigation Compliance</p>
+                            <ul class="menu-ul">
+                                <li class="menu-li">
+                                    <button class="menu-btn group bg-n0 dark:!border-n500 dark:!bg-bg4">
+                                        <a href="{{ route('compliance.dashboard') }}"
+                                            class="flex items-center justify-center gap-2">
+                                            <span class="menu-icon">
+                                                <i class="las la-shield-alt"></i>
+                                            </span>
+                                            <span class="menu-title font-medium">Tableau de bord</span>
+                                        </a>
+                                    </button>
+                                </li>
+                                <li class="menu-li">
+                                    <button class="menu-btn group bg-n0 dark:!border-n500 dark:!bg-bg4">
+                                        <a href="{{ route('compliance.clients') }}"
+                                            class="flex items-center justify-center gap-2">
+                                            <span class="menu-icon">
+                                                <i class="las la-user-check"></i>
+                                            </span>
+                                            <span class="menu-title font-medium">Audit Clients</span>
+                                        </a>
+                                    </button>
+                                </li>
+                                <li class="menu-li">
+                                    <button class="menu-btn group bg-n0 dark:!border-n500 dark:!bg-bg4">
+                                        <a href="{{ route('compliance.vl-history') }}"
+                                            class="flex items-center justify-center gap-2">
+                                            <span class="menu-icon">
+                                                <i class="las la-history"></i>
+                                            </span>
+                                            <span class="menu-title font-medium">Historique VL</span>
+                                        </a>
+                                    </button>
+                                </li>
+                            </ul>
+                        @endif
+
+                        <ul class="menu-ul mt-4 border-t border-n30 pt-4">
                             <li class="menu-li">
                                 <button class="menu-btn group bg-n0 dark:!border-n500 dark:!bg-bg4">
                                     <a href="{{ route('logout') }}" class="flex items-center justify-center gap-2">
                                         <span class="menu-icon">
-                                            <i class="las la-sign-out-alt "></i>
+                                            <i class="las la-sign-out-alt"></i>
                                         </span>
                                         <span class="menu-title font-medium">Déconnexion</span>
                                     </a>
-
                                 </button>
-                                <ul class="submenu-hide submenu">
-                                </ul>
                             </li>
                         </ul>
                     </div>

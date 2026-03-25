@@ -100,6 +100,8 @@ class VerificationOtpController extends Controller
                 return redirect()->route('dashboard');
             if (Auth::user()->role->name == "admin")
                 return redirect()->route('admin');
+            if (Auth::user()->role->name == "compliance")
+                return redirect()->route('compliance.dashboard');
         }
 
         return back()->withErrors(['verification_code' => 'Code incorrect.']);

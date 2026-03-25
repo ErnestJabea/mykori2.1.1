@@ -13,6 +13,34 @@ use Carbon\Carbon;
 
 class AssetManagerController extends Controller
 {
+    public function createCustomer()
+    {
+        return view('front-end.asset-manager.create-customer');
+    }
+
+    public function storeCustomer(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users',
+            'genre' => 'required|integer|in:0,1,2',
+            'localisation' => 'required|string|max:255',
+            'bp' => 'nullable|string|max:255',
+        ]);
+
+        User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => \Illuminate\Support\Facades\Hash::make('12345678'),
+            'genre' => $request->genre,
+            'localisation' => $request->localisation,
+            'bp' => $request->bp,
+            'role_id' => 2, // Client
+        ]);
+
+        return redirect()->route('customer')->with('success', 'Client créé avec succès. Le mot de passe par défaut est 12345678.');
+    }
+
     //
     protected $portfolioService;
     protected $productControllerImport;
@@ -63,11 +91,50 @@ class AssetManagerController extends Controller
     public function customersDetail(Request $request)
     {
         $customer = User::findOrFail($request->customer);
-
+        
         $product_nb = $this->countUserProducts($customer->id);
-        $productsWithGains = $this->getProductsWithGains($customer->id);
+        
+        // Utiliser la méthode centralisée pour obtenir tous les produits avec leurs gains/valorisations
+        $productsWithGains = $this->productControllerImport->getProductsWithGainsUser($customer->id);
+        
+        $portefeuille_fcp = 0;
+        $portefeuille_pmg = 0;
+        $total_interets = 0;
 
-        return view('front-end.customer-detail')->with('productsWithGains', $productsWithGains)->with('customer', $customer)->with('product_nb', $product_nb);
+        foreach ($productsWithGains as $p) {
+            if ($p['type_product'] == 1) { // FCP
+                $portefeuille_fcp += (float)$p['portfolio_valeur'];
+                $total_interets += (float)($p['total_gains_fcp'] ?? 0);
+            } else { // PMG
+                $portefeuille_pmg += (float)$p['portfolio_valeur'];
+                $total_interets += (float)($p['interets_generes'] ?? 0);
+            }
+        }
+
+        $portefeuille_total = $portefeuille_fcp + $portefeuille_pmg;
+
+        // On récupère aussi tous les produits pour la modale d'ajout
+        $products = Product::all()->map(function($p) {
+            $latestVl = \App\Models\AssetValue::where('product_id', $p->id)
+                ->orderBy('created_at', 'desc')
+                ->first();
+            $p->recent_vl = $latestVl ? (float)$latestVl->vl : (float)$p->vl;
+            return $p;
+        });
+        
+        $categories = \App\Models\ProductsCategory::all();
+
+        return view('front-end.customer-detail', compact(
+            'customer', 
+            'productsWithGains', 
+            'product_nb',
+            'portefeuille_total',
+            'portefeuille_pmg',
+            'portefeuille_fcp',
+            'total_interets',
+            'products',
+            'categories'
+        ));
     }
 
 

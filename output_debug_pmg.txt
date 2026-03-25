@@ -1,0 +1,60 @@
+LOG PORTFOLIOS
+User: 13 | Product: MG4 | Portofolio: 10295833 | Gain: 295833 | Initial: 10000000 | Soulte: 10000000 | GainM: 295833
+User: 14 | Product: MG 2 | Portofolio: 21275000 | Gain: 21216667 | Initial: 58333 | Soulte: 20000000 | GainM: 1275000
+User: 14 | Product: MG 3 | Portofolio: 15253750 | Gain: 15239167 | Initial: 14583 | Soulte: 15000000 | GainM: 253750
+User: 18 | Product: MG1 | Portofolio: 74068800 | Gain: 73819200 | Initial: 249600 | Soulte: 70200000 | GainM: 3868800
+User: 18 | Product: MG 2 | Portofolio: 25513542 | Gain: 25484028 | Initial: 29514 | Soulte: 25000000 | GainM: 513542
+User: 19 | Product: MG1 | Portofolio: 11274063 | Gain: 11269584 | Initial: 4479 | Soulte: 10750000 | GainM: 524063
+User: 19 | Product: MG 2 | Portofolio: 10208889 | Gain: 10182222 | Initial: 26667 | Soulte: 10000000 | GainM: 208889
+User: 20 | Product: MG 2 | Portofolio: 54128846 | Gain: 978846 | Initial: 53150000 | Soulte: 53150000 | GainM: 978846
+User: 21 | Product: MG1 | Portofolio: 89907300 | Gain: 89691933 | Initial: 215367 | Soulte: 85200000 | GainM: 4707300
+User: 21 | Product: MG 2 | Portofolio: 21649667 | Gain: 21618556 | Initial: 31111 | Soulte: 21400000 | GainM: 249667
+User: 27 | Product: MG1 | Portofolio: 13209507 | Gain: 13194527 | Initial: 14980 | Soulte: 12840000 | GainM: 369507
+User: 31 | Product: MG1 | Portofolio: 150787500 | Gain: 150375000 | Initial: 412500 | Soulte: 150000000 | GainM: 787500
+User: 31 | Product: MG 2 | Portofolio: 54112500 | Gain: 54025000 | Initial: 87500 | Soulte: 50000000 | GainM: 4112500
+User: 31 | Product: MG 3 | Portofolio: 50787500 | Gain: 787500 | Initial: 50000000 | Soulte: 50000000 | GainM: 787500
+User: 33 | Product: MG1 | Portofolio: 10897653 | Gain: 10872375 | Initial: 25278 | Soulte: 10700000 | GainM: 197653
+User: 33 | Product: MG 2 | Portofolio: 10662500 | Gain: 10608333 | Initial: 54167 | Soulte: 10000000 | GainM: 662500
+User: 35 | Product: MG1 | Portofolio: 10897653 | Gain: 10872375 | Initial: 25278 | Soulte: 10700000 | GainM: 197653
+User: 36 | Product: MG 2 | Portofolio: 10706667 | Gain: 10648889 | Initial: 57778 | Soulte: 10000000 | GainM: 706667
+User: 36 | Product: MG 3 | Portofolio: 10184444 | Gain: 10182222 | Initial: 2222 | Soulte: 10000000 | GainM: 184444
+User: 37 | Product: MG1 | Portofolio: 25450000 | Gain: 25288889 | Initial: 161111 | Soulte: 25000000 | GainM: 450000
+User: 37 | Product: MG 2 | Portofolio: 26766667 | Gain: 26622223 | Initial: 144444 | Soulte: 25000000 | GainM: 1766667
+User: 37 | Product: MG 3 | Portofolio: 51087500 | Gain: 51025000 | Initial: 62500 | Soulte: 50000000 | GainM: 1087500
+User: 38 | Product: MG1 | Portofolio: 75783333 | Gain: 75366665 | Initial: 416668 | Soulte: 75000000 | GainM: 783333
+User: 38 | Product: MG 3 | Portofolio: 25991667 | Gain: 25838195 | Initial: 153472 | Soulte: 25000000 | GainM: 991667
+User: 38 | Product: MG4 | Portofolio: 6062667 | Gain: 62667 | Initial: 6000000 | Soulte: 6000000 | GainM: 62667
+User: 39 | Product: MG1 | Portofolio: 6526993 | Gain: 6525819 | Initial: 1174 | Soulte: 6500000 | GainM: 26993
+User: 41 | Product: MG1 | Portofolio: 6417667 | Gain: 6410667 | Initial: 7000 | Soulte: 6000000 | GainM: 417667
+User: 42 | Product: MG1 | Portofolio: 53533333 | Gain: 53244444 | Initial: 288889 | Soulte: 50000000 | GainM: 3533333
+User: 42 | Product: MG 2 | Portofolio: 52722222 | Gain: 52577778 | Initial: 144444 | Soulte: 50000000 | GainM: 2722222
+User: 42 | Product: MG 3 | Portofolio: 51983333 | Gain: 51676389 | Initial: 306944 | Soulte: 50000000 | GainM: 1983333
+User: 42 | Product: MG4 | Portofolio: 51617361 | Gain: 51322222 | Initial: 295139 | Soulte: 50000000 | GainM: 1617361
+User: 43 | Product: MG1 | Portofolio: 211041667 | Gain: 210138889 | Initial: 902778 | Soulte: 200000000 | GainM: 11041667
+User: 43 | Product: MG 2 | Portofolio: 1014986111 | Gain: 1014805555 | Initial: 180556 | Soulte: 1000000000 | GainM: 14986111
+User: 44 | Product: MG1 | Portofolio: 2409250 | Gain: 2402861 | Initial: 6389 | Soulte: 2300000 | GainM: 109250
+User: 45 | Product: MG1 | Portofolio: 210069444 | Gain: 209097222 | Initial: 972222 | Soulte: 200000000 | GainM: 10069444
+User: 45 | Product: MG 2 | Portofolio: 102963889 | Gain: 102627778 | Initial: 336111 | Soulte: 100000000 | GainM: 2963889
+User: 46 | Product: MG 2 | Portofolio: 510111111 | Gain: 10111111 | Initial: 500000000 | Soulte: 500000000 | GainM: 10111111
+User: 47 | Product: MG 2 | Portofolio: 51077778 | Gain: 1077778 | Initial: 50000000 | Soulte: 50000000 | GainM: 1077778
+User: 48 | Product: MG1 | Portofolio: 52755556 | Gain: 52577778 | Initial: 177778 | Soulte: 50000000 | GainM: 2755556
+User: 48 | Product: MG 2 | Portofolio: 41616667 | Gain: 41433334 | Initial: 183333 | Soulte: 40000000 | GainM: 1616667
+User: 48 | Product: MG 3 | Portofolio: 57181667 | Gain: 56844028 | Initial: 337639 | Soulte: 55000000 | GainM: 2181667
+User: 48 | Product: MG4 | Portofolio: 25761111 | Gain: 25622222 | Initial: 138889 | Soulte: 25000000 | GainM: 761111
+User: 48 | Product: MG 5 | Portofolio: 30342292 | Gain: 342292 | Initial: 30000000 | Soulte: 30000000 | GainM: 342292
+User: 49 | Product: MG1 | Portofolio: 52723333 | Gain: 52412777 | Initial: 310556 | Soulte: 50000000 | GainM: 2723333
+User: 49 | Product: MG 2 | Portofolio: 50588889 | Gain: 588889 | Initial: 50000000 | Soulte: 50000000 | GainM: 588889
+User: 50 | Product: MG1 | Portofolio: 103936111 | Gain: 103647222 | Initial: 288889 | Soulte: 100000000 | GainM: 3936111
+User: 50 | Product: MG 2 | Portofolio: 514250000 | Gain: 511833333 | Initial: 2416667 | Soulte: 500000000 | GainM: 14250000
+User: 51 | Product: MG1 | Portofolio: 41760000 | Gain: 41528889 | Initial: 231111 | Soulte: 40000000 | GainM: 1760000
+User: 51 | Product: MG 2 | Portofolio: 60892500 | Gain: 892500 | Initial: 60000000 | Soulte: 60000000 | GainM: 892500
+User: 53 | Product: MG1 | Portofolio: 10350000 | Gain: 10295833 | Initial: 54167 | Soulte: 10000000 | GainM: 350000
+User: 55 | Product: MG1 | Portofolio: 10329167 | Gain: 10295834 | Initial: 33333 | Soulte: 10000000 | GainM: 329167
+User: 56 | Product: MG 3 | Portofolio: 95733333 | Gain: -4266667 | Initial: 100000000 | Soulte: 100000000 | GainM: -4266667
+User: 57 | Product: MG1 | Portofolio: 102384722 | Gain: 101936111 | Initial: 448611 | Soulte: 100000000 | GainM: 2384722
+User: 60 | Product: MG1 | Portofolio: 10350000 | Gain: 350000 | Initial: 10000000 | Soulte: 10000000 | GainM: 350000
+User: 61 | Product: MG1 | Portofolio: 96080556 | Gain: -3919444 | Initial: 100000000 | Soulte: 100000000 | GainM: -3919444
+User: 61 | Product: MG 2 | Portofolio: 182583333 | Gain: -17416667 | Initial: 200000000 | Soulte: 200000000 | GainM: -17416667
+User: 62 | Product: MG1 | Portofolio: 2043889 | Gain: 43889 | Initial: 2000000 | Soulte: 2000000 | GainM: 43889
+User: 63 | Product: MG1 | Portofolio: 60706667 | Gain: 706667 | Initial: 60000000 | Soulte: 60000000 | GainM: 706667
+User: 65 | Product: MG1 | Portofolio: 5000000 | Gain: 0 | Initial: 5000000 | Soulte: 5000000 | GainM: 0

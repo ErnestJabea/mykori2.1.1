@@ -1,7 +1,9 @@
 @php
 use Carbon\Carbon;
-Carbon::setLocale('fr_FR');
+Carbon::setLocale('fr');
 $periode = Carbon::now()->translatedFormat('F Y');
+$logoPath = public_path('images/logo-with-text.png');
+$logoBase64 = file_exists($logoPath) ? 'data:image/png;base64,'.base64_encode(file_get_contents($logoPath)) : '';
 @endphp
 
 <!DOCTYPE html>
@@ -43,7 +45,11 @@ $periode = Carbon::now()->translatedFormat('F Y');
 
     <div class="header">
         <div class="logo">
-            <img src="https://koriassetmanagement.com/assets/images/logo.png" alt="KORI Logo">
+            @if($logoBase64)
+                <img src="{{ $logoBase64 }}" alt="KORI Logo" style="width:150px;">
+            @else
+                <strong style="font-size:16px; color:#531d09;">KORI ASSET MANAGEMENT</strong>
+            @endif
         </div>
         <div class="company-info">
             <strong>{{ $transaction->user->name }}</strong><br>

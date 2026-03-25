@@ -11,6 +11,7 @@ use App\Http\Controllers\AchatActionCustomerController;
 use App\Http\Controllers\ChangePasswordController;
 use App\Http\Controllers\ListeClientReleveController;
 use App\Http\Controllers\MovementController;
+use App\Http\Controllers\ComplianceController;
 use App\Services\InvestmentService;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
@@ -81,8 +82,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/achat-action', [AchatActionController::class, 'acheterAction'])->name('achat-action-fcp');
     Route::post('/achat-action-pmg', [AchatActionController::class, 'acheterActionPmg'])->name('achat-action-pmg');
 
-    Route::post('/achat-action', [AchatActionCustomerController::class, 'acheterAction'])->name('achat-action-customer-fcp');
-    Route::post('/achat-action-pmg-customer', [AchatActionCustomerController::class, 'acheterActionPmg'])->name('achat-action-customer-pmg');
+    Route::post('/placement-fcp', [AchatActionCustomerController::class, 'acheterAction'])->name('achat-action-customer-fcp');
+    Route::post('/placement-pmg', [AchatActionCustomerController::class, 'acheterActionPmg'])->name('achat-action-customer-pmg');
 
     Route::name('code-verification')->post('/code-verification', [VerificationOtpController::class, 'verifyCode']);
 
@@ -100,9 +101,7 @@ Route::middleware('auth')->group(function () {
     |--------------------------------------------------------------------------
     |
     */
-    Route::prefix('asset-manager')
-        ->middleware(['auth'])
-        ->group(function () {
+    Route::prefix('asset-manager')->middleware(['auth'])->group(function () {
             //////////// TESTS ////////////
 
 
@@ -281,6 +280,8 @@ Route::middleware('auth')->group(function () {
             Route::get('/customer', [ProductController::class, 'customers'])->name('customer');
 
             Route::get('/customer/{customer}', [ProductController::class, 'customersDetail'])->name('customer-detail');
+            Route::get('/nouveau-client', [AssetManagerController::class, 'createCustomer'])->name('asset-manager.create-customer');
+            Route::post('/nouveau-client', [AssetManagerController::class, 'storeCustomer'])->name('asset-manager.store-customer');
             Route::post('/store/transaction-manager', [MovementController::class, 'storeFinancialMovement'])->name('save-transactions-client');
             Route::get('/customer/{customer}/transaction-manager', [MovementController::class, 'indexFinancialMovement'])->name('transactions-client');
 
@@ -303,6 +304,19 @@ Route::middleware('auth')->group(function () {
                 $customer = User::findOrFail($customer);
                 $products_categories = App\Models\ProductsCategory::orderBy('created_at', 'desc')->get();
                 $products = App\Models\Product::orderBy('created_at', 'desc')->where('nb_action', '>', 0)->get();
+
+                // On attache la VL la plus récente pour chaque produit
+                foreach ($products as $product) {
+                    if ($product->products_category_id == 1) { // FCP
+                        $lastVl = App\Models\AssetValue::where('product_id', $product->id)
+                            ->orderBy('created_at', 'desc')
+                            ->first();
+                        $product->recent_vl = $lastVl ? $lastVl->vl : $product->vl;
+                    } else {
+                        $product->recent_vl = $product->vl; // PMG utilise le taux par défaut
+                    }
+                }
+
                 return view('front-end.products-customer')->with('customer', $customer)->with('products', $products)->with('products_categories', $products_categories);
             })->name('products-customer');
 
@@ -344,7 +358,21 @@ Route::middleware('auth')->group(function () {
             )->name('asset-manager.releves.preview-fcp');
 
             Route::post('/releves/send', [ListeClientReleveController::class, 'sendSelected'])->name('releves.send');
-        });
+
+            });
+
+    /*
+    |--------------------------------------------------------------------------
+    | COMPLIANCE PORTAL (Isolated)
+    |--------------------------------------------------------------------------
+    */
+    Route::prefix('compliance')->middleware(['auth'])->group(function () {
+        Route::get('/', [ComplianceController::class, 'dashboard'])->name('compliance.dashboard');
+        Route::get('/clients', [ComplianceController::class, 'clients'])->name('compliance.clients');
+        Route::get('/clients/{client}/history', [ComplianceController::class, 'clientHistory'])->name('compliance.client-history');
+        Route::get('/vl-history', [ComplianceController::class, 'vlHistory'])->name('compliance.vl-history');
+        Route::get('/export', [ComplianceController::class, 'export'])->name('compliance.export');
+    });
 
 
 
@@ -353,9 +381,164 @@ Route::middleware('auth')->group(function () {
     END ASSET MANAGER
     */
     Route::get('/my-history', function () {
-        $transactions = App\Models\Transaction::where("user_id", Auth::user()->id)->orderBy("created_at", 'desc')->limit(10)->get();
-        return view('front-end.my-history')->with('transactions', $transactions);
+        $userId = Auth::user()->id;
+
+        // 1. Transactions officielles avec status Succès
+        $transactions = App\Models\Transaction::where('user_id', $userId)
+            ->where('status', 'Succès')
+            ->orderBy('date_validation', 'desc')
+            ->get();
+
+        // 2. Mouvements financiers PMG (financial_movements)
+        $txIds = $transactions->pluck('id');
+        $financialMovements = DB::table('financial_movements')
+            ->whereIn('transaction_id', $txIds)
+            ->orderBy('date_operation', 'desc')
+            ->get()
+            ->map(function ($m) use ($transactions) {
+                $tx = $transactions->firstWhere('id', $m->transaction_id);
+                $productTitle = $tx
+                    ? optional(App\Models\Product::find($tx->product_id))->title
+                    : 'PMG';
+                return (object)[
+                    'date'        => $m->date_operation,
+                    'libelle'     => strtoupper(str_replace('_', ' ', $m->type)),
+                    'ref'         => $tx->ref ?? '-',
+                    'produit'     => $productTitle,
+                    'montant'     => (float)$m->amount,
+                    'sens'        => (float)$m->amount >= 0 ? 'entrant' : 'sortant',
+                    'source'      => 'pmg',
+                    'id'          => $m->id,
+                ];
+            });
+
+        // 3. Mouvements FCP (fcp_movements)
+        $fcpMovements = DB::table('fcp_movements')
+            ->where('user_id', $userId)
+            ->orderBy('date_operation', 'desc')
+            ->get()
+            ->map(function ($m) {
+                $productTitle = optional(App\Models\Product::find($m->product_id))->title ?? 'FCP';
+                $isIncoming   = $m->nb_parts_change >= 0;
+                $label        = $isIncoming ? 'SOUSCRIPTION FCP' : 'RACHAT FCP';
+                return (object)[
+                    'date'    => $m->date_operation,
+                    'libelle' => $label,
+                    'ref'     => $m->reference ?? '-',
+                    'produit' => $productTitle,
+                    'montant' => (float)$m->montant,
+                    'sens'    => $isIncoming ? 'entrant' : 'sortant',
+                    'source'  => 'fcp',
+                    'id'      => $m->id,
+                ];
+            });
+
+        // 4. Transactions initiales (souscriptions officielles)
+        $officialTx = $transactions->map(function ($tx) {
+            $productTitle = optional(App\Models\Product::find($tx->product_id))->title ?? 'Produit';
+            return (object)[
+                'date'    => $tx->date_validation ?? $tx->created_at,
+                'libelle' => $tx->title ?? 'SOUSCRIPTION',
+                'ref'     => $tx->ref,
+                'produit' => $productTitle,
+                'montant' => (float)$tx->amount,
+                'sens'    => 'entrant',
+                'source'  => 'tx',
+                'id'      => $tx->id,
+            ];
+        });
+
+        // 5. Fusionner et trier par date décroissante
+        $allMovements = collect()
+            ->merge($officialTx)
+            ->merge($financialMovements)
+            ->merge($fcpMovements)
+            ->sortByDesc('date')
+            ->values();
+
+        return view('front-end.my-history', compact('allMovements', 'transactions'));
     })->name('my-history');
+
+    // PDF download de l'historique de transactions
+    Route::get('/my-history/download-pdf', function () {
+        $userId = Auth::user()->id;
+        $user   = Auth::user();
+
+        $transactions = App\Models\Transaction::where('user_id', $userId)
+            ->where('status', 'Succès')
+            ->orderBy('date_validation', 'desc')
+            ->get();
+
+        $txIds = $transactions->pluck('id');
+        $financialMovements = DB::table('financial_movements')
+            ->whereIn('transaction_id', $txIds)
+            ->orderBy('date_operation', 'desc')
+            ->get()
+            ->map(function ($m) use ($transactions) {
+                $tx = $transactions->firstWhere('id', $m->transaction_id);
+                $productTitle = $tx
+                    ? optional(App\Models\Product::find($tx->product_id))->title
+                    : 'PMG';
+                return (object)[
+                    'date'    => $m->date_operation,
+                    'libelle' => strtoupper(str_replace('_', ' ', $m->type)),
+                    'ref'     => $tx->ref ?? '-',
+                    'produit' => $productTitle,
+                    'montant' => (float)$m->amount,
+                    'sens'    => (float)$m->amount >= 0 ? 'entrant' : 'sortant',
+                ];
+            });
+
+        $fcpMovements = DB::table('fcp_movements')
+            ->where('user_id', $userId)
+            ->orderBy('date_operation', 'desc')
+            ->get()
+            ->map(function ($m) {
+                $productTitle = optional(App\Models\Product::find($m->product_id))->title ?? 'FCP';
+                $isIncoming   = $m->nb_parts_change >= 0;
+                return (object)[
+                    'date'    => $m->date_operation,
+                    'libelle' => $isIncoming ? 'SOUSCRIPTION FCP' : 'RACHAT FCP',
+                    'ref'     => $m->reference ?? '-',
+                    'produit' => $productTitle,
+                    'montant' => (float)$m->montant,
+                    'sens'    => $isIncoming ? 'entrant' : 'sortant',
+                ];
+            });
+
+        $officialTx = $transactions->map(function ($tx) {
+            $productTitle = optional(App\Models\Product::find($tx->product_id))->title ?? 'Produit';
+            return (object)[
+                'date'    => $tx->date_validation ?? $tx->created_at,
+                'libelle' => $tx->title ?? 'SOUSCRIPTION',
+                'ref'     => $tx->ref,
+                'produit' => $productTitle,
+                'montant' => (float)$tx->amount,
+                'sens'    => 'entrant',
+            ];
+        });
+
+        $allMovements = collect()
+            ->merge($officialTx)
+            ->merge($financialMovements)
+            ->merge($fcpMovements)
+            ->sortByDesc('date')
+            ->values();
+
+        $logoPath = public_path('images/logo-with-text.png');
+        $logoBase64 = base64_encode(file_get_contents($logoPath));
+        $logoSrc = 'data:image/png;base64,' . $logoBase64;
+
+        $pdf = Pdf::loadView('front-end.releves.historique-transactions-pdf', [
+            'user'         => $user,
+            'allMovements' => $allMovements,
+            'generated_at' => Carbon::now()->format('d/m/Y H:i'),
+        ]);
+        $pdf->setPaper('A4', 'portrait');
+
+        return $pdf->download('historique_transactions_' . Carbon::now()->format('Y-m-d') . '.pdf');
+    })->name('my-history-pdf');
+
 
     Route::get('/my-history/{reference}', function ($reference) {
         $transaction = App\Models\Transaction::where("ref", $reference)->orderBy("created_at", 'desc')->limit(10)->first();
@@ -399,7 +582,7 @@ Route::middleware('auth')->group(function () {
 
 
     Route::name("success-transaction-customer")->get('/asset-manager/success-registration-transaction', function () {
-        return view('front-end.success-customer-achat');
+        return view('front-end.asset-manager.success-customer-achat');
     });
 
     Route::get('/my-products', [ProductController::class, 'showProductsWithGains'])->name('my-products');
@@ -410,6 +593,11 @@ Route::middleware('auth')->group(function () {
         return view('front-end.help');
     })->name('help');
 
+
+    Route::get('/my-statements', [ProductController::class, 'myStatements'])->name('my-statements');
+    Route::get('/my-statement/monthly/{year}/{month}/{type}', [ProductController::class, 'downloadMonthlyStatement'])->name('my-statement.monthly');
+
+    Route::get('/my-statement/{id}', [ProductController::class, 'downloadStatement'])->name('my-statement');
 
     Route::get('/profile', function () {
         return view('front-end.reset-password');

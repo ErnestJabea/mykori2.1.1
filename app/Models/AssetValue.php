@@ -7,5 +7,10 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class AssetValue extends Model
 {
-    use HasFactory;
+    protected $fillable = ['product_id', 'vl', 'date_vl'];
+
+    public function product()
+    {
+        return $this->belongsTo(Product::class, 'product_id');
+    }
 }

@@ -148,7 +148,7 @@ class AchatActionController extends Controller
         if ($existing_transaction) {
             // Créer une nouvelle transaction avec une référence unique
             $new_transaction = new TransactionSupplementaire();
-            $new_transaction->title = "Achat Supplémentaire de " . $name_product->title;
+            $new_transaction->title = "Souscription Supplémentaire de " . $name_product->title;
             $new_transaction->ref = $existing_transaction->ref . "-" . $unique_id;
             $new_transaction->payment_mode = "A définir";
             $new_transaction->amount = $montantTotal;
@@ -159,6 +159,7 @@ class AchatActionController extends Controller
             $new_transaction->product_id = $name_product->id;
             $new_transaction->duree = $name_product->duree;
             $new_transaction->transaction_id = $existing_transaction->id;
+            $new_transaction->montant_initiale = $montantTotal;
             $taux_interet = $name_product->vl;
             $title_product = $name_product->title;
             Mail::to($name_product->email_contact)->send(new AchatActionPmgMail($valeurLiquidative, $fraisGestion, $montantTotal, $title_product, $username, $taux_interet, $title_product));
@@ -171,7 +172,7 @@ class AchatActionController extends Controller
         } else {
             // Créer une nouvelle transaction avec une référence unique
             $transaction = new Transaction();
-            $transaction->title = "Achat de " . $name_product->title;
+            $transaction->title = "Souscription de " . $name_product->title;
             $transaction->ref = "Kori-" . $unique_id;
             $transaction->payment_mode = "A définir";
             $transaction->amount = $montantTotal;
@@ -181,6 +182,7 @@ class AchatActionController extends Controller
             $transaction->duree = $name_product->duree;
             $transaction->nb_part = $valeurLiquidative;
             $transaction->product_id = $name_product->id;
+            $transaction->montant_initiale = $montantTotal;
             $taux_interet = $name_product->vl;
             $title_product = $name_product->title;
             Mail::to($name_product->email_contact)->send(new AchatActionPmgMail($valeurLiquidative, $fraisGestion, $montantTotal, $username, $useremail, $taux_interet, $title_product));

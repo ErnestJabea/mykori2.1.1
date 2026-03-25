@@ -4,11 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Services\GainCalculationService;
 use Illuminate\Http\Request;
-use App\Product;
+use App\Models\Product;
 use App\Http\Controllers\ProductController;
-use App\Transaction;
-use App\TransactionSupplementaire;
-use App\AssetValue;
+use App\Models\Transaction;
+use App\Models\TransactionSupplementaire;
+use App\Models\AssetValue;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 

@@ -43,6 +43,6 @@ class AchatActionMail extends Mailable
      */
     public function build()
     {
-        return $this->view('mail.achatActionMail')->subject('Procédure d\'achat du produit ' . $this->product_name->title);
+        return $this->view('mail.achatActionMail')->subject('Procédure de souscription du produit ' . $this->product_name->title);
     }
 }

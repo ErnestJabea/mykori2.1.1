@@ -1,20 +1,20 @@
 @extends('front-end/app/app-home', ['Tableau de bord', 'body_class' => 'vertical bg-secondary1/5 dark:bg-bg3 hidden'])
 
 @php
-    $type = App\ProductsCategory::get();
-    $mestransactions = App\transaction::where('user_id', Auth::user()->id)
+    $type = App\Models\ProductsCategory::get();
+    $mestransactions = App\Models\Transaction::where('user_id', Auth::user()->id)
         ->where('status', 'Succès')
         ->orderBy('created_at', 'desc')
         ->get(['vl_buy', 'product_id', 'updated_at', 'amount']);
 
-    $produits = App\AssetValue::select(
+    $produits = App\Models\AssetValue::select(
         'product_id',
         DB::raw('SUBSTRING_INDEX(GROUP_CONCAT(vl ORDER BY created_at DESC), ",", 4) as latest_prices'),
     )
         ->groupBy('product_id')
         ->get();
 
-    $asset_value = App\AssetValue::orderBy('created_at', 'desc')->get();
+    $asset_value = App\Models\AssetValue::orderBy('created_at', 'desc')->get();
 
     function convertirNotationAbregee($nombre)
     {
@@ -61,27 +61,14 @@
                         <div class="card-portofolio">
                             <p class="mb-4 font-medium">PMG</p>
                             <h4 class="h4">XAF {{ number_format($totalPortefeuillePmg, 0, ' ', ' ') }}</h4>
-                            {{-- <span class="flex items-center gap-1 text-sm text-primary">
-                                    <i class="las la-arrow-up text-base"></i> {{ $user_->percent }}%
-                                </span> --}}
                         </div>
                         <div class="card-portofolio">
                             <p class="mb-4 font-medium">FCP</p>
-                            <h4 class="h4">XAF
-                                {{ number_format($totalTransactionAmountFcp + $totalPortefeuilleFcp, 0, ' ', ' ') }}
-                            </h4>
-                            {{-- <span class="flex items-center gap-1 text-sm text-primary">
-                                    <i class="las la-arrow-up text-base"></i> {{ $user_->percent }}%
-                                </span> --}}
+                            <h4 class="h4">XAF {{ number_format($totalPortefeuilleFcp, 0, ' ', ' ') }}</h4>
                         </div>
                         <div class="card-portofolio">
                             <p class="mb-4 font-medium">GAINS/PERTES </p>
-                            <h4 class="h4">XAF
-                                {{ number_format($user_->gain + ($gain_cumule_fcp + $gain_cumule_pmg), 0, ' ', ' ') }}
-                            </h4>
-                            {{-- <span class="flex items-center gap-1 text-sm text-primary">
-                                    <i class="las la-arrow-up text-base"></i> {{ $percent_gain }}%
-                                </span> --}}
+                            <h4 class="h4">XAF {{ number_format($gain_user, 0, ' ', ' ') }}</h4>
                         </div>
                     </div>
                 </div>
@@ -118,9 +105,15 @@
                         <div class="income-chart"></div>
                     </div>
                 </div> --}}
-                <div class="col-span-12 md:col-span-5 lg:col-span-12">
+                <div class="col-span-12 md:col-span-7 lg:col-span-8">
                     <div class="box status-gains">
-                        <h4 class="h4 bb-dashed mb-4 pb-4 lg:mb-6 lg:pb-6">Détail du portefeuille</h4>
+                        <h4 class="h4 bb-dashed mb-4 pb-4 lg:mb-6 lg:pb-6">Variation de la VL (Produits FCP)</h4>
+                        <div id="fcp-variation-chart"></div>
+                    </div>
+                </div>
+                <div class="col-span-12 md:col-span-5 lg:col-span-4">
+                    <div class="box status-gains">
+                        <h4 class="h4 bb-dashed mb-4 pb-4 lg:mb-6 lg:pb-6">Repartition des gains</h4>
                         <div class="weekly-product-transactions"></div>
                     </div>
                 </div>
@@ -129,11 +122,22 @@
         </div>
 
         <div class="mt-5"></div>
-        <!-- Liste des produits -->
+        <div class="mt-5"></div>
+        <!-- Liste des produits souscrits -->
         <div class="col-span-12">
-            <div class="box col-span-12 lg:col-span-6">
+            <div class="box col-span-12">
                 <div class="bb-dashed mb-4 flex flex-wrap items-center justify-between gap-4 pb-4 lg:mb-6 lg:pb-6">
-                    <h4 class="h4">PRODUITS DISPONIBLES</h4>
+                    <h4 class="h4">MES SOUSCRIPTIONS</h4>
+                    <div class="flex items-center gap-2">
+                        <span
+                            class="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
+                            <span class="mr-1 h-2 w-2 rounded-full bg-primary"></span> PMG
+                        </span>
+                        <span
+                            class="inline-flex items-center rounded-full bg-secondary3/10 px-3 py-1 text-xs font-bold text-secondary3">
+                            <span class="mr-1 h-2 w-2 rounded-full bg-secondary3"></span> FCP
+                        </span>
+                    </div>
                 </div>
                 <div class="overflow-x-auto">
                     <div class="mb-6 flex items-center justify-center gap-3 lg:mb-8 xxl:gap-4">
@@ -141,36 +145,56 @@
                             class="prev-wallet h-8 w-8 shrink-0 rounded-full border border-primary bg-n0 text-primary duration-300 hover:bg-primary hover:text-n0 dark:bg-bg4 dark:hover:bg-primary xxl:h-10 xxl:w-10">
                             <i class="las la-angle-left text-lg rtl:rotate-180"></i>
                         </button>
+                        @php
+                            $userProducts = App\Http\Controllers\ProductController::getProductsWithGainsUserClientStatic(
+                                Auth::id(),
+                            );
+                        @endphp
                         <div class="swiper walletSwiper " dir="ltr">
                             <div class="swiper-wrapper">
-                                @foreach ($products as $product)
-                                    @php
-                                        $vl = App\Product::where('id', $product->id)->first();
-                                        $asset_value = App\AssetValue::where('product_id', $product->id)
-                                            ->orderBy('created_at', 'desc')
-                                            ->latest()
-                                            ->first();
-                                    @endphp
+                                @foreach ($userProducts as $my_product)
                                     <div class="swiper-slide">
                                         <div class="flex justify-center">
-                                            <div class="content-product">
-                                                <div class="product-img">
-                                                    <img src="{{ $product->logo }}" class="rounded-xl"
-                                                        alt="{{ $product->title }}" />
-                                                </div>
-                                                <div class="title-product">
-                                                    <h3>{{ $product->title }}</h3>
-                                                </div>
-                                                <div class="product-price">
+                                            <div class="content-product @if ($my_product['type_product'] == 1) border-secondary3 @else border-primary @endif"
+                                                style="border-width: 1px; border-style: solid; padding: 15px; border-radius: 20px; width: 100%; max-width: 300px; background: rgba(var(--primary-rgb), 0.02);">
+                                                <div class="flex justify-between items-center mb-4">
                                                     <span
-                                                        class="price">{{ number_format($asset_value->vl, 0, ' ', ' ') }}</span>
-                                                    <sup>XAF</sup>
+                                                        class="badge @if ($my_product['type_product'] == 1) bg-secondary3/10 text-secondary3 @else bg-primary/10 text-primary @endif px-3 py-1 rounded-full text-xs font-bold border @if ($my_product['type_product'] == 1) border-secondary3/20 @else border-primary/20 @endif">
+                                                        @if ($my_product['type_product'] == 1)
+                                                            FCP
+                                                        @else
+                                                            PMG
+                                                        @endif
+                                                    </span>
+                                                    <a href="{{ route('product-detail-gain', ['slug' => $my_product['slug']]) }}"
+                                                        class="text-primary hover:scale-110 transition-transform">
+                                                        <i class="las la-chart-bar text-xl"></i>
+                                                    </a>
                                                 </div>
-                                                <div class="content-btn-action">
-                                                    <button class="btn ac-modal-btn buy">
-                                                        <a
-                                                            href="{{ route('product-detail', ['slug' => $product->slug]) }}">SOUSCRIRE</a>
-                                                    </button>
+                                                <div class="title-product mb-4">
+                                                    <h3 class="text-lg font-bold truncate"
+                                                        title="{{ $my_product['product_name'] }}">
+                                                        {{ $my_product['product_name'] }}</h3>
+                                                </div>
+                                                <div class="info-product space-y-2">
+                                                    <div class="flex justify-between text-sm">
+                                                        <span class="text-n100">Investi:</span>
+                                                        <span
+                                                            class="font-semibold text-n900 dark:text-n0">{{ number_format($my_product['montant_transaction'], 0, ' ', ' ') }}
+                                                            XAF</span>
+                                                    </div>
+                                                    <div class="flex justify-between text-sm">
+                                                        <span class="text-n100">Valeur:</span>
+                                                        <span
+                                                            class="font-bold @if ($my_product['type_product'] == 1) text-secondary3 @else text-primary @endif">{{ number_format($my_product['portfolio_valeur'], 0, ' ', ' ') }}
+                                                            XAF</span>
+                                                    </div>
+                                                </div>
+                                                <div class="mt-6">
+                                                    <a href="{{ route('product-detail-gain', ['slug' => $my_product['slug']]) }}"
+                                                        class="block w-full @if ($my_product['type_product'] == 1) bg-secondary3 hover:bg-secondary3/90 @else bg-primary hover:bg-primary/90 @endif text-white text-center py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-primary/10 transition-all">
+                                                        Détails du gain
+                                                    </a>
                                                 </div>
                                             </div>
                                         </div>
@@ -182,13 +206,6 @@
                             <i class="las la-angle-right text-lg rtl:rotate-180"></i>
                         </button>
                     </div>
-                </div>
-                <div class="content-btn-see-all">
-                    <a class="group mt-6 inline-flex items-center gap-1 font-semibold text-primary"
-                        href="{{ route('products') }}">
-                        Voir tous les produits
-                        <i class="las la-arrow-right duration-300 group-hover:pl-2"></i>
-                    </a>
                 </div>
             </div>
         </div>
@@ -223,14 +240,15 @@
                                         <div class="flex items-center gap-1" style="justify-content: center;">Status</div>
                                     </th>
                                     <th align="center" class="cursor-pointer py-5 text-center">
-                                        <div class="flex items-center gap-1" style="justify-content: center;">Actions</div>
+                                        <div class="flex items-center gap-1" style="justify-content: center;">Actions
+                                        </div>
                                     </th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach ($transactions as $transaction)
                                     @php
-                                        $product_ = App\Product::find($transaction->product_id)->first();
+                                        $product_ = App\Models\Product::find($transaction->product_id)->first();
                                     @endphp
                                     <tr class="even:bg-secondary1/5 dark:even:bg-bg3">
                                         <td class="px-6 py-2">
@@ -270,6 +288,15 @@
                                                 <div class="relative">
                                                     <i class="las la-ellipsis-v horiz-option-btn cursor-pointer"></i>
                                                     <ul class="horiz-option hide">
+                                                        <li>
+                                                            <a
+                                                                href="{{ route('my-statement', ['id' => $transaction->id]) }}">
+                                                                <span
+                                                                    class="block cursor-pointer rounded px-3 py-1 text-sm leading-normal duration-300 hover:bg-primary/10 dark:hover:bg-bg4">
+                                                                    Télécharger mon relevé
+                                                                </span>
+                                                            </a>
+                                                        </li>
                                                         <li>
                                                             <a
                                                                 href="{{ route('transaction-detail', ['reference' => $transaction->ref]) }}">
@@ -423,18 +450,19 @@
                 var options = {
                     chart: {
                         type: 'pie',
-                        height: 500
+                        height: 350
                     },
                     series: series,
                     labels: labels,
                     legend: {
                         position: 'bottom'
                     },
+                    colors: ["#F4E9BD", "#E5C646", "#B8860B", "#D4AF37", "#FFD700"],
                     responsive: [{
                         breakpoint: 480,
                         options: {
                             chart: {
-                                width: 500
+                                width: 300
                             },
                             legend: {
                                 position: 'bottom'
@@ -447,6 +475,66 @@
                 var chart = new ApexCharts(weeklyProductTransactionsChart, options);
                 chart.render();
             });
+        }
+
+        // Graphique de variation FCP
+        const fcpVariationChart = document.querySelector("#fcp-variation-chart");
+        if (fcpVariationChart) {
+            const fcpData = @json($chartData);
+
+            const options = {
+                series: fcpData.series,
+                chart: {
+                    height: 350,
+                    type: 'line',
+                    toolbar: {
+                        show: false
+                    },
+                    animations: {
+                        enabled: true,
+                        easing: 'easeinout',
+                        speed: 800
+                    }
+                },
+                colors: ["#E5C646", "#B8860B", "#F4E9BD"],
+                stroke: {
+                    width: 3,
+                    curve: 'smooth'
+                },
+                xaxis: {
+                    categories: fcpData.labels,
+                    labels: {
+                        style: {
+                            colors: '#888'
+                        }
+                    }
+                },
+                yaxis: {
+                    labels: {
+                        formatter: function(val) {
+                            return val.toLocaleString() + ' XAF';
+                        },
+                        style: {
+                            colors: '#888'
+                        }
+                    }
+                },
+                tooltip: {
+                    theme: 'dark',
+                    y: {
+                        formatter: function(val) {
+                            return val.toLocaleString() + ' XAF';
+                        }
+                    }
+                },
+                grid: {
+                    borderColor: '#f1f1f1',
+                    strokeDashArray: 4
+                }
+            };
+
+            const chart = new ApexCharts(fcpVariationChart, options);
+            chart.render();
         }
     </script>
     <script>

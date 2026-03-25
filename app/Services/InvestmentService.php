@@ -333,14 +333,14 @@ class InvestmentService
 
             $stats = $this->getCurrentStatus($userId, $productId);
 
-            $latestVlEntry = \App\AssetValue::where('product_id', $productId)
+            $latestVlEntry = \App\Models\AssetValue::where('product_id', $productId)
                 ->orderBy('created_at', 'desc')
                 ->first();
 
             $currentVl = $latestVlEntry ? (float)$latestVlEntry->vl : 0;
             
             // Récupérer l'avant-dernière VL pour la performance hebdo
-            $previousVlEntry = \App\AssetValue::where('product_id', $productId)
+            $previousVlEntry = \App\Models\AssetValue::where('product_id', $productId)
                 ->where('id', '!=', $latestVlEntry ? $latestVlEntry->id : 0)
                 ->orderBy('created_at', 'desc')
                 ->first();

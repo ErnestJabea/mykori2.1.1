@@ -88,224 +88,209 @@ class ProductController extends Controller
 
     public function getProductsWithGains()
     {
-        $products = Product::all();
-        $result = [];
-        $user = Auth::user();
-        foreach ($products as $product) {
-            // Récupérer toutes les transactions principales pour le produit
-            $transactions = Transaction::where('user_id', Auth::user()->id)
+        return $this->getProductsWithGainsUserClient(Auth::id());
+    }
+
+
+    
+    /**
+     * Version spécifique Client pour l'affichage Dashboard
+     * Utilise un calcul d'intérêt linéaire (Base 360) pour s'aligner sur l'existant
+     */
+    public static function getProductsWithGainsUserClientStatic($userId)
+    {
+        return (new self())->getProductsWithGainsUserClient($userId);
+    }
+
+    public function getProductsWithGainsUserClient($userId)
+    {
+        $currentDate = Carbon::now();
+        $productIds = Transaction::where('user_id', $userId)
+            ->where('status', 'Succès')
+            ->distinct()
+            ->pluck('product_id')
+            ->toArray();
+
+        $pmgResult = [];
+
+        foreach ($productIds as $productId) {
+            $product = Product::find($productId);
+            if (!$product || $product->products_category_id != 2) continue;
+
+            $transactions = Transaction::where('user_id', $userId)
                 ->where('status', 'Succès')
-                // ->whereDate('date_echeance', '<', now())
                 ->where('product_id', $product->id)
                 ->get();
 
-            // Récupérer toutes les transactions supplémentaires pour le produit
-            $additionalTransactions = TransactionSupplementaire::where('user_id', Auth::user()->id)
+            $additionalTransactions = TransactionSupplementaire::where('user_id', $userId)
                 ->where('status', 'Succès')
-
                 ->where('product_id', $product->id)
                 ->get();
 
-            // Fusionner les transactions principales et supplémentaires
-            $allTransactions = $transactions->merge($additionalTransactions);
+            $allPmgTrans = $transactions->merge($additionalTransactions);
 
+            foreach ($allPmgTrans as $transaction) {
+                // Pour les transactions supplémentaires, la date d'échéance et de validation 
+                // peuvent venir de la transaction parente si non définies sur la ligne.
+                $dateEcheanceRaw = $transaction->date_echeance ?? ($transaction->transaction ? $transaction->transaction->date_echeance : null);
+                
+                if (!$dateEcheanceRaw) continue;
 
+                $dateEcheance = Carbon::parse($dateEcheanceRaw);
+                if ($dateEcheance->lt($currentDate)) continue;
 
-            if ($allTransactions->isEmpty()) {
-                continue;
+                $amount = (float)$transaction->amount;
+                // $soulte was historically montant_initiale, which holds garbage/interest values!
+                // We must use $amount for the initial investment.
+                
+                $totalPaidOut = DB::table('financial_movements')
+                    ->where('transaction_id', $transaction->id)
+                    ->whereIn('type', ['rachat_partiel', 'precompte_interets'])
+                    ->sum('amount');
+                    
+                // Find effective base capital for compound interest calculation
+                $lastMovement = DB::table('financial_movements')
+                    ->where('transaction_id', $transaction->id)
+                    ->whereIn('type', ['capitalisation_interets', 'rachat_partiel'])
+                    ->where('date_operation', '<=', $currentDate->toDateString())
+                    ->orderBy('date_operation', 'desc')
+                    ->first();
+                $baseCapital = $lastMovement ? (float)$lastMovement->capital_after : $amount;
+
+                // Utilisation de la version Client simplifiée (Linéaire)
+                $totalValo = $this->calculatePMGValorizationClient($transaction, $currentDate);
+
+                $pmgResult[] = [
+                    'id' => $product->id,
+                    'product_id' => $product->id,
+                    'product_name' => $product->title,
+                    'type_product' => 2,
+                    'capital_investi' => $amount, // Vrai capital de départ
+                    'capital_actuel' => $baseCapital, // Capital après capitalisation
+                    'montant_transaction' => $amount, // Vrai capital pour les calculs de portfolio
+                    'interets_generes' => (float)($totalValo + $totalPaidOut) - $amount,
+                    'gain_month' => (float)$totalValo - $baseCapital, // Intérêts générés DEPUIS la dernière capitalisation
+                    'soulte' => $baseCapital, // Capital capitalisé
+                    'portfolio_valeur' => (float)$totalValo,
+                    'total_payouts' => (float)$totalPaidOut,
+                    'vl_actuel' => $transaction->vl_buy,
+                    'vl_achat' => $transaction->vl_buy,
+                    'date_echeance' => $dateEcheanceRaw,
+                    'souscription' => $transaction->date_validation ?? $transaction->created_at->toDateString(),
+                    'slug' => $product->slug,
+                    'days_months' => $this->calculateMonthsAndDaysBetweenDates($transaction->date_validation ?? $transaction->created_at->toDateString(), $dateEcheanceRaw),
+                    'gain_mensuel' => ($baseCapital * (($transaction->vl_buy / 100) / 12)), // Intérêt basé sur capital composé
+                ];
             }
-
-
-
-            $totalGain = 0;
-            $totalGainFcp = 0;
-            $cumulGains = 0;
-            $gainWeekFcp = 0;
-            $vl_actuel = null;
-            $gainMonth = 0;
-            $gainWeek = 0; // Réinitialisation pour éviter l'accumulation incorrecte
-            $currentDate = Carbon::now();
-            $gainMensuel = 0;
-            $recentGains = [];
-            $recentGain = [];
-
-            foreach ($allTransactions as $transaction) {
-                if ($product->products_category_id == 1) {
-                    // Calculer la valeur actuelle la plus récente pour les produits FCP
-                    $latestAssetValue = AssetValue::where('product_id', $transaction->product_id)
-                        ->where('created_at', '>=', $transaction->date_validation)
-                        ->orderBy('created_at', 'desc')
-                        ->first();
-
-
-                    if ($latestAssetValue) {
-                        $vl_actuel = $latestAssetValue->vl;
-                        $totalGain += $this->calculateFCPGain($vl_actuel, $transaction);
-                        $recentGain[] = $this->calculateFCPGain($vl_actuel, $transaction);
-                        $recentGains[] = [
-                            'gain' => $recentGain,
-                            'product_id' => $product->id,
-                        ];
-                    }
-
-                    // Calculer la différence hebdomadaire si nécessaire
-                    $assetValues = AssetValue::where('product_id', $transaction->product_id)
-                        ->where('created_at', '>=', $transaction->date_validation)
-                        ->orderBy('created_at', 'desc')
-                        ->take(2)
-                        ->get();
-
-                    if ($assetValues->count() >= 1) {
-                        $vl_actuel = $assetValues->first()->vl;
-                        $vl_antepenultimate = $assetValues->count() == 2 ? $assetValues->last()->vl : $transaction->vl_buy;
-
-                        // Calcul de la valorisation du portefeuille
-                        $valorisationPortefeuille = $this->calculateFCPGain($vl_actuel, $transaction);
-
-                        // Calcul du gain entre l'avant-dernière et la dernière VL
-                        $gain = $transaction->nb_part * ($vl_actuel - $vl_antepenultimate);
-                        $gainWeekFcp += $gain;
-                        $gainWeekTab[] = $gainWeekFcp;
-
-                        // Calcul du cumul des gains/pertes depuis la souscription
-                        $cumulGains += $valorisationPortefeuille - ($transaction->nb_part * $transaction->vl_buy);
-
-                        // Ajouter le gain cumulé au total
-                        $totalGainFcp += $this->calculateFCPGain($vl_actuel, $transaction);
-                    }
-                } else {
-                    // Calculer le gain pour les produits PMG
-                    $vl_actuel = $transaction->vl_buy;
-
-
-                    $date_echeance_exploded = explode(" ", $transaction->date_echeance)[0];
-                    $date_validation_exploded = explode(" ", $transaction->date_validation)[0];
-
-                    $gainMonth = $this->calculatePMGMonthlyGain(
-                        $transaction->amount,
-                        $transaction->vl_buy,
-                        $date_validation_exploded,
-                        $date_echeance_exploded,
-                        $this->getTodaysDate()
-                    )/*['valo_pf']*/;
-
-                    //dd($gainMonth);
-
-                    $CummulgainMonth = $this->calculatePMGMonthlyGain(
-                        $transaction->amount,
-                        $transaction->vl_buy,
-                        $date_validation_exploded,
-                        $date_echeance_exploded,
-                        $this->getTodaysDate()
-                    )/*['cummul_interet']*/;
-                    // dd($gainMonth/360);
-
-                    $recentGain[] = $this->calculatePMGMonthlyGain(
-                        $transaction->amount,
-                        $transaction->vl_buy,
-                        $date_validation_exploded,
-                        $date_echeance_exploded,
-                        $this->getTodaysDate()
-                    );
-                    // $totalGain = $gainMonth + $transaction->amount;
-
-                    if ($currentDate->diffInMonths($transaction->date_validation) != 0) {
-                        $gainMensuel = $gainMonth / $currentDate->diffInMonths($transaction->date_validation);
-                        $recentGain[] = $gainMensuel;
-                    } else {
-                        $gainMensuel = 0;
-                    }
-                    $recentGains[$product->id] = [
-                        'gain' => $recentGain,
-                    ];
-
-
-                    $gainProduit = $gainMensuel;
-
-
-                    //dd($currentDate->diffInMonths($transaction->date_validation));
-                    // Calculer le gain mensuel pour les produits PMG
-                }
-            }
-
-
-            if (!isset($latestValue))
-                $latestValue = 0;
-            if (!isset($secondLatestValue))
-                $secondLatestValue = 0;
-            if (!isset($value_diff))
-                $value_diff = 0;
-
-            $stat_val = $this->CalculDateEcheance($transaction->date_validation, $transaction->duree);
-
-            $nbMoisJour = $this->calculateMonthsAndDaysBetweenDates($transaction->date_validation, $transaction->date_echeance);
-            //dd($nbMoisJour);
-            // Ajouter les résultats agrégés au tableau $result
-            $result[] = [
-                'product_name' => $product->title,
-                //'gain' => $totalGain,
-                'derniere_valeur_FCP' => $latestValue,
-                'avant_derniere_valeur_FCP' => $secondLatestValue,
-                'vl_actuel' => $vl_actuel,
-                'duree' => $transaction->duree,
-                'nb_part' => $transaction->nb_part,
-                'montant_transaction' => $transaction->amount,
-                'type_product' => $product->products_category_id,
-                'vl_achat' => isset($transaction) ? $transaction->vl_buy : null, // Assurez-vous que vl_buy est correctement défini
-                'gain_semaine' => $gainWeek,
-                'gain_month' => $gainMonth - $transaction->interet_rachat,
-                'gain_mensuel' => $this->gainMonthPmg($transaction->amount, $transaction->vl_buy),
-                'slug' => $product->slug,
-                'gain_vl' => max(0, $value_diff * (float) $vl_actuel),
-                'souscription' => $transaction->date_validation,
-                'recent_gains' => $recentGains,
-                'date_echeance' => $transaction->date_echeance,
-                'soulte' => $transaction->montant_initiale,
-                'gain_echeance' => $stat_val,
-                'days_months' => $nbMoisJour,
-                'valorisation_portefeuille_fcp' => isset($valorisationPortefeuille) ? $valorisationPortefeuille : 0,
-                'gain_semaine_fcp' => $gainWeekFcp,
-                'total_gains_fcp' => $totalGainFcp
-            ];
-
-
-            $totalPfPmg = 0;
-            $totalPfFcp = 0;
-            $totalSoulte = 0;
-
-
-
-
-            foreach ($result as $res) {
-                // Vérification du type de produit
-                if ($res['type_product'] == 1) { // Produit FCP
-                    if (isset($res['total_gains_fcp'])) {
-                        // Cumul des gains pour les produits FCP
-                        $totalPfFcp += $res['montant_transaction'] + $res['total_gains_fcp'];
-                    }
-                } elseif ($res['type_product'] == 2) { // Produit PMG
-                    if (isset($res['gain_month'])) {
-                        // Cumul des gains pour les produits PMG
-                        $totalSoulte += $res['soulte'];
-                        $totalPfPmg += $res['gain_month'] + $res['soulte'];
-                    }
-                }
-            }
-
-            //dd($totalPfPmg, $totalSoulte);
-            //dd($result);
-
-            //$user->gain = $totalGain;
-            // $user->gain_pmg = $result['gain_month'] + $result['soulte'];
-
-
-
         }
 
-        //dd($result);
+        // Transformer le format FCP pour la compatibilité avec les vues existantes
+        // (Identique à getProductsWithGainsUser)
+        $service = new \App\Services\InvestmentService();
+        $fcpPortfolio = $service->getConsolidatedFcpPortfolio($userId);
+        
+        $fcpResult = array_map(function($p) {
+            return [
+                'id' => $p['product_id'],
+                'product_id' => $p['product_id'],
+                'product_name' => $p['name'],
+                'type_product' => 1,
+                'montant_transaction' => $p['total_invested'],
+                'capital_investi' => $p['total_invested'],
+                'total_gains_fcp' => $p['total_gain'],
+                'gain_semaine_fcp' => $p['weekly_gain'],
+                'portfolio_valeur' => $p['valuation'],
+                'nb_part' => $p['total_parts'],
+                'pru' => $p['pru'],
+                'vl_achat' => $p['current_vl'],
+                'vl_actuel' => $p['current_vl'],
+                'slug' => $p['slug'],
+                'date_echeance' => Carbon::now()->addYears(10)->toDateString(),
+                'souscription' => Carbon::now()->toDateString()
+            ];
+        }, $fcpPortfolio);
 
-        return $result;
+        return array_merge($fcpResult, $pmgResult);
     }
+
+    /**
+     * Calcul de valorisation PMG Client
+     * Réplique EXCTEMENT la logique Asset Manager pour éviter les écarts
+     */
+    public function calculatePMGValorizationClient($trans, $refDate)
+    {
+        $targetDate = Carbon::parse($refDate)->min(Carbon::parse($trans->date_echeance));
+        $rate = (float)$trans->vl_buy / 100;
+
+        // 1. On cherche le capital effectif à la date cible (ignore les capitalisations futures)
+        $lastMovement = DB::table('financial_movements')
+            ->where('transaction_id', $trans->id)
+            ->whereIn('type', ['capitalisation_interets', 'rachat_partiel'])
+            ->where('date_operation', '<=', $targetDate->toDateString())
+            ->orderBy('date_operation', 'desc')
+            ->first();
+
+        $baseCapital = $lastMovement ? (float)$lastMovement->capital_after : (float)$trans->amount;
+        $startDate = $lastMovement ? Carbon::parse($lastMovement->date_operation) : Carbon::parse($trans->date_validation);
+
+        // 2. Calcul des intérêts courus (Base 360 avec prorata début/fin de mois)
+        $totalInterest = 0;
+        if ($targetDate->gt($startDate)) {
+            $nextMonth = $startDate->copy()->addMonthNoOverflow()->startOfMonth();
+
+            if ($targetDate->lt($nextMonth)) {
+                $totalInterest = ($baseCapital * $rate * $startDate->diffInDays($targetDate)) / 360;
+            } else {
+                $totalInterest = ($baseCapital * $rate * $startDate->diffInDays($startDate->copy()->endOfMonth())) / 360;
+                $fullMonths = $nextMonth->diffInMonths($targetDate->copy()->addDay());
+                $totalInterest += ($baseCapital * ($rate / 12)) * $fullMonths;
+                $lastMonthStart = $nextMonth->copy()->addMonths($fullMonths);
+                if ($lastMonthStart->lt($targetDate)) {
+                    $totalInterest += ($baseCapital * $rate * $lastMonthStart->diffInDays($targetDate)) / 360;
+                }
+            }
+        }
+
+        $precompte = DB::table('financial_movements')
+            ->where('transaction_id', $trans->id)
+            ->where('type', 'precompte_interets')
+            ->value('amount') ?? 0;
+
+        return round(($baseCapital - $precompte) + $totalInterest, 0);
+    }
+
+    /**
+     * Ancienne version linéaire conservée pour référence
+     */
+    public function calculatePMGValorizationClientLinear($trans, $refDate)
+    {
+        $targetDate = Carbon::parse($refDate)->min(Carbon::parse($trans->date_echeance));
+        $rate = (float)$trans->vl_buy / 100;
+        
+        $lastMovement = DB::table('financial_movements')
+            ->where('transaction_id', $trans->id)
+            ->whereIn('type', ['capitalisation_interets', 'rachat_partiel'])
+            ->where('date_operation', '<=', $targetDate->toDateString())
+            ->orderBy('date_operation', 'desc')
+            ->first();
+
+        $baseCapital = $lastMovement ? (float)$lastMovement->capital_after : (float)$trans->amount;
+        $startDate = $lastMovement ? Carbon::parse($lastMovement->date_operation) : Carbon::parse($trans->date_validation);
+
+        $totalInterest = 0;
+        if ($targetDate->gt($startDate)) {
+            $days = $startDate->diffInDays($targetDate);
+            $totalInterest = ($baseCapital * $rate * $days) / 360;
+        }
+
+        $precompte = DB::table('financial_movements')
+            ->where('transaction_id', $trans->id)
+            ->where('type', 'precompte_interets')
+            ->value('amount') ?? 0;
+
+        return round(($baseCapital - $precompte) + $totalInterest, 0);
+    }
+
     public function getProductsWithGainsUser($user_id)
     {
         $service = new \App\Services\InvestmentService();
@@ -326,10 +311,41 @@ class ProductController extends Controller
                 ->where('product_id', $product->id)
                 ->get();
 
-            foreach ($transactions as $transaction) {
-                $dateEcheance = Carbon::parse($transaction->date_echeance);
+            $additionalTransactions = TransactionSupplementaire::where('user_id', $user_id)
+                ->where('status', 'Succès')
+                ->where('product_id', $product->id)
+                ->get();
+
+            $allPmgTrans = $transactions->merge($additionalTransactions);
+
+            foreach ($allPmgTrans as $transaction) {
+                // Pour les transactions supplémentaires, la date d'échéance et de validation 
+                // peuvent venir de la transaction parente si non définies sur la ligne.
+                // Note: TransactionSupplementaire n'a pas forcément date_echeance en base.
+                $dateEcheanceRaw = $transaction->date_echeance ?? ($transaction->transaction ? $transaction->transaction->date_echeance : null);
+                
+                if (!$dateEcheanceRaw) continue;
+
+                $dateEcheance = Carbon::parse($dateEcheanceRaw);
                 if ($dateEcheance->lt($currentDate)) continue;
 
+                $amount = (float)$transaction->amount;
+                
+                $totalPaidOut = DB::table('financial_movements')
+                    ->where('transaction_id', $transaction->id)
+                    ->whereIn('type', ['rachat_partiel', 'precompte_interets'])
+                    ->sum('amount');
+                    
+                // Find effective base capital for compound interest calculation
+                $lastMovement = DB::table('financial_movements')
+                    ->where('transaction_id', $transaction->id)
+                    ->whereIn('type', ['capitalisation_interets', 'rachat_partiel'])
+                    ->where('date_operation', '<=', $currentDate->toDateString())
+                    ->orderBy('date_operation', 'desc')
+                    ->first();
+                $baseCapital = $lastMovement ? (float)$lastMovement->capital_after : $amount;
+
+                // calculatePMGValorization gère les deux types d'objets car ils ont les champs amount, vl_buy, etc.
                 $totalValo = $this->calculatePMGValorization($transaction, $currentDate);
 
                 $pmgResult[] = [
@@ -337,19 +353,21 @@ class ProductController extends Controller
                     'product_id' => $product->id,
                     'product_name' => $product->title,
                     'type_product' => 2,
-                    'capital_investi' => (float)$transaction->amount,
-                    'montant_transaction' => (float)$transaction->amount, // Legacy support
-                    'interets_generes' => (float)$totalValo - (float)$transaction->amount,
-                    'gain_month' => (float)$totalValo - (float)$transaction->amount, // Legacy support
-                    'soulte' => (float)$transaction->amount, // Legacy support
+                    'capital_investi' => $amount, // Vrai capital de départ (amount direct de transaction)
+                    'capital_actuel' => $baseCapital, // Capital composé actuel
+                    'montant_transaction' => $amount, // Legacy support pour calcul gains totaux
+                    'interets_generes' => (float)($totalValo + $totalPaidOut) - $amount,
+                    'gain_month' => (float)$totalValo - $baseCapital, // Intérêts du cycle actuel
+                    'soulte' => $baseCapital, // Capital capitalisé
                     'portfolio_valeur' => (float)$totalValo,
+                    'total_payouts' => (float)$totalPaidOut,
                     'vl_actuel' => $transaction->vl_buy,
                     'vl_achat' => $transaction->vl_buy,
-                    'date_echeance' => $transaction->date_echeance,
-                    'souscription' => $transaction->date_validation,
+                    'date_echeance' => $dateEcheanceRaw,
+                    'souscription' => $transaction->date_validation ?? $transaction->created_at->toDateString(),
                     'slug' => $product->slug,
-                    'days_months' => $this->calculateMonthsAndDaysBetweenDates($transaction->date_validation, $transaction->date_echeance),
-                    'gain_mensuel' => $this->gainMonthPmg($transaction->amount, $transaction->vl_buy),
+                    'days_months' => $this->calculateMonthsAndDaysBetweenDates($transaction->date_validation ?? $transaction->created_at->toDateString(), $dateEcheanceRaw),
+                    'gain_mensuel' => ($baseCapital * (($transaction->vl_buy / 100) / 12)), // Intérêt basé sur capital composé
                 ];
             }
         }
@@ -379,69 +397,28 @@ class ProductController extends Controller
 
         return array_merge($fcpResult, $pmgResult);
     }
+
     public function getProductsWithGainsPieChart()
     {
-        $products = Product::all();
-        $result = [];
-        $user = Auth::user();
+        $userId = Auth::id();
+        $allProducts = $this->getProductsWithGainsUserClient($userId);
+        
         $productGains = [];
+        $grouped = collect($allProducts)->groupBy('product_name');
 
-        foreach ($products as $product) {
-            $transactions = Transaction::where('user_id', Auth::user()->id)
-                ->where('status', 'Succès')
-                ->where('product_id', $product->id)
-                ->get();
-
-            $additionalTransactions = TransactionSupplementaire::where('user_id', Auth::user()->id)
-                ->where('status', 'Succès')
-                ->where('product_id', $product->id)
-                ->get();
-
-            $allTransactions = $transactions->merge($additionalTransactions);
-
-
-            if ($allTransactions->isEmpty()) {
-                continue;
-            }
-
+        foreach ($grouped as $name => $items) {
             $totalGain = 0;
-
-            foreach ($allTransactions as $transaction) {
-                if ($product->products_category_id == 1) {
-                    $latestAssetValue = AssetValue::where('product_id', $transaction->product_id)
-                        ->where('created_at', '>=', $transaction->date_validation)
-                        ->orderBy('created_at', 'desc')
-                        ->first();
-
-                    if ($latestAssetValue) {
-                        $vl_actuel = $latestAssetValue->vl;
-                        $totalGain += $this->calculateFCPGain($vl_actuel, $transaction);
-                    }
-                } else {
-                    $date_echeance_exploded = explode(" ", $transaction->date_echeance)[0];
-                    $date_validation_exploded = explode(" ", $transaction->date_validation)[0];
-
-                    if (strtotime($date_echeance_exploded) > strtotime($this->getTodaysDate())) {
-                        $gainMonth = $this->calculatePMGMonthlyGain(
-                            $transaction->amount,
-                            $transaction->vl_buy,
-                            $date_validation_exploded,
-                            $date_echeance_exploded,
-                            $this->getTodaysDate()
-                        );
-
-                        $totalGain += round($gainMonth + $product['soulte'], 2);
-                    }
+            foreach ($items as $item) {
+                if ($item['type_product'] == 2) { // PMG
+                    $totalGain += $item['interets_generes'];
+                } else { // FCP
+                    $totalGain += $item['total_gains_fcp'];
                 }
             }
-
             $productGains[] = [
-                'product_name' => $product->title,
-                'total_gain' => $totalGain
+                'product_name' => $name,
+                'total_gain' => round($totalGain, 0)
             ];
-
-            $user->gain = $totalGain;
-            $user->gain_pmg = $totalGain;
         }
 
         return $productGains;
@@ -652,30 +629,66 @@ class ProductController extends Controller
 
     public function indexAssetManager()
     {
+        // 1. Récupération des clients avec leurs transactions déjà chargées (Optimisation N+1)
+        $customers = User::where('role_id', '2')
+            ->with(['transactions' => function($q) {
+                $q->where('status', 'Succès');
+            }, 'transactionssupplementaires' => function($q) {
+                $q->where('status', 'Succès');
+            }])
+            ->orderBy('created_at', 'desc')
+            ->get();
 
-        $customers = User::where('role_id', '2')->orderBy('created_at', 'desc')->get();
+        $currentDate = Carbon::now();
+        $globalAum = 0;
+        $activeClientsCount = 0;
+        $totalFcpAum = 0;
+        $totalPmgAum = 0;
 
-
-        // Ajouter le nombre de produits pour chaque utilisateur
+        // 2. Calcul des statistiques par client (plus rapide grâce au pre-loading)
         foreach ($customers as $customer) {
-            // Compter le nombre de produits distincts dans la table transactions
-            $countFromTransactions = Transaction::where('user_id', $customer->id)->where('status', 'Succès')
-                ->distinct('product_id')
-                ->count('product_id');
+            $totalValorization = 0;
+            $hasActiveProducts = false;
 
-            // Compter le nombre de produits distincts dans la table transaction_supplementaire
-            $countFromSupplementaryTransactions = TransactionSupplementaire::where('user_id', $customer->id)->where('status', 'Succès')
-                ->distinct('product_id')
-                ->count('product_id');
+            // Fusion des transactions pour traitement unique
+            $allTrans = $customer->transactions->concat($customer->transactionssupplementaires);
 
-            // Calculer le total des produits distincts pour cet utilisateur
-            $totalProductCount = $countFromTransactions + $countFromSupplementaryTransactions;
+            foreach ($allTrans as $trans) {
+                $dateEcheance = Carbon::parse($trans->date_echeance);
+                if ($dateEcheance->gte($currentDate)) {
+                    $hasActiveProducts = true;
+                    if ($trans->product->products_category_id == 2) {
+                        $valo = $this->calculatePMGValorization($trans, $currentDate);
+                        $totalValorization += $valo;
+                        $totalPmgAum += $valo;
+                    } else {
+                        $fcpData = $this->getFcpPortfolioValue($customer->id, $trans->product_id, $currentDate);
+                        $totalValorization += $fcpData['valorisation'];
+                        $totalFcpAum += $fcpData['valorisation'];
+                    }
+                }
+            }
 
-            // Ajouter le nombre total de produits au modèle User
-            $customer->product_count = $totalProductCount;
+            // Attachement des données calculées
+            $customer->portefeuille_total = $totalValorization;
+            $customer->product_count = $allTrans->count();
+            
+            if ($hasActiveProducts) {
+                $activeClientsCount++;
+                $globalAum += $totalValorization;
+            }
         }
 
-        return view('front-end.asset-manager')->with('customers', $customers);
+        // 3. Récupération des données pour les graphiques (FCP VL evolution)
+        $fcpProducts = Product::where('products_category_id', 1)->get();
+        foreach ($fcpProducts as $product) {
+            $product->vl_history = \App\Models\AssetValue::where('product_id', $product->id)
+                ->orderBy('created_at', 'asc')
+                ->take(12) // Les 12 dernières VL
+                ->get();
+        }
+
+        return view('front-end.asset-manager', compact('customers', 'globalAum', 'activeClientsCount', 'fcpProducts', 'totalFcpAum', 'totalPmgAum'));
     }
 
     /**
@@ -785,30 +798,83 @@ public function calculatePMGValorization($trans, $refDate)
     /**
      * Prépare les données consolidées pour la vue Customer
      */
-    public function customers()
+    public function customers(Request $request)
     {
-        $customers = User::where('role_id', '2')->orderBy('name', 'asc')->get();
+        $search = $request->input('search');
         $currentDate = Carbon::now();
 
+        // 1. Base query pour les clients (Role 2)
+        $query = User::where('role_id', '2')
+            ->with(['transactions' => function($q) {
+                $q->where('status', 'Succès');
+            }, 'transactionssupplementaires' => function($q) {
+                $q->where('status', 'Succès');
+            }]);
+
+        // 2. Recherche
+        if (!empty($search)) {
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'LIKE', "%{$search}%")
+                  ->orWhere('email', 'LIKE', "%{$search}%");
+            });
+        }
+
+        // 3. Calcul des statistiques globales AVANT pagination (sur tous les résultats filtrés)
+        $allMatchedCustomers = $query->get();
+        $globalTotalAum = 0;
+        $globalTotalInvesti = 0;
+        $activeClientsCount = 0;
+        $inactiveClientsCount = 0;
+
+        foreach ($allMatchedCustomers as $cust) {
+            $customerTotalInvesti = 0;
+            $allTrans = $cust->transactions->concat($cust->transactionssupplementaires);
+            
+            foreach ($allTrans as $trans) {
+                $dateEcheance = Carbon::parse($trans->date_echeance);
+                if ($dateEcheance->gte($currentDate)) {
+                    $principalInitial = (float)($trans->montant_initiale ?? $trans->amount);
+                    $globalTotalInvesti += $principalInitial;
+                    $customerTotalInvesti += $principalInitial;
+
+                    if ($trans->product->products_category_id == 2) {
+                        $globalTotalAum += $this->calculatePMGValorization($trans, $currentDate);
+                    } else {
+                        $fcpData = $this->getFcpPortfolioValue($cust->id, $trans->product_id, $currentDate);
+                        $globalTotalAum += $fcpData['valorisation'];
+                    }
+                }
+            }
+
+            if ($customerTotalInvesti > 0) {
+                $activeClientsCount++;
+            } else {
+                $inactiveClientsCount++;
+            }
+        }
+
+        $globalTotalInterets = max(0, $globalTotalAum - $globalTotalInvesti);
+
+        // 4. Pagination
+        $customers = $query->orderBy('name', 'asc')->paginate(10);
+
+        // 5. Calcul des stats pour les clients de la PAGE COURANTE
         foreach ($customers as $customer) {
             $totalInvestiActive = 0;
             $totalValorisationActive = 0;
             $activeContractsCount = 0;
 
-            $transactions = Transaction::where('user_id', $customer->id)
-                ->where('status', 'Succès')
-                ->get();
+            $allTrans = $customer->transactions->concat($customer->transactionssupplementaires);
 
-            foreach ($transactions as $trans) {
+            foreach ($allTrans as $trans) {
                 $dateEcheance = Carbon::parse($trans->date_echeance);
 
-                // ✅ Seuls les produits non échus comptent dans l'investissement actif
                 if ($dateEcheance->gte($currentDate)) {
                     $activeContractsCount++;
-                    $totalInvestiActive += (float)$trans->amount;
+                    $principalInitial = (float)($trans->montant_initiale ?? $trans->amount);
+                    $totalInvestiActive += $principalInitial;
 
                     if ($trans->product->products_category_id == 2) {
-                        // ✅ Appel corrigé avec 2 arguments seulement
                         $totalValorisationActive += $this->calculatePMGValorization($trans, $currentDate);
                     } else {
                         $fcpData = $this->getFcpPortfolioValue($customer->id, $trans->product_id, $currentDate);
@@ -817,14 +883,13 @@ public function calculatePMGValorization($trans, $refDate)
                 }
             }
 
-            // ✅ IMPORTANT : On attache les valeurs à l'objet pour la vue
             $customer->total_capital = $totalInvestiActive;
             $customer->portefeuille_total = $totalValorisationActive;
             $customer->total_interets = max(0, $totalValorisationActive - $totalInvestiActive);
             $customer->product_count = $activeContractsCount;
         }
 
-        return view('front-end.customer', compact('customers'));
+        return view('front-end.customer', compact('customers', 'globalTotalAum', 'globalTotalInvesti', 'globalTotalInterets', 'search', 'activeClientsCount', 'inactiveClientsCount'));
     }
     function generateUniqueCode($user)
     {
@@ -869,8 +934,22 @@ public function calculatePMGValorization($trans, $refDate)
 
         $portefeuilleTotal = $portefeuillePMG + $portefeuilleFCP;
 
-        // ✅ Calcul des intérêts : Valeur actuelle totale - Capital initial total
-        $totalInterets = max(0, $portefeuilleTotal - $totalInvestiActive);
+        // ✅ Calcul des intérêts : (Valeur actuelle + Sorties) - Capital initial total
+        $totalPmgPayouts = collect($allProducts)->where('type_product', 2)->sum('total_payouts');
+        $totalInterets = max(0, ($portefeuilleTotal + $totalPmgPayouts) - $totalInvestiActive);
+
+        // Récupération de tous les produits pour le formulaire de placement
+        $products = Product::orderBy('created_at', 'desc')->where('nb_action', '>', 0)->get();
+        foreach ($products as $product) {
+            if ($product->products_category_id == 1) { // FCP
+                $lastVl = AssetValue::where('product_id', $product->id)->orderBy('created_at', 'desc')->first();
+                $product->recent_vl = $lastVl ? $lastVl->vl : $product->vl;
+            } else {
+                $product->recent_vl = $product->vl;
+            }
+        }
+
+        $categories = \App\Models\ProductsCategory::all();
 
         return view('front-end.customer-detail', [
             'customer' => $customer,
@@ -879,7 +958,9 @@ public function calculatePMGValorization($trans, $refDate)
             'portefeuille_pmg' => $portefeuillePMG,
             'portefeuille_fcp' => $portefeuilleFCP,
             'total_interets' => $totalInterets,
-            'total_investi' => $totalInvestiActive // Variable pour afficher le capital total si besoin
+            'total_investi' => $totalInvestiActive,
+            'products' => $products,
+            'categories' => $categories
         ]);
     }
     
@@ -1151,6 +1232,228 @@ public function calculatePMGValorization($trans, $refDate)
                 }
                 $anniversary->addYear(); // Passer à l'anniversaire suivant (si contrat de 2 ans ou plus)
             }
+        }
+    }
+
+    public function myStatements()
+    {
+        $user = Auth::user();
+        Carbon::setLocale('fr');
+        
+        // Trouver la date de la première transaction pour savoir à quand remonter
+        $firstTransaction = Transaction::where('user_id', $user->id)
+            ->where('status', 'Succès')
+            ->orderBy('date_validation', 'asc')
+            ->first();
+            
+        if (!$firstTransaction) {
+            return view('front-end.my-statements', ['months' => []]);
+        }
+        
+        $start = Carbon::parse($firstTransaction->date_validation)->startOfMonth();
+        $end = Carbon::now()->subMonth()->startOfMonth(); // On ne propose que les mois clos
+        
+        $months = [];
+        $current = $start->copy();
+        
+        while ($current->lte($end)) {
+            // Vérifier si l'utilisateur avait des produits actifs ce mois-là
+            $dateFinMois = $current->copy()->endOfMonth();
+            
+            $has_pmg = Transaction::where('user_id', $user->id)
+                ->where('status', 'Succès')
+                ->where('date_validation', '<=', $dateFinMois->toDateString())
+                ->where('date_echeance', '>=', $current->toDateString())
+                ->whereHas('product', function($q) {
+                    $q->where('products_category_id', 2);
+                })->exists();
+
+            $has_fcp = Transaction::where('user_id', $user->id)
+                ->where('status', 'Succès')
+                ->where('date_validation', '<=', $dateFinMois->toDateString())
+                ->whereHas('product', function($q) {
+                    $q->where('products_category_id', 1);
+                })->exists();
+                
+            if (!$has_fcp) {
+                $has_fcp = TransactionSupplementaire::where('user_id', $user->id)
+                    ->where('status', 'Succès')
+                    ->where('created_at', '<=', $dateFinMois->toDateTimeString())
+                    ->whereHas('product', function($q) {
+                        $q->where('products_category_id', 1);
+                    })->exists();
+            }
+
+            if ($has_pmg || $has_fcp) {
+                $months[] = [
+                    'year' => $current->year,
+                    'month' => $current->month,
+                    'label' => ucfirst($current->translatedFormat('F Y')),
+                    'has_pmg' => $has_pmg,
+                    'has_fcp' => $has_fcp
+                ];
+            }
+            $current->addMonth();
+        }
+        
+        $months = array_reverse($months);
+        
+        return view('front-end.my-statements', compact('months'));
+    }
+
+    public function downloadMonthlyStatement($year, $month, $type)
+    {
+        $client = Auth::user();
+        $dateN = Carbon::create($year, $month, 1)->endOfMonth();
+        $dateN1 = $dateN->copy()->subMonth()->endOfMonth();
+        Carbon::setLocale('fr');
+        $periodeLabel = ucfirst($dateN->translatedFormat('F Y'));
+
+        if ($type == 'pmg') {
+            // Logique copiée de ListeClientReleveController@previewPmg
+            $transactions = Transaction::where('user_id', $client->id)
+                ->where('status', 'Succès')
+                ->where('date_validation', '<=', $dateN->toDateString())
+                ->where('date_echeance', '>=', $dateN1->toDateString())
+                ->whereHas('product', function($q) {
+                    $q->where('products_category_id', 2);
+                })->get();
+
+            $produitsAffiches = [];
+            $totalValoN = 0;
+            $totalValoN1 = 0;
+
+            foreach ($transactions as $trans) {
+                $valoN = $this->calculatePMGValorization($trans, $dateN);
+                $valoN1 = $this->calculatePMGValorization($trans, $dateN1);
+
+                $precompte = DB::table('financial_movements')
+                    ->where('transaction_id', $trans->id)
+                    ->where('type', 'precompte_interets')
+                    ->value('amount') ?? 0;
+
+                $capNetInitial = (float)$trans->amount - (float)$precompte;
+                $dateVal = Carbon::parse($trans->date_validation);
+                $estProduitJeune = $dateVal->gt($dateN1) ? 1 : 0;
+
+                $mvtCap = DB::table('financial_movements')
+                    ->where('transaction_id', $trans->id)
+                    ->where('type', 'capitalisation_interets')
+                    ->whereBetween('date_operation', [$dateN1->copy()->addDay()->toDateString(), $dateN->toDateString()])
+                    ->first();
+
+                if ($mvtCap) {
+                    $dateCap = Carbon::parse($mvtCap->date_operation);
+                    $joursAvant = $dateN1->diffInDays($dateCap->copy()->subDay());
+                    $joursApres = $dateCap->diffInDays($dateN);
+                    $gainAvant = ($mvtCap->capital_before * ($trans->vl_buy/100) * $joursAvant) / 360;
+                    $gainApres = ($mvtCap->capital_after * ($trans->vl_buy/100) * $joursApres) / 360;
+                    $gainMensuel = $gainAvant + $gainApres;
+                    $affichageValoN1 = $valoN - $gainMensuel;
+                } else {
+                    $gainMensuel = $valoN - $valoN1;
+                    $affichageValoN1 = $valoN1;
+                }
+
+                if ($estProduitJeune) {
+                    $gainMensuel = $valoN - $capNetInitial;
+                    $affichageValoN1 = $capNetInitial;
+                }
+
+                $totalValoN += $valoN;
+                $totalValoN1 += $affichageValoN1;
+
+                $produitsAffiches[] = (object)[
+                    'nom' => $trans->product->title,
+                    'capital' => (float)$trans->amount,
+                    'taux' => $trans->vl_buy,
+                    'valo_n' => $valoN,
+                    'valo_n1' => $affichageValoN1,
+                    'gain_mensuel' => max(0, round($gainMensuel, 0)),
+                    'gain_total' => max(0, $valoN - $capNetInitial),
+                    'souscription' => $dateVal->format('d/m/Y'),
+                    'date_echeance' => Carbon::parse($trans->date_echeance)->format('d/m/Y'),
+                    'produit_jeune' => $estProduitJeune,
+                ];
+            }
+
+            $pdf = Pdf::loadView('front-end.releves.releve-preview', [
+                'client' => $client,
+                'produits' => $produitsAffiches,
+                'valorisation_courante' => $totalValoN,
+                'valorisation_precedente' => $totalValoN1,
+                'date_releve' => $dateN->format('d/m/Y'),
+                'date_releve_precedent' => $dateN1->format('d/m/Y'),
+                'periode' => $periodeLabel
+            ]);
+
+            return $pdf->download("releve_pmg_{$year}_{$month}.pdf");
+
+        } else {
+            // Logique FCP copiée de ListeClientReleveController@previewFcp
+            $service = new \App\Services\InvestmentService();
+            $productIds = DB::table('fcp_movements')
+                ->where('user_id', $client->id)
+                ->distinct()
+                ->pluck('product_id');
+
+            $produitsAffiches = [];
+            $totalValoN = 0;
+            $totalValoN1 = 0;
+
+            foreach ($productIds as $productId) {
+                $product = Product::find($productId);
+                if (!$product) continue;
+
+                $partsN = DB::table('fcp_movements')
+                    ->where('user_id', $client->id)
+                    ->where('product_id', $productId)
+                    ->where('date_operation', '<=', $dateN->toDateString())
+                    ->sum('nb_parts_change');
+
+                $partsN1 = DB::table('fcp_movements')
+                    ->where('user_id', $client->id)
+                    ->where('product_id', $productId)
+                    ->where('date_operation', '<=', $dateN1->toDateString())
+                    ->sum('nb_parts_change');
+
+                $vlN = AssetValue::where('product_id', $productId)->where('date_vl', '<=', $dateN->toDateString())->orderBy('date_vl', 'desc')->value('vl') ?? $product->vl;
+                $vlN1 = AssetValue::where('product_id', $productId)->where('date_vl', '<=', $dateN1->toDateString())->orderBy('date_vl', 'desc')->value('vl') ?? $product->vl;
+
+                $valoN = $partsN * $vlN;
+                $valoN1 = $partsN1 * $vlN1;
+                $status = $service->getCurrentStatus($client->id, $productId);
+                $investi = $status['invested'];
+
+                $totalValoN += $valoN;
+                $totalValoN1 += $valoN1;
+
+                $produitsAffiches[] = (object)[
+                    'nom' => $product->title,
+                    'parts' => $partsN,
+                    'parts_n1' => $partsN1,
+                    'vl_n' => $vlN,
+                    'vl_n1' => $vlN1,
+                    'valo_n' => $valoN,
+                    'valo_n1' => $valoN1,
+                    'gain_mensuel' => $valoN - $valoN1,
+                    'gain_total' => $valoN - $investi,
+                    'investi' => $investi,
+                    'souscription' => DB::table('fcp_movements')->where('user_id', $client->id)->where('product_id', $productId)->min('date_operation')
+                ];
+            }
+
+            $pdf = Pdf::loadView('front-end.releves.releve-preview-fcp', [
+                'client' => $client,
+                'produits' => $produitsAffiches,
+                'valorisation_courante' => $totalValoN,
+                'valorisation_precedente' => $totalValoN1,
+                'date_releve' => $dateN->format('d/m/Y'),
+                'date_releve_precedent' => $dateN1->format('d/m/Y'),
+                'periode' => $periodeLabel
+            ]);
+
+            return $pdf->download("releve_fcp_{$year}_{$month}.pdf");
         }
     }
 }

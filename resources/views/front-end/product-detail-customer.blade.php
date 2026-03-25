@@ -1,8 +1,8 @@
 @extends('front-end/app/app-home-asset', ['title' => $product->title, 'body_class' => 'vertical bg-secondary1/5 dark:bg-bg3 hidden'])
 
 @php
-    $type = App\ProductsCategory::where('id', $product->products_category_id)->first();
-    $asset_value = App\AssetValue::where('product_id', $product->id)
+    $type = App\Models\ProductsCategory::where('id', $product->products_category_id)->first();
+    $asset_value = App\Models\AssetValue::where('product_id', $product->id)
         ->orderBy('created_at', 'desc')
         ->latest()
         ->first();

@@ -54,14 +54,30 @@ class UserController extends Controller
             abort(403, 'Utilisateur introuvable');
         }
 
-        // Calculer le portefeuille et le gain
-        $portfolio = $this->portfolioService->calculatePortfolio($user_);
-        $gain_user_fcp = $this->getTotalGainsFCP($user_);
-        $gain_user_pmg = $this->getTotalGainsPMG($user_);
+        // On utilise désormais la version spécifique Client pour l'affichage Dashboard
+        $result = $this->productControllerImport->getProductsWithGainsUserClient($user_->id);
+        
+        $totalPortefeuilleFcp = 0;
+        $totalPortefeuillePmg = 0;
+        $totalInvestiFcp = 0;
+        $totalInvestiPmg = 0;
+        $gain_cumule_fcp = 0;
+        $gain_cumule_pmg = 0;
+        
+        foreach ($result as $product) {
+            if ($product['type_product'] == 1) { // FCP
+                $totalPortefeuilleFcp += (float)$product['portfolio_valeur'];
+                $totalInvestiFcp += (float)$product['montant_transaction'];
+                $gain_cumule_fcp += (float)$product['total_gains_fcp'];
+            } else { // PMG
+                $totalPortefeuillePmg += (float)$product['portfolio_valeur'];
+                $totalInvestiPmg += (float)$product['montant_transaction'];
+                $gain_cumule_pmg += (float)($product['portfolio_valeur'] + ($product['total_payouts'] ?? 0)) - (float)$product['montant_transaction'];
+            }
+        }
+
+        $gain_user = $gain_cumule_fcp + $gain_cumule_pmg;
         $result_gain = $this->productControllerImport->getProductsWithGainsPieChart();
-        //dd($result_gain);
-        $gain_user = $gain_user_fcp + $gain_user_pmg;
-        //$gain_user = $this->getGainTotal($user_);
         $resultatsAvecPourcentage2 = $this->getGainData();
         $chartData = $this->getChartData();
 
@@ -69,36 +85,6 @@ class UserController extends Controller
 
 
         $ProductController = new ProductController;
-        $result = $ProductController->getProductsWithGainsUser($user_->id);
-        $totalTransactionAmountFcp = 0;
-        $totalTransactionAmountPmg = 0;
-        // Initialiser les variables pour accumuler les valeurs des portefeuilles
-        $totalPortefeuilleFcp = 0;
-        $totalPortefeuillePmg = 0;
-        $gain_cumule_fcp = 0;
-        $gain_cumule_pmg = 0;
-        $currentDate = Carbon::now();
-
-        //dd($productsWithGains);
-
-        foreach ($result as $product) {
-            if ($product['date_echeance'] > $currentDate) {
-                if ($product['type_product'] == 1) {
-                    // Cumul des portefeuilles FCP
-                    $totalPortefeuilleFcp += $product['valorisation_portefeuille_fcp'];
-                    $totalTransactionAmountFcp += $product['montant_transaction'];
-                    $gain_cumule_fcp += $product['total_gains_fcp'];
-
-                } else {
-                    // Cumul des portefeuilles PMG
-                    $totalPortefeuillePmg += $product['gain_month'] + $product['soulte'];
-                    $totalTransactionAmountPmg += $product['montant_transaction'];
-
-                    $gain_cumule_pmg = $product['gain_month'] + $product['soulte'] - $product['montant_transaction'];
-                }
-
-            }
-        }
 
 
 
@@ -110,14 +96,13 @@ class UserController extends Controller
         return view(
             'front-end.dashboard',
             compact(
-                'portfolio',
                 'result_gain',
                 'gain_user',
                 'user_',
                 'products',
                 'transactions',
                 'resultatsAvecPourcentage2',
-                'totalTransactionAmountFcp',
+                'totalInvestiFcp',
                 'chartData',
                 'totalPortefeuilleFcp',
                 'totalPortefeuillePmg',
@@ -297,72 +282,65 @@ class UserController extends Controller
 
     private function getChartData()
     {
-        // Récupérer tous les produits
-        $products = Product::all();
-
-        $chartData = [];
+        // Récupérer les produits FCP uniquement
+        $products = Product::where('products_category_id', 1)->get();
+        $allChartData = [];
+        $weekLabels = [];
 
         foreach ($products as $product) {
-            // Récupérer les transactions associées à ce produit avec un état "Succès"
-            $transactions = Transaction::where('user_id', Auth::user()->id)
+            // Récupérer les transactions réussies de l'utilisateur pour ce produit
+            $transactions = Transaction::where('user_id', Auth::id())
                 ->where('status', 'Succès')
                 ->where('product_id', $product->id)
                 ->get();
 
-            $additionalTransactions = TransactionSupplementaire::where('user_id', Auth::user()->id)
+            $subTransactions = TransactionSupplementaire::where('user_id', Auth::id())
                 ->where('status', 'Succès')
                 ->where('product_id', $product->id)
                 ->get();
 
-            // Fusionner les transactions principales et supplémentaires
-            $allTransactions = $transactions->merge($additionalTransactions);
+            $allTransactions = $transactions->merge($subTransactions);
 
             if ($allTransactions->isEmpty()) {
-                continue; // Passer au produit suivant si aucune transaction n'existe
+                continue;
             }
 
-            $weeklyGains = [];
-            $weekLabels = [];
+            // Récupérer les 10 dernières valeurs liquidatives pour le graphique de variation
+            $assetValues = AssetValue::where('product_id', $product->id)
+                ->orderBy('created_at', 'desc')
+                ->take(10)
+                ->get()
+                ->reverse();
 
-            foreach ($allTransactions as $transaction) {
-                // Récupérer les valeurs liquidatives des 4 dernières semaines pour le produit
-                // Convertir date_validation en instance de Carbon
-                $validationDate = Carbon::parse($transaction->date_validation);
-                $assetValues = AssetValue::where('created_at', '>=', $validationDate)
-                    ->where('product_id', $transaction->product_id)
-                    ->orderBy('created_at', 'desc')
-                    ->take(4)
-                    ->get();
+            if ($assetValues->isEmpty()) {
+                continue;
+            }
 
-                // Si aucune valeur liquidative n'est trouvée, définir les gains à zéro
-                if ($assetValues->isEmpty()) {
-                    $weeklyGains = array_pad($weeklyGains, 4, 0); // Ajouter des zéros pour les 4 dernières semaines
-                    continue;
+            $productData = [];
+            foreach ($assetValues as $val) {
+                $productData[] = (float)$val->vl;
+                if (empty($weekLabels)) {
+                    // On ne remplit les labels qu'une seule fois
                 }
-
-                foreach ($assetValues as $index => $assetValue) {
-                    if (empty($weekLabels)) {
-                        $weekLabels[] = 'Semaine ' . ($index + 1);
-                    }
-
-                    $gain = ($product->products_category_id == 1)
-                        ? $this->calculateFCPGain($assetValue->vl, $transaction)
-                        : $this->calculatePMGMonthlyGain($transaction->vl_buy, $transaction);
-                    $weeklyGains[] = $gain;
+            }
+            
+            // Remplir les labels de dates si vide
+            if (empty($weekLabels)) {
+                foreach ($assetValues as $val) {
+                    $weekLabels[] = Carbon::parse($val->date_vl ?? $val->created_at)->format('d/m');
                 }
             }
 
-            // Ajouter les gains hebdomadaires pour ce produit aux données du graphique
-            $chartData[] = [
+            $allChartData[] = [
                 'name' => $product->title,
-                'data' => array_pad($weeklyGains, 4, 0) // Assurez-vous d'avoir 4 valeurs, complétez avec des zéros si nécessaire
-            ];
-            return [
-                'weekLabels' => array_pad($weekLabels, 4, 'Semaine ' . (count($weekLabels) + 1)),
-                'chartData' => $chartData
+                'data' => $productData
             ];
         }
 
+        return [
+            'labels' => $weekLabels,
+            'series' => $allChartData
+        ];
     }
 
 

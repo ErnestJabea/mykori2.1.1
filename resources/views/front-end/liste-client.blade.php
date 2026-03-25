@@ -393,7 +393,7 @@ $(document).ready(function () {
 
     $('.preview-link-fcp').on('click', function () {
 
-        const clientId = $(this).data('client-id');
+        const clientId = $(this).data('id');
 
 
         const previewUrl = "{{ route('asset-manager.releves.preview-fcp', ':id') }}"

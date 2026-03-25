@@ -1,6 +1,8 @@
 @php
     use Carbon\Carbon;
-    Carbon::setLocale('fr_FR');
+    Carbon::setLocale('fr');
+    $logoPath   = public_path('images/logo-with-text.png');
+    $logoBase64 = file_exists($logoPath) ? 'data:image/png;base64,'.base64_encode(file_get_contents($logoPath)) : '';
 
     // 1. Récupération des données de performance (calculées sur le dernier vendredi)
     $perf = app(\App\Services\InvestmentService::class)->getFcpPerformance($transaction);
@@ -61,7 +63,11 @@
 
     <div class="header">
         <div class="logo">
-            <img src="https://koriassetmanagement.com/assets/images/logo.png" alt="KORI Logo">
+            @if($logoBase64)
+                <img src="{{ $logoBase64 }}" alt="KORI Logo" style="width:150px;">
+            @else
+                <strong style="font-size:16px;color:#531d09;">KORI ASSET MANAGEMENT</strong>
+            @endif
         </div>
         <div class="company-info">
             <strong>KORI ASSET MANAGEMENT</strong><br>

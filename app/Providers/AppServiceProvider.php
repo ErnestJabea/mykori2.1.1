@@ -4,8 +4,9 @@ namespace App\Providers;
 
 use App\Observers\UpdateTransactionAchatObservateur;
 use App\Observers\ValidationTransactionAchatObservateur;
-use App\Transaction;
+use App\Models\Transaction;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Pagination\Paginator;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -26,6 +27,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot()
     {
+        Paginator::useTailwind();
         //
 
         // Transaction::observe(UpdateTransactionAchatObservateur::class);

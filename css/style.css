@@ -1,4 +1,10 @@
-/*! tailwindcss v3.4.1 | MIT License | https://tailwindcss.com*/
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap');
+
+
+body {
+    font-family: 'Playfair Display !important';
+}
+
 *,
 :after,
 :before {
@@ -16,7 +22,7 @@ html {
     -webkit-text-size-adjust: 100%;
     font-feature-settings: normal;
     -webkit-tap-highlight-color: transparent;
-    font-family: ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji;
+    font-family: 'Playfair Display';
     font-variation-settings: normal;
     line-height: 1.5;
     -moz-tab-size: 4;
@@ -65,7 +71,7 @@ kbd,
 pre,
 samp {
     font-feature-settings: normal;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
+    font-family: inherit;
     font-size: 1em;
     font-variation-settings: normal
 }
@@ -2506,7 +2512,7 @@ input:checked+div svg {
 }
 
 body {
-    font-family: Inter, sans-serif
+    font-family: inherit;
 }
 
 input.picker[type=date] {
@@ -7784,7 +7790,7 @@ button#submitButton {
 
 .card h1 {
     color: #88B04B;
-    font-family: "Nunito Sans", "Helvetica Neue", sans-serif;
+    font-family: inherit;
     font-weight: 900;
     font-size: 40px;
     margin-bottom: 10px;
@@ -7794,7 +7800,7 @@ button#submitButton {
 
 .card p {
     color: #404F5E;
-    font-family: "Nunito Sans", "Helvetica Neue", sans-serif;
+    font-family: inherit;
     font-size: 20px;
     margin: 0;
     text-align: center;
@@ -8052,7 +8058,7 @@ div#confirmSendPopup h4 {
     margin-top: -25px;
     margin-left: -25px;
     margin-right: -25px;
-    border-radius: 6px 6px  0 0;
+    border-radius: 6px 6px 0 0;
 }
 
 button#btnCancelSend {
@@ -8089,7 +8095,9 @@ div#confirmSendPopup p {
 }
 
 @keyframes spinner {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 tr.line-customer .px-6 {
@@ -8097,25 +8105,25 @@ tr.line-customer .px-6 {
 }
 
 
-.text-left{
+.text-left {
     text-align: left;
 }
 
-.flex{
+.flex {
     display: flex;
 }
 
 
-.flex-wrap{
+.flex-wrap {
     flex-wrap: wrap;
 }
 
-.box-card{
+.box-card {
     width: 23%;
 }
 
 
-.content-bloc-list-produit .box{
+.content-bloc-list-produit .box {
     width: 100%;
 }
 
@@ -8135,14 +8143,17 @@ tr.line-customer .px-6 {
     width: 95%;
 }
 
-.content-form .form-control select, .content-form .form-control input {
+.content-form .form-control select,
+.content-form .form-control input {
     height: 43px;
     border: 1px solid #d8d8d8;
     padding: 10px;
     box-sizing: border-box;
 }
 
-.form-control label, .form-control select, .form-control input {
+.form-control label,
+.form-control select,
+.form-control input {
     width: 100%;
     display: block;
     font-size: 16px;
@@ -8187,34 +8198,37 @@ form#financial-ops-form .content-form {
 }
 
 .white-popup-block {
-        background: #FFF;
-        padding: 30px;
-        text-align: left;
-        max-width: 550px;
-        margin: 40px auto;
-        position: relative;
-        border-radius: 8px;
-    }
-    
-    .mfp-hide {
-        display: none !important;
-    }
+    background: #FFF;
+    padding: 30px;
+    text-align: left;
+    max-width: 550px;
+    margin: 40px auto;
+    position: relative;
+    border-radius: 8px;
+}
 
-    /* Style des cartes pour l'aspect cliquable */
-    .content-card {
-        width: 300px;
-        margin-right: 20px;
-        transition: transform 0.2s;
-    }
-    .content-card:hover {
-        transform: translateY(-5px);
-    }
-    .content-card a {
-        text-decoration: none;
-        color: inherit;
-    }
+.mfp-hide {
+    display: none !important;
+}
 
-    .form-group.mb-3 select, .form-group.mb-3 input {
+/* Style des cartes pour l'aspect cliquable */
+.content-card {
+    width: 300px;
+    margin-right: 20px;
+    transition: transform 0.2s;
+}
+
+.content-card:hover {
+    transform: translateY(-5px);
+}
+
+.content-card a {
+    text-decoration: none;
+    color: inherit;
+}
+
+.form-group.mb-3 select,
+.form-group.mb-3 input {
     width: 100%;
     margin-top: 10px;
     border: 1px solid #242424;
@@ -8222,11 +8236,13 @@ form#financial-ops-form .content-form {
     padding: 10px;
 }
 
-div#popup-interet-precomptes form, #popup-rachat-partiel form {
+div#popup-interet-precomptes form,
+#popup-rachat-partiel form {
     padding: 25px 40px;
 }
 
-div#popup-interet-precomptes h3, #popup-rachat-partiel h3 {
+div#popup-interet-precomptes h3,
+#popup-rachat-partiel h3 {
     padding: 10px;
     background: #4a1d00;
     color: #fff;
@@ -8238,7 +8254,55 @@ div#popup-interet-precomptes hr {
     display: none;
 }
 
-div#popup-interet-precomptes, #popup-rachat-partiel {
+div#popup-interet-precomptes,
+#popup-rachat-partiel {
     padding: 0;
     background: #fff;
+}
+
+.ac-modal-overlay.placement-modal {
+    background: hsl(0deg 0% 0% / 49%);
+}
+
+.ac-modal-overlay.placement-modal .modal-inner {
+    width: 80%;
+    margin: o auto;
+}
+
+.placement-modal button.ac-modal-close-btn {
+    right: 20px;
+    color: #fff;
+}
+
+.placement-modal .bb-dashed.mb-6.pb-4.border-b.border-dashed.border-gray-300 {
+    background: #531d09;
+    margin-left: -24px;
+    margin-right: -24px;
+    margin-top: -24px;
+    padding: 20px;
+    color: #fff;
+}
+
+.form-control-wrapper {
+    display: flex;
+    width: 100%;
+}
+
+#new-placement-form-detail .col-span-1 {
+    width: 50%;
+    margin-bottom: 15px;
+    padding: 0 10px;
+}
+
+.compliance-profil .menu-container.pb-28 {
+    position: relative !important;
+}
+
+.card-history {
+    width: 31%;
+    margin-right: 10px;
+}
+
+.text-green {
+    color: green !important;
 }

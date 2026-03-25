@@ -133,12 +133,13 @@
                         </div>
 
                     </div>
-                    <div id="profile" class="hide absolute top-full z-20 rounded-md bg-n0 shadow-[0px_6px_30px_0px_rgba(0,0,0,0.08)] duration-300 dark:bg-bg4 ltr:right-0 ltr:origin-top-right rtl:left-0 rtl:origin-top-left">
+                    <div id="profile"
+                        class="hide absolute top-full z-20 rounded-md bg-n0 shadow-[0px_6px_30px_0px_rgba(0,0,0,0.08)] duration-300 dark:bg-bg4 ltr:right-0 ltr:origin-top-right rtl:left-0 rtl:origin-top-left">
                         <div class="flex flex-col items-center border-b p-3 text-center dark:border-n500 lg:p-4">
 
                             <div class="round-fill round-full">
                                 @php
-                                $user_ = App\Models\User::where('id', Auth::user()->id)->first();
+                                    $user_ = App\Models\User::where('id', Auth::user()->id)->first();
                                 @endphp
                                 {{ mb_substr($user_->name, 0, 1) }}
                             </div>
@@ -148,7 +149,7 @@
                         <ul class="flex w-[250px] flex-col p-4">
                             <li>
                                 <a href="{{ route('profile') }}"
-                                   class="flex items-center gap-2 rounded-md p-2 duration-300 hover:bg-primary hover:text-n0">
+                                    class="flex items-center gap-2 rounded-md p-2 duration-300 hover:bg-primary hover:text-n0">
                                     <span>
                                         <i class="las la-user mt-1 text-xl"></i>
                                     </span>
@@ -157,7 +158,7 @@
                             </li>
                             <li>
                                 <a href="{{ route('logout') }}"
-                                   class="flex items-center gap-2 rounded-md p-2 duration-300 hover:bg-primary hover:text-n0">
+                                    class="flex items-center gap-2 rounded-md p-2 duration-300 hover:bg-primary hover:text-n0">
                                     <span>
                                         <i class="las la-sign-out-alt mt-1 text-xl"></i>
                                     </span>
@@ -207,18 +208,7 @@
                                 <ul class="submenu-hide submenu">
                                 </ul>
                             </li>
-                            <li class="menu-li">
-                                <button class="menu-btn group bg-n0 dark:!border-n500 dark:!bg-bg4">
-                                    <a href="{{ route('products') }}" class="flex items-center justify-center gap-2">
-                                        <span class="menu-icon">
-                                            <i class="las la-piggy-bank"></i>
-                                        </span>
-                                        <span class="menu-title font-medium">Produits disponibles</span>
-                                    </a>
-                                </button>
-                                <ul class="submenu-hide submenu">
-                                </ul>
-                            </li>
+
                             <li class="menu-li">
                                 <button class="menu-btn group bg-n0 dark:!border-n500 dark:!bg-bg4">
                                     <a href="{{ route('my-products') }}"
@@ -226,7 +216,7 @@
                                         <span class="menu-icon">
                                             <i class="las la-credit-card"></i>
                                         </span>
-                                        <span class="menu-title font-medium">Mes produits</span>
+                                        <span class="menu-title font-medium">Mes placements</span>
                                     </a>
                                 </button>
                                 <ul class="submenu-hide submenu">
@@ -240,6 +230,19 @@
                                             <i class="las la-exchange-alt"></i>
                                         </span>
                                         <span class="menu-title font-medium">Historique</span>
+                                    </a>
+                                </button>
+                                <ul class="submenu-hide submenu">
+                                </ul>
+                            </li>
+                            <li class="menu-li">
+                                <button class="menu-btn group bg-n0 dark:!border-n500 dark:!bg-bg4">
+                                    <a href="{{ route('my-statements') }}"
+                                        class="flex items-center justify-center gap-2">
+                                        <span class="menu-icon">
+                                            <i class="las la-file-invoice"></i>
+                                        </span>
+                                        <span class="menu-title font-medium">Mes relevés</span>
                                     </a>
                                 </button>
                                 <ul class="submenu-hide submenu">

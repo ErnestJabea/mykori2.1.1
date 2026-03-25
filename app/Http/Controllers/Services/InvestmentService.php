@@ -95,7 +95,7 @@ class InvestmentService
         public function getFcpPerformance($transaction)
         {
             // Récupérer la dernière VL enregistrée pour ce produit
-            $latestAssetValue = \App\AssetValue::where('product_id', $transaction->product_id)
+            $latestAssetValue = \App\Models\AssetValue::where('product_id', $transaction->product_id)
                                 ->orderBy('created_at', 'desc')
                                 ->first();
 
