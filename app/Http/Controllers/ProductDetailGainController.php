@@ -53,8 +53,8 @@ class ProductDetailGainController extends Controller {
             if ($product->products_category_id == 1) {
                 // Calculer les valeurs actuelles les plus récentes pour les produits FCP
                 $recentAssetValues = AssetValue::where('product_id', $transaction->product_id)
-                    ->where('created_at', '>=', $transaction->date_validation)
-                    ->orderBy('created_at', 'desc')
+                    ->where('date_vl', '>=', $transaction->date_validation)
+                    ->orderBy('date_vl', 'desc')
                     ->take(4)
                     ->get();
 

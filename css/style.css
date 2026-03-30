@@ -1,8 +1,14 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap');
+@font-face {
+    font-family: 'humanst521_btroman';
+    src: url('humanist521bt-webfont.woff2') format('woff2'),
+        url('humanist521bt-webfont.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
 
+}
 
 body {
-    font-family: 'Playfair Display !important';
+    font-family: 'humanst521_btroman !important';
 }
 
 *,
@@ -22,7 +28,7 @@ html {
     -webkit-text-size-adjust: 100%;
     font-feature-settings: normal;
     -webkit-tap-highlight-color: transparent;
-    font-family: 'Playfair Display';
+    font-family: 'humanst521_btroman';
     font-variation-settings: normal;
     line-height: 1.5;
     -moz-tab-size: 4;
@@ -8266,7 +8272,8 @@ div#popup-interet-precomptes,
 
 .ac-modal-overlay.placement-modal .modal-inner {
     width: 80%;
-    margin: o auto;
+    margin: 0 auto;
+    overflow-x: hidden;
 }
 
 .placement-modal button.ac-modal-close-btn {
@@ -8276,9 +8283,9 @@ div#popup-interet-precomptes,
 
 .placement-modal .bb-dashed.mb-6.pb-4.border-b.border-dashed.border-gray-300 {
     background: #531d09;
-    margin-left: -24px;
-    margin-right: -24px;
-    margin-top: -24px;
+    /* margin-left: -24px; */
+    /* margin-right: -24px; */
+    /* margin-top: -24px; */
     padding: 20px;
     color: #fff;
 }
@@ -8305,4 +8312,80 @@ div#popup-interet-precomptes,
 
 .text-green {
     color: green !important;
+}
+
+#historyModal {
+    z-index: 100;
+    background: rgb(11 19 35 / 68%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-inner {
+    max-width: 80%;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: 0;
+}
+
+h3#modalTitle {
+    color: #fff;
+    padding: 20px;
+    font-size: 16px;
+}
+
+.header-modal-statement {
+    background: #531d09;
+}
+
+.close-times {
+    position: relative !important;
+    color: #fff;
+}
+
+div#modalPagination {
+    position: sticky;
+    left: 0;
+    right: 0;
+    padding: 11px 0;
+    background: #fff;
+    border-top: 2px solid #440900;
+    bottom: 0;
+}
+
+.text-marron {
+    color: #440900;
+}
+
+form#create-customer-form input,
+form#create-customer-form select {
+    padding-left: 35px;
+    padding-right: 20px;
+}
+
+form#create-customer-form i {
+    left: 5px;
+}
+
+div#addMenuModal {
+    background: rgb(0 0 0 / 58%);
+}
+
+#addMenuModal .bg-white {
+    width: 80%;
+    margin: auto;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+div#addMenuModal form {
+    padding: 20px;
+}
+
+#addMenuModal .px-8.py-6.border-b.border-n30.flex.justify-between.items-center.bg-n10\/30 {
+    padding: 10px;
+    background: #440900;
+    color: #fff;
+    /* font-size: 14px; */
 }

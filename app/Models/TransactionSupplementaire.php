@@ -23,7 +23,14 @@ class TransactionSupplementaire extends Model
         'vl_buy',
         'nb_part',
         'product_id',
-        'transaction_id'
+        'transaction_id',
+        'is_compliance_validated',
+        'is_backoffice_validated',
+        'is_dg_validated',
+        'compliance_validated_at',
+        'backoffice_validated_at',
+        'dg_validated_at',
+        'date_validation'
     ];
 
     public function transaction()
@@ -34,6 +41,16 @@ class TransactionSupplementaire extends Model
     public function product()
     {
         return $this->belongsTo(Product::class, 'product_id');
+    }
+
+    public function checkValidationStatus()
+    {
+        if ($this->is_compliance_validated && $this->is_backoffice_validated) {
+            $this->status = 'Succès';
+            $this->save();
+            return true;
+        }
+        return false;
     }
 
     public function user()

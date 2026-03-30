@@ -91,102 +91,35 @@
                 </div>
                 <div class=" pb-28">
                     <div class="menu-wrapper">
-                        <!-- Navigation Asset Manager (Roles != 5) -->
-                        @if (Auth::user()->role_id != 5)
-                            <p class="menu-heading">Navigation Asset Manager</p>
-                            <ul class="menu-ul">
-                                <li class="menu-li">
-                                    <button class="menu-btn border-n30 bg-n0 dark:!border-n500 dark:bg-bg4">
-                                        <a href="{{ route('asset-manager') }}"
-                                            class="flex items-center justify-center gap-2">
-                                            <span class="menu-icon">
-                                                <i class="las la-home"></i>
-                                            </span>
-                                            <span class="menu-title font-medium">Tableau de bord</span>
-                                        </a>
-                                    </button>
-                                    <ul class="submenu-hide submenu">
-                                    </ul>
-                                </li>
-                                <li class="menu-li">
-                                    <button class="menu-btn group bg-n0 dark:!border-n500 dark:!bg-bg4">
-                                        <a href="{{ route('customer') }}"
-                                            class="flex items-center justify-center gap-2">
-                                            <span class="menu-icon">
-                                                <i class="las la-piggy-bank"></i>
-                                            </span>
-                                            <span class="menu-title font-medium">Clients</span>
-                                        </a>
-                                    </button>
-                                    <ul class="submenu-hide submenu">
-                                    </ul>
-                                </li>
-                                <li class="menu-li">
-                                    <button class="menu-btn group bg-n0 dark:!border-n500 dark:!bg-bg4">
-                                        <a href="{{ route('asset-manager.create-customer') }}"
-                                            class="flex items-center justify-center gap-2">
-                                            <span class="menu-icon">
-                                                <i class="las la-user-plus text-primary"></i>
-                                            </span>
-                                            <span class="menu-title font-medium">Créer un client</span>
-                                        </a>
-                                    </button>
-                                    <ul class="submenu-hide submenu">
-                                    </ul>
-                                </li>
-                            </ul>
-                        @endif
+                        @php
+                            $sidebarGroups = \App\Services\AccessControlService::getSidebarMenus();
+                        @endphp
 
-                        <!-- Navigation Compliance (Roles 5 or Admin) -->
-                        @if (Auth::user()->role_id == 5 || Auth::user()->role_id == 1)
-                            <p class="menu-heading">Navigation Compliance</p>
+                        @foreach($sidebarGroups as $group)
+                            <p class="menu-heading uppercase text-[10px] font-bold tracking-widest text-n500 mt-6">{{ $group['heading'] }}</p>
                             <ul class="menu-ul">
-                                <li class="menu-li">
-                                    <button class="menu-btn group bg-n0 dark:!border-n500 dark:!bg-bg4">
-                                        <a href="{{ route('compliance.dashboard') }}"
-                                            class="flex items-center justify-center gap-2">
-                                            <span class="menu-icon">
-                                                <i class="las la-shield-alt"></i>
-                                            </span>
-                                            <span class="menu-title font-medium">Tableau de bord</span>
-                                        </a>
-                                    </button>
-                                </li>
-                                <li class="menu-li">
-                                    <button class="menu-btn group bg-n0 dark:!border-n500 dark:!bg-bg4">
-                                        <a href="{{ route('compliance.clients') }}"
-                                            class="flex items-center justify-center gap-2">
-                                            <span class="menu-icon">
-                                                <i class="las la-user-check"></i>
-                                            </span>
-                                            <span class="menu-title font-medium">Audit Clients</span>
-                                        </a>
-                                    </button>
-                                </li>
-                                <li class="menu-li">
-                                    <button class="menu-btn group bg-n0 dark:!border-n500 dark:!bg-bg4">
-                                        <a href="{{ route('compliance.vl-history') }}"
-                                            class="flex items-center justify-center gap-2">
-                                            <span class="menu-icon">
-                                                <i class="las la-history"></i>
-                                            </span>
-                                            <span class="menu-title font-medium">Historique VL</span>
-                                        </a>
-                                    </button>
-                                </li>
+                                @foreach($group['items'] as $item)
+                                    <li class="menu-li">
+                                        <button class="menu-btn transition-all duration-300 {{ request()->routeIs($item['route']) ? 'bg-primary/10 text-primary border-primary' : 'bg-n0 border-n30 hover:border-primary/50' }} dark:bg-bg4 dark:border-n500">
+                                            <a href="{{ route($item['route']) }}"
+                                                class="flex items-center justify-start gap-3 w-full px-4 py-2">
+                                                <span class="menu-icon text-xl">
+                                                    <i class="{{ $item['icon'] }}"></i>
+                                                </span>
+                                                <span class="menu-title font-bold text-sm italic">{{ $item['title'] }}</span>
+                                            </a>
+                                        </button>
+                                    </li>
+                                @endforeach
                             </ul>
-                        @endif
+                        @endforeach
 
-                        <ul class="menu-ul mt-4 border-t border-n30 pt-4">
-                            <li class="menu-li">
-                                <button class="menu-btn group bg-n0 dark:!border-n500 dark:!bg-bg4">
-                                    <a href="{{ route('logout') }}" class="flex items-center justify-center gap-2">
-                                        <span class="menu-icon">
-                                            <i class="las la-sign-out-alt"></i>
-                                        </span>
-                                        <span class="menu-title font-medium">Déconnexion</span>
-                                    </a>
-                                </button>
+                        <ul class="menu-ul mt-8 border-t border-n30 pt-6">
+                            <li class="menu-li text-center">
+                                <a href="{{ route('logout') }}" class="btn-logout flex items-center justify-center gap-2 bg-danger/10 text-danger p-3 rounded-2xl hover:bg-danger hover:text-white transition-all font-black uppercase text-xs tracking-tighter italic">
+                                    <i class="las la-sign-out-alt text-lg"></i>
+                                    Déconnexion
+                                </a>
                             </li>
                         </ul>
                     </div>

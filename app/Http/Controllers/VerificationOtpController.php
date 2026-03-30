@@ -93,15 +93,27 @@ class VerificationOtpController extends Controller
             // Si le code OTP est correct,
             $user->status = 1;
             $user->save();
-            // Code correct, rediriger vers le tableau de bord client
-            if (Auth::user()->role->name == "kam")
+            // Code correct, rediriger vers le tableau de bord correspondant
+            $roleName = Auth::user()->role->name ?? '';
+            $roleId = Auth::user()->role_id;
+
+            if ($roleName == "kam")
                 return redirect()->route('asset-manager');
-            if (Auth::user()->role->name == "user")
+            if ($roleName == "user")
                 return redirect()->route('dashboard');
-            if (Auth::user()->role->name == "admin")
+            if ($roleName == "admin")
                 return redirect()->route('admin');
-            if (Auth::user()->role->name == "compliance")
+            if ($roleId == 8 || $roleName == "admin_frontend")
+                return redirect()->route('admin.front.dashboard');
+            if ($roleName == "compliance")
                 return redirect()->route('compliance.dashboard');
+            if ($roleName == "backoffice" || $roleId == 6)
+                return redirect()->route('backoffice.dashboard');
+            if ($roleName == "director_general" || $roleId == 7)
+                return redirect()->route('dg.dashboard');
+
+            // Par défaut
+            return redirect()->route('dashboard');
         }
 
         return back()->withErrors(['verification_code' => 'Code incorrect.']);

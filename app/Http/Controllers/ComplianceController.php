@@ -22,7 +22,7 @@ class ComplianceController extends Controller
         $this->investmentService = $investmentService;
 
         $this->middleware(function ($request, $next) {
-            if ($request->user() && !in_array($request->user()->role_id, [1, 5])) {
+            if (!\App\Services\AccessControlService::can('view_compliance')) {
                 abort(403, 'Accès réservé au profil Compliance.');
             }
             return $next($request);
@@ -221,5 +221,21 @@ class ComplianceController extends Controller
         };
 
         return response()->stream($callback, 200, $headers);
+    }
+
+    public function statementsHistory()
+    {
+        $batches = \App\Models\StatementBatch::with('user')->orderBy('created_at', 'desc')->paginate(15);
+        return view('front-end.compliance.statements-history', compact('batches'));
+    }
+
+    public function downloadBatchReport($id)
+    {
+        $batch = \App\Models\StatementBatch::findOrFail($id);
+        $path = storage_path('app/public/' . $batch->report_path);
+        if (file_exists($path)) {
+            return response()->download($path);
+        }
+        return back()->with('error', 'Fichier introuvable.');
     }
 }

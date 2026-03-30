@@ -4,6 +4,7 @@ $app = require_once 'bootstrap/app.php';
 $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
 $kernel->bootstrap();
 
-foreach(\TCG\Voyager\Models\Role::all() as $r) {
-    echo $r->id . ": " . $r->display_name . " (" . $r->name . ")\n";
+$columns = DB::select("SHOW COLUMNS FROM financial_movements");
+foreach ($columns as $col) {
+    echo "Field: {$col->Field} | Type: {$col->Type}\n";
 }

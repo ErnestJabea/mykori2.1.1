@@ -25,9 +25,8 @@
                                     <div class="swiper-wrapper">
                                         @foreach ($produits as $product)
                                             @php
-                                                $asset_value = App\AssetValue::where('product_id', $product->id)
-                                                    ->orderBy('created_at', 'desc')
-                                                    ->latest()
+                                                $asset_value = App\Models\AssetValue::where('product_id', $product->id)
+                                                    ->orderBy('date_vl', 'desc')
                                                     ->first();
                                             @endphp
                                             <div class="swiper-slide">

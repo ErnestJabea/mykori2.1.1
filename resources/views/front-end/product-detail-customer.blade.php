@@ -233,7 +233,7 @@
                                 <i class="las la-times"></i>
                             </button>
                             <div class="bb-dashed mb-4 flex items-center justify-between pb-4 lg:mb-6 lg:pb-6">
-                                <h4 class="h4">Acheter {{ $product->title }} - VL : XAF {{ $asset_value->vl }}</h4>
+                                <h4 class="h4">Souscrire {{ $product->title }} - VL : XAF {{ $asset_value->vl }}</h4>
                             </div>
                             <div class="alert alert-success" id="response"></div>
                             <p>Pour <strong>{{ $customer->name }}</strong></p>

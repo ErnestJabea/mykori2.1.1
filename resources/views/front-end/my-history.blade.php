@@ -128,7 +128,7 @@
 
                                             {{-- Libellé --}}
                                             <td class="px-6 py-3.5">
-                                                <p class="font-medium text-sm">{{ $mvt->libelle }}</p>
+                                                <p class="font-medium text-sm">{{ str_replace('Achat', 'Souscription', $mvt->libelle) }}</p>
                                             </td>
 
                                             {{-- Produit --}}

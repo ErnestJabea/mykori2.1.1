@@ -1,0 +1,37 @@
+﻿php : PHP Warning:  Module "mysqli" is 
+already loaded in Unknown on line 0
+Au caractère Ligne:1 : 1
++ php artisan list 2>&1 | Out-File 
+-Encoding UTF8 artisan_error.log
++ ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecifie 
+   d: (PHP Warning:  M...known on line 0  
+  :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeComma 
+   ndError
+ 
+PHP Warning:  Module "pdo_mysql" is 
+already loaded in Unknown on line 0
+PHP Warning:  Module "openssl" is already 
+loaded in Unknown on line 0
+PHP Warning:  Module "curl" is already 
+loaded in Unknown on line 0
+PHP Warning:  Module "fileinfo" is 
+already loaded in Unknown on line 0
+
+Warning: Module "mysqli" is already loaded in Unknown on line 0
+
+Warning: Module "pdo_mysql" is already loaded in Unknown on line 0
+
+Warning: Module "openssl" is already loaded in Unknown on line 0
+
+Warning: Module "curl" is already loaded in Unknown on line 0
+
+Warning: Module "fileinfo" is already loaded in Unknown on line 0
+
+In Application.php line 747:
+                                          
+  Class "Facade\Ignition\IgnitionService  
+  Provider" not found                     
+                                          
+

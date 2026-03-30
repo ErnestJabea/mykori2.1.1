@@ -216,7 +216,7 @@
                                         <span class="menu-icon">
                                             <i class="las la-credit-card"></i>
                                         </span>
-                                        <span class="menu-title font-medium">Mes placements</span>
+                                        <span class="menu-title font-medium">Mes souscriptions</span>
                                     </a>
                                 </button>
                                 <ul class="submenu-hide submenu">

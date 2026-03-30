@@ -143,6 +143,35 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                         </div>
                     </form>
                 </div>
+
+                <div id="popup-remboursement" class="mfp-hide white-popup-block">
+                    <h3>Remboursement des Intérêts</h3>
+                    <hr>
+                    <form action="{{ route('transactions.remboursement-interets') }}" method="POST">
+                        @csrf
+                        <div class="form-group mb-3">
+                            <label>Sélectionner le mandat (PMG)</label>
+                            <select name="transaction_id" class="form-control" required id="remboursement-trans-id">
+                                <option value="">Choisir un contrat</option>
+                                @foreach ($transactionsUsers as $trans)
+                                    @php
+                                        $product = App\Models\Product::find($trans->product_id);
+                                    @endphp
+                                    <option value="{{ $trans->id }}">
+                                        {{ $product->title }} - (Initial: {{ number_format($trans->amount, 0, ',', ' ') }} XAF)
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>Montant du remboursement (XAF)</label>
+                            <input type="number" name="amount" class="form-control" placeholder="Montant à rembourser" required>
+                        </div>
+                        <div class="text-right mt-4">
+                            <button type="submit" class="btn btn-success">Valider le Remboursement</button>
+                        </div>
+                    </form>
+                </div>
             </div>
     </main>
 @endsection
@@ -221,7 +250,36 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                         location.reload();
                     },
                     error: function(xhr) {
-                        $btn.prop('disabled', false).text('Valider le versement');
+                        $btn.prop('disabled', false).text('Confirmer le Rachat');
+                        let msg = xhr.responseJSON ? xhr.responseJSON.message : 'Erreur réseau';
+                        alert('Erreur : ' + msg);
+                    }
+                });
+            });
+
+            $('#popup-remboursement form').on('submit', function(e) {
+                e.preventDefault();
+
+                let $form = $(this);
+                let $btn = $form.find('button[type="submit"]');
+
+                $btn.prop('disabled', true).text('Enregistrement...');
+
+                $.ajax({
+                    url: $form.attr('action'),
+                    method: 'POST',
+                    data: $form.serialize(),
+                    success: function(response) {
+                        $.magnificPopup.close(); // Fermer la modale
+
+                        // Notification (Simple alert ou SweetAlert2)
+                        alert(response.message);
+
+                        // Actualiser les données du tableau si nécessaire
+                        location.reload();
+                    },
+                    error: function(xhr) {
+                        $btn.prop('disabled', false).text('Valider le Remboursement');
                         let msg = xhr.responseJSON ? xhr.responseJSON.message : 'Erreur réseau';
                         alert('Erreur : ' + msg);
                     }

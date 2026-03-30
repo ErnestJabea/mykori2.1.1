@@ -139,9 +139,12 @@
                                             <td class="py-4 px-6">
                                                 <span class="text-sm font-medium">{{ $m->type }}</span>
                                             </td>
+                                            @php
+                                                $isNegative = in_array($m->type, ['rachat_partiel', 'rachat_total', 'precompte_interets', 'paiement_interets', 'remboursement']);
+                                            @endphp
                                             <td
-                                                class="py-4 px-6 text-end font-bold {{ $m->amount >= 0 ? 'text-success' : 'text-danger' }}">
-                                                {{ $m->amount >= 0 ? '+' : '' }}{{ number_format($m->amount, 0, ' ', ' ') }}
+                                                class="py-4 px-6 text-end font-bold {{ $isNegative ? 'text-danger' : 'text-success' }}">
+                                                {{ $isNegative ? '-' : '+' }}{{ number_format(abs($m->amount), 0, ' ', ' ') }}
                                             </td>
                                             <td class="py-4 px-6 text-end font-extrabold text-secondary1">
                                                 {{ number_format($m->capital_after, 0, ' ', ' ') }} XAF</td>

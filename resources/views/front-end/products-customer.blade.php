@@ -6,11 +6,11 @@
             <!-- Header with Customer Name and Add Placement Button -->
             <div class="col-span-12 flex justify-between items-center bg-white dark:bg-bg3 p-6 rounded-2xl shadow-sm border border-n30 mb-4">
                 <div>
-                    <h3 class="h3">PLACEMENTS : {{ strtoupper($customer->name) }}</h3>
-                    <p class="text-sm opacity-70">Sélectionnez un produit ou ajoutez un nouveau placement manuellement</p>
+                    <h3 class="h3">SOUSCRIPTIONS : {{ strtoupper($customer->name) }}</h3>
+                    <p class="text-sm opacity-70">Sélectionnez un produit ou ajoutez une nouvelle souscription manuellement</p>
                 </div>
                 <button class="btn add-placement-btn bg-primary text-white rounded-lg px-6 py-3 hover:bg-primary/90 duration-300 flex items-center gap-2 shadow-md">
-                    <i class="las la-plus-circle text-xl"></i> AJOUTER UN PLACEMENT
+                    <i class="las la-plus-circle text-xl"></i> NOUVELLE SOUSCRIPTION
                 </button>
             </div>
 
@@ -81,7 +81,7 @@
                     <i class="las la-times text-2xl"></i>
                 </button>
                 <div class="bb-dashed mb-6 pb-4 border-b border-dashed border-gray-300">
-                    <h4 class="h4 text-xl font-bold">Nouveau Placement</h4>
+                    <h4 class="h4 text-xl font-bold">Nouvelle Souscription</h4>
                     <p class="text-xs opacity-70 mt-1">Client : <span class="text-primary font-bold">{{ $customer->name }}</span></p>
                 </div>
                 
@@ -130,7 +130,7 @@
 
                         <div class="mt-4">
                             <button type="submit" id="btn-submit-placement" class="btn w-full justify-center bg-primary text-white py-4 rounded-xl hover:bg-primary/90 duration-300 font-bold tracking-wider shadow-lg">
-                                ENREGISTRER LE PLACEMENT
+                                ENREGISTRER LA SOUSCRIPTION
                             </button>
                         </div>
                     </div>
@@ -260,7 +260,7 @@
                     method: 'POST',
                     data: data,
                     success: function(response) {
-                        responseDiv.textContent = "Placement ajouté avec succès !";
+                        responseDiv.textContent = "Souscription ajoutée avec succès !";
                         responseDiv.className = "alert alert-success show mb-4 p-4 rounded-xl bg-success/10 text-success border border-success/20";
                         responseDiv.classList.remove('hidden');
                         setTimeout(() => {
@@ -272,7 +272,7 @@
                         responseDiv.className = "alert alert-danger show mb-4 p-4 rounded-xl bg-red-100 text-red-600 border border-red-200";
                         responseDiv.classList.remove('hidden');
                         btn.disabled = false;
-                        btn.textContent = "ENREGISTRER LE PLACEMENT";
+                        btn.textContent = "ENREGISTRER LA SOUSCRIPTION";
                     }
                 });
             });

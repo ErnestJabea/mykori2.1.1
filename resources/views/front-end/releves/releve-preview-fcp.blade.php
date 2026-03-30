@@ -195,8 +195,10 @@ $logoBase64 = file_exists($logoPath) ? 'data:image/png;base64,'.base64_encode(fi
             <div class="product-item">
                 <div class="title-product">{{ $p->nom }}</div>
                 <div class="details-product">
-                    <div><strong>Nombre de parts :</strong> {{ number_format($p->parts, 4) }}</div>
-                    <div><strong>VL au {{ $date_releve }} :</strong> XAF {{ number_format($p->vl_n, 2) }}</div>
+                    <div><strong>Date de souscription :</strong> {{ \Carbon\Carbon::parse($p->souscription)->format('d/m/Y') }}</div>
+                    <div><strong>Nombre de parts :</strong> {{ number_format($p->parts, 2, ',', ' ') }}</div>
+                    <div><strong>VL à la souscription :</strong> XAF {{ number_format($p->vl_souscription, 2, ',', ' ') }}</div>
+                    <div><strong>VL au {{ $date_releve }} :</strong> XAF {{ number_format($p->vl_n, 2, ',', ' ') }}</div>
                     <div><strong>Valorisation :</strong> XAF {{ number_format($p->valo_n, 0, ' ', ' ') }}</div>
                     <div><strong>Plus-value :</strong> XAF {{ number_format($p->gain_total, 0, ' ', ' ') }}</div>
                 </div>
@@ -225,9 +227,9 @@ $logoBase64 = file_exists($logoPath) ? 'data:image/png;base64,'.base64_encode(fi
                     @foreach ($produits as $p)
                     <tr>
                         <td>{{ $p->nom }}</td>
-                        <td class="text-center">{{ number_format($p->parts, 4) }}</td>
-                        <td class="text-center">{{ number_format($p->vl_n1, 2) }}</td>
-                        <td class="text-center">{{ number_format($p->vl_n, 2) }}</td>
+                        <td class="text-center">{{ number_format($p->parts, 2, ',', ' ') }}</td>
+                        <td class="text-center">{{ number_format($p->vl_n1, 2, ',', ' ') }}</td>
+                        <td class="text-center">{{ number_format($p->vl_n, 2, ',', ' ') }}</td>
                         <td class="text-right" style="color: {{ $p->gain_mensuel >= 0 ? 'green' : 'red' }}">
                             {{ $p->gain_mensuel >= 0 ? '+' : '' }}{{ number_format($p->gain_mensuel, 0, ' ', ' ') }}
                         </td>

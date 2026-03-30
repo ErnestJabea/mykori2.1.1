@@ -1,4 +1,4 @@
-@extends('front-end/app/app-home', ['Transaction enregistrée avec succès', 'body_class' => 'vertical bg-secondary1/5 dark:bg-bg3 hidden success-page'])
+@extends('front-end/app/app-home', ['title' => 'Transaction enregistrée avec succès', 'body_class' => 'vertical bg-secondary1/5 dark:bg-bg3 success-page'])
 
 
 

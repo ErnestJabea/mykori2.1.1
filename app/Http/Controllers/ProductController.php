@@ -387,11 +387,11 @@ class ProductController extends Controller
                 'valorisation_portefeuille_fcp' => $p['valuation'], // Legacy
                 'nb_part' => $p['total_parts'],
                 'pru' => $p['pru'], // Nouveau: Prix de Revient Unitaire
-                'vl_achat' => $p['current_vl'], // Temporaire ou vl_buy initial? 
+                'vl_achat' => $p['first_vl'], // Utiliser la VL initiale effective
                 'vl_actuel' => $p['current_vl'],
                 'slug' => $p['slug'],
-                'date_echeance' => Carbon::now()->addYears(10)->toDateString(), // FCP n'a pas d'échéance fixe en général
-                'souscription' => Carbon::now()->toDateString(), // Devrait être récupéré des mouvements
+                'date_echeance' => Carbon::now()->addYears(10)->toDateString(),
+                'souscription' => $p['first_subscription_date'] ?? Carbon::now()->toDateString()
             ];
         }, $fcpPortfolio);
 
@@ -485,6 +485,7 @@ class ProductController extends Controller
     {
         // 1. On part du dernier mouvement réel enregistré en base
         $lastMovement = DB::table('financial_movements')
+            ->where('transaction_id', $transactionId)
             ->where('date_operation', '<=', $currentDate)
             ->orderBy('date_operation', 'desc')
             ->first();
@@ -629,74 +630,79 @@ class ProductController extends Controller
 
     public function indexAssetManager()
     {
-        // 1. Récupération des clients avec leurs transactions déjà chargées (Optimisation N+1)
         $customers = User::where('role_id', '2')
-            ->with(['transactions' => function($q) {
-                $q->where('status', 'Succès');
-            }, 'transactionssupplementaires' => function($q) {
-                $q->where('status', 'Succès');
-            }])
+            ->with(['transactions' => fn($q) => $q->where('status', 'Succès'), 
+                    'transactionssupplementaires' => fn($q) => $q->where('status', 'Succès')])
             ->orderBy('created_at', 'desc')
             ->get();
-
         $currentDate = Carbon::now();
         $globalAum = 0;
+        $globalTotalInvested = 0;
         $activeClientsCount = 0;
         $totalFcpAum = 0;
         $totalPmgAum = 0;
 
-        // 2. Calcul des statistiques par client (plus rapide grâce au pre-loading)
         foreach ($customers as $customer) {
+            $customerTotalInvesti = 0;
             $totalValorization = 0;
-            $hasActiveProducts = false;
-
-            // Fusion des transactions pour traitement unique
             $allTrans = $customer->transactions->concat($customer->transactionssupplementaires);
 
             foreach ($allTrans as $trans) {
                 $dateEcheance = Carbon::parse($trans->date_echeance);
                 if ($dateEcheance->gte($currentDate)) {
-                    $hasActiveProducts = true;
+                    $principalInitial = (float)($trans->amount);
+                    $globalTotalInvested += $principalInitial;
+                    $customerTotalInvesti += $principalInitial;
+
                     if ($trans->product->products_category_id == 2) {
-                        $valo = $this->calculatePMGValorization($trans, $currentDate);
+                        $valo = (float)$this->calculatePMGValorization($trans, $currentDate);
                         $totalValorization += $valo;
                         $totalPmgAum += $valo;
                     } else {
                         $fcpData = $this->getFcpPortfolioValue($customer->id, $trans->product_id, $currentDate);
-                        $totalValorization += $fcpData['valorisation'];
-                        $totalFcpAum += $fcpData['valorisation'];
+                        $totalValorization += (float)$fcpData['valorisation'];
+                        $totalFcpAum += (float)$fcpData['valorisation'];
                     }
                 }
             }
 
-            // Attachement des données calculées
+            if ($customerTotalInvesti > 0) {
+                $activeClientsCount++;
+            }
+            $globalAum += $totalValorization;
+
             $customer->portefeuille_total = $totalValorization;
             $customer->product_count = $allTrans->count();
-            
-            if ($hasActiveProducts) {
-                $activeClientsCount++;
-                $globalAum += $totalValorization;
-            }
         }
 
-        // 3. Récupération des données pour les graphiques (FCP VL evolution)
-        $fcpProducts = Product::where('products_category_id', 1)->get();
-        foreach ($fcpProducts as $product) {
-            $product->vl_history = \App\Models\AssetValue::where('product_id', $product->id)
+        $globalTotalInterests = max(0, $globalAum - $globalTotalInvested);
+        $fcpProductsList = Product::where('products_category_id', 1)
+            ->where('status', 1)
+            ->get();
+        foreach ($fcpProductsList as $product) {
+            $product->vl_history = AssetValue::where('product_id', $product->id)
                 ->orderBy('created_at', 'asc')
-                ->take(12) // Les 12 dernières VL
+                ->take(12)
                 ->get();
         }
-
-        return view('front-end.asset-manager', compact('customers', 'globalAum', 'activeClientsCount', 'fcpProducts', 'totalFcpAum', 'totalPmgAum'));
+        return view('front-end.asset-manager', [
+            'customers' => $customers,
+            'globalAum' => $globalAum,
+            'globalTotalInvested' => $globalTotalInvested,
+            'globalTotalInterests' => $globalTotalInterests,
+            'activeClientsCount' => $activeClientsCount,
+            'fcpProducts' => $fcpProductsList,
+            'totalFcpAum' => $totalFcpAum,
+            'totalPmgAum' => $totalPmgAum
+        ]);
     }
 
     /**
      * Calcule la valorisation PMG en intercalant mouvements réels et anniversaires théoriques
      *
      */
-public function calculatePMGValorization($trans, $refDate)
-{
+    public function calculatePMGValorization($trans, $refDate)
+    {
     $targetDate = Carbon::parse($refDate)->min(Carbon::parse($trans->date_echeance));
     $rate = (float)$trans->vl_buy / 100;
 
@@ -833,7 +839,7 @@ public function calculatePMGValorization($trans, $refDate)
             foreach ($allTrans as $trans) {
                 $dateEcheance = Carbon::parse($trans->date_echeance);
                 if ($dateEcheance->gte($currentDate)) {
-                    $principalInitial = (float)($trans->montant_initiale ?? $trans->amount);
+                    $principalInitial = (float)($trans->amount);
                     $globalTotalInvesti += $principalInitial;
                     $customerTotalInvesti += $principalInitial;
 
@@ -871,7 +877,7 @@ public function calculatePMGValorization($trans, $refDate)
 
                 if ($dateEcheance->gte($currentDate)) {
                     $activeContractsCount++;
-                    $principalInitial = (float)($trans->montant_initiale ?? $trans->amount);
+                    $principalInitial = (float)($trans->amount);
                     $totalInvestiActive += $principalInitial;
 
                     if ($trans->product->products_category_id == 2) {
@@ -942,7 +948,7 @@ public function calculatePMGValorization($trans, $refDate)
         $products = Product::orderBy('created_at', 'desc')->where('nb_action', '>', 0)->get();
         foreach ($products as $product) {
             if ($product->products_category_id == 1) { // FCP
-                $lastVl = AssetValue::where('product_id', $product->id)->orderBy('created_at', 'desc')->first();
+                $lastVl = AssetValue::where('product_id', $product->id)->orderBy('date_vl', 'desc')->first();
                 $product->recent_vl = $lastVl ? $lastVl->vl : $product->vl;
             } else {
                 $product->recent_vl = $product->vl;
@@ -950,6 +956,22 @@ public function calculatePMGValorization($trans, $refDate)
         }
 
         $categories = \App\Models\ProductsCategory::all();
+
+        $availableMonthsRaw = $this->getAvailableStatementMonths($customer->id);
+        
+        // Pagination manuelle
+        $request = request();
+        $page = $request->get('page', 1);
+        $perPage = 5;
+        $offset = ($page * $perPage) - $perPage;
+        
+        $availableMonths = new \Illuminate\Pagination\LengthAwarePaginator(
+            array_slice($availableMonthsRaw, $offset, $perPage, true),
+            count($availableMonthsRaw),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
 
         return view('front-end.customer-detail', [
             'customer' => $customer,
@@ -960,7 +982,8 @@ public function calculatePMGValorization($trans, $refDate)
             'total_interets' => $totalInterets,
             'total_investi' => $totalInvestiActive,
             'products' => $products,
-            'categories' => $categories
+            'categories' => $categories,
+            'availableMonths' => $availableMonths
         ]);
     }
     
@@ -1235,32 +1258,29 @@ public function calculatePMGValorization($trans, $refDate)
         }
     }
 
-    public function myStatements()
+    public function getAvailableStatementMonths($userId)
     {
-        $user = Auth::user();
         Carbon::setLocale('fr');
         
-        // Trouver la date de la première transaction pour savoir à quand remonter
-        $firstTransaction = Transaction::where('user_id', $user->id)
+        $firstTransaction = Transaction::where('user_id', $userId)
             ->where('status', 'Succès')
             ->orderBy('date_validation', 'asc')
             ->first();
             
         if (!$firstTransaction) {
-            return view('front-end.my-statements', ['months' => []]);
+            return [];
         }
         
         $start = Carbon::parse($firstTransaction->date_validation)->startOfMonth();
-        $end = Carbon::now()->subMonth()->startOfMonth(); // On ne propose que les mois clos
+        $end = Carbon::now()->startOfMonth();
         
-        $months = [];
+        $monthsList = [];
         $current = $start->copy();
         
         while ($current->lte($end)) {
-            // Vérifier si l'utilisateur avait des produits actifs ce mois-là
             $dateFinMois = $current->copy()->endOfMonth();
             
-            $has_pmg = Transaction::where('user_id', $user->id)
+            $has_pmg = Transaction::where('user_id', $userId)
                 ->where('status', 'Succès')
                 ->where('date_validation', '<=', $dateFinMois->toDateString())
                 ->where('date_echeance', '>=', $current->toDateString())
@@ -1268,7 +1288,7 @@ public function calculatePMGValorization($trans, $refDate)
                     $q->where('products_category_id', 2);
                 })->exists();
 
-            $has_fcp = Transaction::where('user_id', $user->id)
+            $has_fcp = Transaction::where('user_id', $userId)
                 ->where('status', 'Succès')
                 ->where('date_validation', '<=', $dateFinMois->toDateString())
                 ->whereHas('product', function($q) {
@@ -1276,7 +1296,7 @@ public function calculatePMGValorization($trans, $refDate)
                 })->exists();
                 
             if (!$has_fcp) {
-                $has_fcp = TransactionSupplementaire::where('user_id', $user->id)
+                $has_fcp = TransactionSupplementaire::where('user_id', $userId)
                     ->where('status', 'Succès')
                     ->where('created_at', '<=', $dateFinMois->toDateTimeString())
                     ->whereHas('product', function($q) {
@@ -1285,7 +1305,7 @@ public function calculatePMGValorization($trans, $refDate)
             }
 
             if ($has_pmg || $has_fcp) {
-                $months[] = [
+                $monthsList[] = [
                     'year' => $current->year,
                     'month' => $current->month,
                     'label' => ucfirst($current->translatedFormat('F Y')),
@@ -1296,16 +1316,104 @@ public function calculatePMGValorization($trans, $refDate)
             $current->addMonth();
         }
         
-        $months = array_reverse($months);
+        return array_reverse($monthsList);
+    }
+
+    public function myStatements(Request $request)
+    {
+        $monthsRaw = $this->getAvailableStatementMonths(Auth::id());
+        
+        $page = $request->get('page', 1);
+        $perPage = 10;
+        $offset = ($page * $perPage) - $perPage;
+        
+        $months = new \Illuminate\Pagination\LengthAwarePaginator(
+            array_slice($monthsRaw, $offset, $perPage, true),
+            count($monthsRaw),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
         
         return view('front-end.my-statements', compact('months'));
     }
 
-    public function downloadMonthlyStatement($year, $month, $type)
+    public function getAvailableMonthsApi($customer_id)
     {
-        $client = Auth::user();
+        if (Auth::user()->role_id == 2) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+        $months = $this->getAvailableStatementMonths($customer_id);
+        return response()->json($months);
+    }
+
+    /**
+     * Retourne la VL d'un produit à une date donnée (ou la plus proche précédente)
+     */
+    public function getVlAtDate($productId, $date)
+    {
+        $vlRecord = AssetValue::where('product_id', $productId)
+            ->where('date_vl', '<=', $date)
+            ->orderBy('date_vl', 'desc')
+            ->first();
+
+        if (!$vlRecord) {
+            // Si aucune VL n'existe avant cette date, on prend la plus ancienne disponible
+            $vlRecord = AssetValue::where('product_id', $productId)
+                ->orderBy('date_vl', 'asc')
+                ->first();
+        }
+
+        $vl = $vlRecord ? (float)$vlRecord->vl : (float)Product::find($productId)->vl;
+
+        return response()->json([
+            'vl' => $vl,
+            'date_vl' => $vlRecord ? $vlRecord->date_vl : null,
+            'status' => 'success'
+        ]);
+    }
+
+    public function getUserStats($userId)
+    {
+        $productsWithGains = $this->getProductsWithGainsUser($userId);
+        
+        $portefeuille_fcp = 0;
+        $portefeuille_pmg = 0;
+        $total_interets = 0;
+        $total_invested = 0;
+
+        foreach ($productsWithGains as $p) {
+            $total_invested += (float)($p['capital_investi'] ?? 0);
+            if ($p['type_product'] == 1) { // FCP
+                $portefeuille_fcp += (float)$p['portfolio_valeur'];
+                $total_interets += (float)($p['total_gains_fcp'] ?? 0);
+            } else { // PMG
+                $portefeuille_pmg += (float)$p['portfolio_valeur'];
+                $total_interets += (float)($p['interets_generes'] ?? 0);
+            }
+        }
+
+        $portefeuille_total = $portefeuille_fcp + $portefeuille_pmg;
+
+        return [
+            'total_invested' => $total_invested,
+            'total_portfolio' => $portefeuille_total,
+            'total_gains' => $total_interets,
+            'fcp_portfolio' => $portefeuille_fcp,
+            'pmg_portfolio' => $portefeuille_pmg
+        ];
+    }
+
+    public function downloadMonthlyStatement($year, $month, $type, $targetUserId = null)
+    {
+        // Si targetUserId est fourni, on vérifie que l'utilisateur connecté n'est pas un simple client
+        if ($targetUserId && Auth::user()->role_id != 2) {
+            $client = User::findOrFail($targetUserId);
+        } else {
+            $client = Auth::user();
+        }
         $dateN = Carbon::create($year, $month, 1)->endOfMonth();
-        $dateN1 = $dateN->copy()->subMonth()->endOfMonth();
+        $dateN1 = Carbon::create($year, $month, 1)->subMonth()->endOfMonth(); // Dernier jour du mois précédent
         Carbon::setLocale('fr');
         $periodeLabel = ucfirst($dateN->translatedFormat('F Y'));
 
@@ -1417,13 +1525,24 @@ public function calculatePMGValorization($trans, $refDate)
                     ->where('date_operation', '<=', $dateN1->toDateString())
                     ->sum('nb_parts_change');
 
-                $vlN = AssetValue::where('product_id', $productId)->where('date_vl', '<=', $dateN->toDateString())->orderBy('date_vl', 'desc')->value('vl') ?? $product->vl;
-                $vlN1 = AssetValue::where('product_id', $productId)->where('date_vl', '<=', $dateN1->toDateString())->orderBy('date_vl', 'desc')->value('vl') ?? $product->vl;
+                $vlN = AssetValue::where('product_id', $productId)->where('date_vl', '<=', $dateN->toDateString())->orderBy('date_vl', 'desc')->value('vl') ?? (float)$product->vl;
+                $vlN1 = AssetValue::where('product_id', $productId)->where('date_vl', '<=', $dateN1->toDateString())->orderBy('date_vl', 'desc')->value('vl') ?? (float)$product->vl;
+
+                // On récupère aussi la VL d'achat initiale effective
+                $firstMvt = DB::table('fcp_movements')
+                    ->where('user_id', $client->id)
+                    ->where('product_id', $productId)
+                    ->orderBy('date_operation', 'asc')
+                    ->orderBy('id', 'asc')
+                    ->first();
+                
+                $vlSouscription = $firstMvt ? (float)$firstMvt->vl_applied : (float)$product->vl;
 
                 $valoN = $partsN * $vlN;
                 $valoN1 = $partsN1 * $vlN1;
-                $status = $service->getCurrentStatus($client->id, $productId);
-                $investi = $status['invested'];
+                
+                // Capital investi réel (Parts * VL d'achat)
+                $investi = $partsN * $vlSouscription;
 
                 $totalValoN += $valoN;
                 $totalValoN1 += $valoN1;
@@ -1432,14 +1551,15 @@ public function calculatePMGValorization($trans, $refDate)
                     'nom' => $product->title,
                     'parts' => $partsN,
                     'parts_n1' => $partsN1,
-                    'vl_n' => $vlN,
-                    'vl_n1' => $vlN1,
-                    'valo_n' => $valoN,
-                    'valo_n1' => $valoN1,
+                    'vl_n' => (float)$vlN,
+                    'vl_n1' => (float)$vlN1,
+                    'vl_souscription' => $vlSouscription,
+                    'valo_n' => (float)$valoN,
+                    'valo_n1' => (float)$valoN1,
                     'gain_mensuel' => $valoN - $valoN1,
                     'gain_total' => $valoN - $investi,
                     'investi' => $investi,
-                    'souscription' => DB::table('fcp_movements')->where('user_id', $client->id)->where('product_id', $productId)->min('date_operation')
+                    'souscription' => $firstMvt ? $firstMvt->date_operation : null
                 ];
             }
 
@@ -1455,5 +1575,130 @@ public function calculatePMGValorization($trans, $refDate)
 
             return $pdf->download("releve_fcp_{$year}_{$month}.pdf");
         }
+    }
+
+    public function downloadHistoryStatement($targetUserId = null)
+    {
+        if ($targetUserId && Auth::user()->role_id != 2) {
+            $user = User::findOrFail($targetUserId);
+        } else {
+            $user = Auth::user();
+        }
+        $userId = $user->id;
+
+        $transactions = Transaction::where('user_id', $userId)
+            ->where('status', 'Succès')
+            ->orderBy('date_validation', 'desc')
+            ->get();
+
+        $txIds = $transactions->pluck('id');
+        $financialMovements = DB::table('financial_movements')
+            ->whereIn('transaction_id', $txIds)
+            ->orderBy('date_operation', 'desc')
+            ->get()
+            ->map(function ($m) use ($transactions) {
+                $tx = $transactions->firstWhere('id', $m->transaction_id);
+                $productTitle = $tx
+                    ? optional(Product::find($tx->product_id))->title
+                    : 'PMG';
+                return (object)[
+                    'date'    => $m->date_operation,
+                    'libelle' => strtoupper(str_replace('_', ' ', $m->type)),
+                    'ref'     => $tx->ref ?? '-',
+                    'produit' => $productTitle,
+                    'montant' => (float)$m->amount,
+                    'sens'    => in_array($m->type, ['rachat_partiel', 'rachat_total', 'precompte_interets', 'paiement_interets', 'remboursement']) ? 'sortant' : 'entrant',
+                ];
+            });
+
+        $fcpMovements = DB::table('fcp_movements')
+            ->where('user_id', $userId)
+            ->orderBy('date_operation', 'desc')
+            ->get()
+            ->map(function ($m) {
+                $productTitle = optional(Product::find($m->product_id))->title ?? 'FCP';
+                $isIncoming   = $m->nb_parts_change >= 0;
+                return (object)[
+                    'date'    => $m->date_operation,
+                    'libelle' => $isIncoming ? 'SOUSCRIPTION FCP' : 'RACHAT FCP',
+                    'ref'     => $m->reference ?? '-',
+                    'produit' => $productTitle,
+                    'montant' => (float)$m->montant,
+                    'sens'    => $isIncoming ? 'entrant' : 'sortant',
+                ];
+            });
+
+        $officialTx = $transactions->map(function ($tx) {
+            $productTitle = optional(Product::find($tx->product_id))->title ?? 'Produit';
+            return (object)[
+                'date'    => $tx->date_validation ?? $tx->created_at,
+                'libelle' => $tx->title ?? 'SOUSCRIPTION',
+                'ref'     => $tx->ref,
+                'produit' => $productTitle,
+                'montant' => (float)$tx->amount,
+                'sens'    => 'entrant',
+            ];
+        });
+
+        $allMovements = collect()
+            ->merge($officialTx)
+            ->merge($financialMovements)
+            ->merge($fcpMovements)
+            ->sortByDesc('date')
+            ->values();
+
+        $pdf = Pdf::loadView('front-end.releves.historique-transactions-pdf', [
+            'user'         => $user,
+            'allMovements' => $allMovements,
+            'generated_at' => Carbon::now()->format('d/m/Y H:i'),
+        ]);
+        $pdf->setPaper('A4', 'portrait');
+
+        return $pdf->download('historique_transactions_' . Carbon::now()->format('Y-m-d') . '.pdf');
+    }
+
+    /**
+     * API pour récupérer l'historique d'évolution d'un produit FCP pour un utilisateur spécifique
+     */
+    public function getFcpEvolutionApi($productId, $customerId)
+    {
+        $user = \App\Models\User::findOrFail($customerId);
+        $product = \App\Models\Product::findOrFail($productId);
+
+        // 1. Récupérer tous les mouvements de parts pour ce couple (User, Produit)
+        $movements = \Illuminate\Support\Facades\DB::table('fcp_movements')
+            ->where('user_id', $customerId)
+            ->where('product_id', $productId)
+            ->orderBy('date_operation', 'asc')
+            ->get();
+
+        if ($movements->isEmpty()) {
+            return response()->json(['history' => [], 'message' => 'Aucun mouvement trouvé']);
+        }
+
+        // 2. Récupérer l'évolution des VL depuis le tout premier mouvement
+        $firstDate = $movements->first()->date_operation;
+        $assetValues = \Illuminate\Support\Facades\DB::table('asset_values')
+            ->where('product_id', $productId)
+            ->where('date_vl', '>=', $firstDate)
+            ->orderBy('date_vl', 'asc')
+            ->get();
+
+        // 3. Reconstruire la chronologie des valorisations
+        $history = $assetValues->map(function ($vl) use ($movements) {
+            $partsToDate = $movements->where('date_operation', '<=', $vl->date_vl)->sum('nb_parts_change');
+            return [
+                'date' => \Carbon\Carbon::parse($vl->date_vl)->format('d/m/Y'),
+                'vl' => (float)$vl->vl,
+                'parts' => (float)$partsToDate,
+                'valuation' => round((float)$partsToDate * (float)$vl->vl, 0)
+            ];
+        });
+
+        return response()->json([
+            'product_name' => $product->title,
+            'customer_name' => $user->name,
+            'history' => $history
+        ]);
     }
 }

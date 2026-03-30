@@ -94,8 +94,11 @@ $logoBase64 = file_exists($logoPath) ? 'data:image/png;base64,'.base64_encode(fi
                         {{ strtoupper(str_replace('_', ' ', $m->type)) }}
                     @endif
                 </td>
-                <td class="text-right {{ $m->amount > 0 ? 'positive' : 'negative' }}">
-                    {{ $m->amount > 0 ? '+' : '' }}{{ number_format($m->amount, 0, ',', ' ') }}
+                @php
+                    $isNegative = in_array($m->type, ['rachat_partiel', 'rachat_total', 'precompte_interets', 'paiement_interets', 'remboursement']);
+                @endphp
+                <td class="text-right {{ $isNegative ? 'negative' : 'positive' }}">
+                    {{ $isNegative ? '-' : '+' }}{{ number_format(abs($m->amount), 0, ',', ' ') }}
                 </td>
                 <td class="text-right">
                     {{ number_format($m->capital_after, 0, ',', ' ') }}

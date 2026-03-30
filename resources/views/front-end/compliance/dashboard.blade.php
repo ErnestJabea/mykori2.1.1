@@ -89,6 +89,7 @@
                                     <th class="py-4 px-6 text-start">Client</th>
                                     <th class="py-4 px-6 text-start">Produit</th>
                                     <th class="py-4 px-6 text-end">Montant</th>
+                                    <th class="py-4 px-6 text-center">Workflow</th>
                                     <th class="py-4 px-6 text-center">Action</th>
                                 </tr>
                             </thead>
@@ -113,6 +114,21 @@
                                             {{ number_format($transaction->amount, 0, ' ', ' ') }} XAF
                                         </td>
                                         <td class="py-4 px-6 text-center">
+                                            <div class="flex gap-1 items-center justify-center">
+                                                <div class="w-5 h-5 rounded-full flex items-center justify-center text-[8px] {{ $transaction->is_compliance_validated ? 'bg-success text-white' : 'bg-gray-200 text-gray-400' }}" title="Compliance">C</div>
+                                                <div class="w-5 h-5 rounded-full flex items-center justify-center text-[8px] {{ $transaction->is_backoffice_validated ? 'bg-primary text-white' : 'bg-gray-200 text-gray-400' }}" title="Backoffice">B</div>
+                                                <div class="w-5 h-5 rounded-full flex items-center justify-center text-[8px] {{ $transaction->is_dg_validated ? 'bg-secondary text-white' : 'bg-gray-200 text-gray-400' }}" title="DG">D</div>
+                                            </div>
+                                        </td>
+                                        <td class="py-4 px-6 text-center flex items-center justify-center gap-2">
+                                            @if(!$transaction->is_compliance_validated)
+                                            <form action="{{ route('backoffice.validate-transaction', [$transaction->id, 'main']) }}" method="POST" class="inline">
+                                                @csrf
+                                                <button type="submit" class="p-1.5 bg-success/10 text-success rounded-lg hover:bg-success hover:text-white transition-all shadow-sm" title="Valider Compliance">
+                                                    <i class="las la-check"></i>
+                                                </button>
+                                            </form>
+                                            @endif
                                             <a href="{{ route('compliance.client-history', $transaction->user_id) }}"
                                                 class="text-primary hover:text-secondary1 text-lg"
                                                 title="Historique Client">
@@ -143,6 +159,7 @@
                                     <th class="py-4 px-6 text-start">Client</th>
                                     <th class="py-4 px-6 text-start">Produit</th>
                                     <th class="py-4 px-6 text-end">Montant</th>
+                                    <th class="py-4 px-6 text-center">Workflow</th>
                                     <th class="py-4 px-6 text-center">Action</th>
                                 </tr>
                             </thead>
@@ -161,6 +178,21 @@
                                             {{ number_format($supp->amount, 0, ' ', ' ') }} XAF
                                         </td>
                                         <td class="py-4 px-6 text-center">
+                                            <div class="flex gap-1 items-center justify-center">
+                                                <div class="w-5 h-5 rounded-full flex items-center justify-center text-[8px] {{ $supp->is_compliance_validated ? 'bg-success text-white' : 'bg-gray-200 text-gray-400' }}" title="Compliance">C</div>
+                                                <div class="w-5 h-5 rounded-full flex items-center justify-center text-[8px] {{ $supp->is_backoffice_validated ? 'bg-primary text-white' : 'bg-gray-200 text-gray-400' }}" title="Backoffice">B</div>
+                                                <div class="w-5 h-5 rounded-full flex items-center justify-center text-[8px] {{ $supp->is_dg_validated ? 'bg-secondary text-white' : 'bg-gray-200 text-gray-400' }}" title="DG">D</div>
+                                            </div>
+                                        </td>
+                                        <td class="py-4 px-6 text-center flex items-center justify-center gap-2">
+                                            @if(!$supp->is_compliance_validated)
+                                            <form action="{{ route('backoffice.validate-transaction', [$supp->id, 'supp']) }}" method="POST" class="inline">
+                                                @csrf
+                                                <button type="submit" class="p-1.5 bg-success/10 text-success rounded-lg hover:bg-success hover:text-white transition-all shadow-sm" title="Valider Compliance">
+                                                    <i class="las la-check"></i>
+                                                </button>
+                                            </form>
+                                            @endif
                                             <a href="{{ route('compliance.client-history', $supp->user_id) }}"
                                                 class="text-secondary1 hover:text-primary text-lg">
                                                 <i class="las la-history"></i>

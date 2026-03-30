@@ -89,7 +89,7 @@
         <div class="info-box" style="margin-left: 3%;">
             <strong style="color:#531d09">DÉTAILS DU PRODUIT</strong><br>
             Fonds : {{ $transaction->product->title }}<br>
-            Nombre de parts : {{ number_format($perf['nb_parts'], 4, ',', ' ') }}<br>
+            Nombre de parts : {{ number_format($perf['nb_parts'], 2, ',', ' ') }}<br>
             Dernière VL : {{ number_format($perf['current_vl'], 2, ',', ' ') }} XAF ({{ Carbon::parse($perf['date_vl'])->format('d/m/Y') }})
         </div>
     </div>
@@ -114,9 +114,9 @@
                 <td>{{ strtoupper(str_replace('_', ' ', $m->type)) }}</td>
                 <td class="text-right">{{ number_format($m->vl_applied, 2, ',', ' ') }}</td>
                 <td class="text-right {{ $m->nb_parts_change >= 0 ? 'positive' : 'negative' }}">
-                    {{ $m->nb_parts_change >= 0 ? '+' : '' }}{{ number_format($m->nb_parts_change, 4, ',', ' ') }}
+                    {{ $m->nb_parts_change >= 0 ? '+' : '' }}{{ number_format($m->nb_parts_change, 2, ',', ' ') }}
                 </td>
-                <td class="text-right bold">{{ number_format($m->nb_parts_total, 4, ',', ' ') }}</td>
+                <td class="text-right bold">{{ number_format($m->nb_parts_total, 2, ',', ' ') }}</td>
                 <td class="text-right">{{ number_format($m->amount_xaf, 0, ',', ' ') }}</td>
             </tr>
             @endforeach

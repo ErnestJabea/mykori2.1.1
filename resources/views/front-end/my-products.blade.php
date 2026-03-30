@@ -4,7 +4,7 @@
     <main class="main-content has-sidebar">
         <div class="grid grid-cols-12 gap-4 xxl:gap-6">
             <div class="col-span-12 flex flex-col gap-4 md:col-span-7 lg:col-span-8 xxl:gap-6">
-                <h3>MES PLACEMENTS</h3>
+                <h3>MES SOUSCRIPTIONS</h3>
             </div>
             <div class="col-span-12 md:col-span-5 lg:col-span-4">
                 <p style="text-align: right">{{ date('d-m-Y') }}</p>
@@ -13,7 +13,7 @@
                 <!-- Statistics -->
                 <div class="content-my-products-wrapper flex">
                     <div class="content-bloc-list-produit">
-                        <h3>MES PLACEMENTS PMG</h3>
+                        <h3>MES SOUSCRIPTIONS PMG</h3>
                         @foreach ($productsWithGains as $my_product)
                             @if ($my_product['type_product'] == 2)
                                 <div class="item-product">
@@ -57,7 +57,7 @@
                                             </div>
                                         </div>
                                         <div class="content-label-info">
-                                            <div class="label-">Portofolio :</div>
+                                            <div class="label-">Portefeuille :</div>
                                             <div class="response-">XAF
                                                 {{ number_format($my_product['portfolio_valeur'], 0, ' ', ' ') }}
                                             </div>
@@ -81,7 +81,7 @@
 
 
                     <div class="content-bloc-list-produit">
-                        <h3>MES PLACEMENTS FCP</h3>
+                        <h3>MES SOUSCRIPTIONS FCP</h3>
                         @foreach ($productsWithGains as $my_product)
                             @if ($my_product['type_product'] == 1)
                                 <div class="item-product">

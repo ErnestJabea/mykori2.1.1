@@ -54,7 +54,7 @@ class AssetManagerController extends Controller
     public function index()
     {
 
-        $customers = User::where('2');
+        $customers = User::where('role_id', '2')->get();
 
         return view('front-end.asset-manager')->with('customers', $customers);
     }
@@ -116,13 +116,28 @@ class AssetManagerController extends Controller
         // On récupère aussi tous les produits pour la modale d'ajout
         $products = Product::all()->map(function($p) {
             $latestVl = \App\Models\AssetValue::where('product_id', $p->id)
-                ->orderBy('created_at', 'desc')
+                ->orderBy('date_vl', 'desc')
                 ->first();
             $p->recent_vl = $latestVl ? (float)$latestVl->vl : (float)$p->vl;
             return $p;
         });
         
         $categories = \App\Models\ProductsCategory::all();
+
+        $availableMonthsRaw = $this->productControllerImport->getAvailableStatementMonths($customer->id);
+        
+        // Pagination manuelle
+        $page = $request->get('page', 1);
+        $perPage = 5;
+        $offset = ($page * $perPage) - $perPage;
+        
+        $availableMonths = new \Illuminate\Pagination\LengthAwarePaginator(
+            array_slice($availableMonthsRaw, $offset, $perPage, true),
+            count($availableMonthsRaw),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
 
         return view('front-end.customer-detail', compact(
             'customer', 
@@ -133,11 +148,34 @@ class AssetManagerController extends Controller
             'portefeuille_fcp',
             'total_interets',
             'products',
-            'categories'
+            'categories',
+            'availableMonths'
         ));
     }
 
+    public function customersStatementsMenu(Request $request)
+    {
+        $search = $request->input('search');
+        $query = User::where('role_id', '2')->orderBy('name', 'asc');
 
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'LIKE', "%{$search}%")
+                  ->orWhere('email', 'LIKE', "%{$search}%");
+            });
+        }
+
+        $customers = $query->paginate(20);
+
+        foreach ($customers as $customer) {
+            $stats = $this->productControllerImport->getUserStats($customer->id);
+            $customer->total_capital = $stats['total_invested'];
+            $customer->total_interets = $stats['total_gains'];
+            $customer->portefeuille_total = $stats['total_portfolio'];
+        }
+
+        return view('front-end.customer-statements', compact('customers', 'search'));
+    }
 
     public function countUserProducts($userId)
     {
@@ -200,8 +238,8 @@ class AssetManagerController extends Controller
                 if ($product->products_category_id == 1) {
                     // Calculer la valeur actuelle la plus récente pour les produits FCP
                     $latestAssetValue = AssetValue::where('product_id', $transaction->product_id)
-                        ->where('created_at', '>=', $transaction->date_validation)
-                        ->orderBy('created_at', 'desc')
+                        ->where('date_vl', '>=', $transaction->date_validation)
+                        ->orderBy('date_vl', 'desc')
                         ->first();
 
 
@@ -217,8 +255,8 @@ class AssetManagerController extends Controller
 
                     // Calculer la différence hebdomadaire si nécessaire
                     $assetValues = AssetValue::where('product_id', $transaction->product_id)
-                        ->where('created_at', '>=', $transaction->date_validation)
-                        ->orderBy('created_at', 'desc')
+                        ->where('date_vl', '>=', $transaction->date_validation)
+                        ->orderBy('date_vl', 'desc')
                         ->take(2)
                         ->get();
 

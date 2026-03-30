@@ -12,6 +12,9 @@ use App\Http\Controllers\ChangePasswordController;
 use App\Http\Controllers\ListeClientReleveController;
 use App\Http\Controllers\MovementController;
 use App\Http\Controllers\ComplianceController;
+use App\Http\Controllers\BackofficeController;
+use App\Http\Controllers\DirectorGeneralController;
+use App\Http\Controllers\AdminFrontendController;
 use App\Services\InvestmentService;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
@@ -298,6 +301,9 @@ Route::middleware('auth')->group(function () {
             // Route pour les intérêts précomptés
             Route::post('/precompte', [MovementController::class, 'verserPrecompte'])->name('transactions.precompte');
 
+            // Route pour le remboursement des intérêts
+            Route::post('/remboursement-interets', [MovementController::class, 'rembourserInterets'])->name('transactions.remboursement-interets');
+
             Route::get('/sync-anniversaries', [ProductController::class, 'syncAnniversaryMovements']);
 
             Route::get('/products/client/{customer}', function ($customer) {
@@ -370,8 +376,13 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [ComplianceController::class, 'dashboard'])->name('compliance.dashboard');
         Route::get('/clients', [ComplianceController::class, 'clients'])->name('compliance.clients');
         Route::get('/clients/{client}/history', [ComplianceController::class, 'clientHistory'])->name('compliance.client-history');
+        Route::get('/clients/{client}/history', [ComplianceController::class, 'clientHistory'])->name('compliance.history');
         Route::get('/vl-history', [ComplianceController::class, 'vlHistory'])->name('compliance.vl-history');
         Route::get('/export', [ComplianceController::class, 'export'])->name('compliance.export');
+        
+        // Rapports d'Envoi (Historique)
+        Route::get('/statements/history', [ComplianceController::class, 'statementsHistory'])->name('compliance.statements-history');
+        Route::get('/statements/download/{id}', [ComplianceController::class, 'downloadBatchReport'])->name('compliance.statements-download');
     });
 
 
@@ -406,7 +417,7 @@ Route::middleware('auth')->group(function () {
                     'ref'         => $tx->ref ?? '-',
                     'produit'     => $productTitle,
                     'montant'     => (float)$m->amount,
-                    'sens'        => (float)$m->amount >= 0 ? 'entrant' : 'sortant',
+                    'sens'        => in_array($m->type, ['rachat_partiel', 'rachat_total', 'precompte_interets', 'paiement_interets', 'remboursement']) ? 'sortant' : 'entrant',
                     'source'      => 'pmg',
                     'id'          => $m->id,
                 ];
@@ -460,84 +471,8 @@ Route::middleware('auth')->group(function () {
     })->name('my-history');
 
     // PDF download de l'historique de transactions
-    Route::get('/my-history/download-pdf', function () {
-        $userId = Auth::user()->id;
-        $user   = Auth::user();
-
-        $transactions = App\Models\Transaction::where('user_id', $userId)
-            ->where('status', 'Succès')
-            ->orderBy('date_validation', 'desc')
-            ->get();
-
-        $txIds = $transactions->pluck('id');
-        $financialMovements = DB::table('financial_movements')
-            ->whereIn('transaction_id', $txIds)
-            ->orderBy('date_operation', 'desc')
-            ->get()
-            ->map(function ($m) use ($transactions) {
-                $tx = $transactions->firstWhere('id', $m->transaction_id);
-                $productTitle = $tx
-                    ? optional(App\Models\Product::find($tx->product_id))->title
-                    : 'PMG';
-                return (object)[
-                    'date'    => $m->date_operation,
-                    'libelle' => strtoupper(str_replace('_', ' ', $m->type)),
-                    'ref'     => $tx->ref ?? '-',
-                    'produit' => $productTitle,
-                    'montant' => (float)$m->amount,
-                    'sens'    => (float)$m->amount >= 0 ? 'entrant' : 'sortant',
-                ];
-            });
-
-        $fcpMovements = DB::table('fcp_movements')
-            ->where('user_id', $userId)
-            ->orderBy('date_operation', 'desc')
-            ->get()
-            ->map(function ($m) {
-                $productTitle = optional(App\Models\Product::find($m->product_id))->title ?? 'FCP';
-                $isIncoming   = $m->nb_parts_change >= 0;
-                return (object)[
-                    'date'    => $m->date_operation,
-                    'libelle' => $isIncoming ? 'SOUSCRIPTION FCP' : 'RACHAT FCP',
-                    'ref'     => $m->reference ?? '-',
-                    'produit' => $productTitle,
-                    'montant' => (float)$m->montant,
-                    'sens'    => $isIncoming ? 'entrant' : 'sortant',
-                ];
-            });
-
-        $officialTx = $transactions->map(function ($tx) {
-            $productTitle = optional(App\Models\Product::find($tx->product_id))->title ?? 'Produit';
-            return (object)[
-                'date'    => $tx->date_validation ?? $tx->created_at,
-                'libelle' => $tx->title ?? 'SOUSCRIPTION',
-                'ref'     => $tx->ref,
-                'produit' => $productTitle,
-                'montant' => (float)$tx->amount,
-                'sens'    => 'entrant',
-            ];
-        });
-
-        $allMovements = collect()
-            ->merge($officialTx)
-            ->merge($financialMovements)
-            ->merge($fcpMovements)
-            ->sortByDesc('date')
-            ->values();
-
-        $logoPath = public_path('images/logo-with-text.png');
-        $logoBase64 = base64_encode(file_get_contents($logoPath));
-        $logoSrc = 'data:image/png;base64,' . $logoBase64;
-
-        $pdf = Pdf::loadView('front-end.releves.historique-transactions-pdf', [
-            'user'         => $user,
-            'allMovements' => $allMovements,
-            'generated_at' => Carbon::now()->format('d/m/Y H:i'),
-        ]);
-        $pdf->setPaper('A4', 'portrait');
-
-        return $pdf->download('historique_transactions_' . Carbon::now()->format('Y-m-d') . '.pdf');
-    })->name('my-history-pdf');
+    Route::get('/my-history/download-pdf', [ProductController::class, 'downloadHistoryStatement'])->name('my-history-pdf');
+    Route::get('/customer-history/download-pdf/{customer_id}', [ProductController::class, 'downloadHistoryStatement'])->name('customer-history.pdf');
 
 
     Route::get('/my-history/{reference}', function ($reference) {
@@ -596,6 +531,11 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/my-statements', [ProductController::class, 'myStatements'])->name('my-statements');
     Route::get('/my-statement/monthly/{year}/{month}/{type}', [ProductController::class, 'downloadMonthlyStatement'])->name('my-statement.monthly');
+    Route::get('/customer-statements', [AssetManagerController::class, 'customersStatementsMenu'])->name('customer.statements');
+    Route::get('/api/customer-available-months/{customer_id}', [ProductController::class, 'getAvailableMonthsApi'])->name('api.customer-months');
+    Route::get('/api/product-vl/{product_id}/{date}', [ProductController::class, 'getVlAtDate'])->name('api.product-vl');
+    Route::get('/api/fcp-evolution/{product_id}/{customer_id}', [ProductController::class, 'getFcpEvolutionApi'])->name('api.fcp-evolution');
+    Route::get('/customer-statement/monthly/{year}/{month}/{type}/{customer_id}', [ProductController::class, 'downloadMonthlyStatement'])->name('customer-statement.monthly');
 
     Route::get('/my-statement/{id}', [ProductController::class, 'downloadStatement'])->name('my-statement');
 
@@ -618,7 +558,39 @@ Route::group(['prefix' => 'admin'], function () {
     Voyager::routes();
 
 });
-/* 
+
+// --- Dossier Backoffice ---
+Route::prefix('backoffice')->middleware(['auth'])->group(function () {
+    Route::get('/dashboard', [BackofficeController::class, 'dashboard'])->name('backoffice.dashboard');
+    Route::get('/transactions', [BackofficeController::class, 'transactions'])->name('backoffice.transactions');
+    Route::post('/validate-transaction/{id}/{type}', [BackofficeController::class, 'validateTransaction'])->name('backoffice.validate-transaction');
+});
+
+// --- Dossier Direction Générale ---
+Route::prefix('dg')->middleware(['auth'])->group(function () {
+    Route::get('/dashboard', [DirectorGeneralController::class, 'dashboard'])->name('dg.dashboard');
+    
+    // Rapports d'Envoi (Historique DG)
+    Route::get('/statements/history', [DirectorGeneralController::class, 'statementsHistory'])->name('dg.statements-history');
+    Route::get('/statements/download/{id}', [DirectorGeneralController::class, 'downloadBatchReport'])->name('dg.statements-download');
+});
+
+// --- Administration Frontend ---
+Route::prefix('admin-front')->middleware(['auth'])->group(function () {
+    Route::get('/dashboard', [\App\Http\Controllers\AdminFrontendController::class, 'dashboard'])->name('admin.front.dashboard');
+    Route::get('/users', [\App\Http\Controllers\AdminFrontendController::class, 'users'])->name('admin.front.users');
+    Route::post('/users/{user}/role', [\App\Http\Controllers\AdminFrontendController::class, 'updateUserRole'])->name('admin.front.update-role');
+    Route::get('/logs', [\App\Http\Controllers\AdminFrontendController::class, 'activityLogs'])->name('admin.front.logs');
+    Route::get('/logs/export', [\App\Http\Controllers\AdminFrontendController::class, 'exportLogs'])->name('admin.front.export-logs');
+    
+    // Gestion des Menus
+    Route::get('/menus', [\App\Http\Controllers\AdminFrontendController::class, 'menus'])->name('admin.front.menus');
+    Route::post('/menus', [\App\Http\Controllers\AdminFrontendController::class, 'storeMenu'])->name('admin.front.menus.store');
+    Route::post('/menus/{menu}', [\App\Http\Controllers\AdminFrontendController::class, 'updateMenu'])->name('admin.front.menus.update');
+    Route::delete('/menus/{menu}', [\App\Http\Controllers\AdminFrontendController::class, 'deleteMenu'])->name('admin.front.menus.delete');
+});
+
+/*
 Route::fallback(function () {
     return view('errors.404');
 });

@@ -71,6 +71,9 @@
                                 </tbody>
                             </table>
                         </div>
+                        <div class="mt-8">
+                            {{ $months->links('partials.pagination') }}
+                        </div>
                     @else
                         <div class="flex flex-col items-center justify-center py-20 text-center">
                             <div class="mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-n30 dark:bg-bg3">

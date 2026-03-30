@@ -83,11 +83,13 @@ class InvestmentService
 
         $currentVl = $latestAssetValue ? (float)$latestAssetValue->vl : (float)$transaction->vl_buy;
 
-        // Le nombre de parts est fixe depuis la souscription (sauf rachat/versement)
         $nbParts = (float)$transaction->nb_part;
+        $vlAchat = (float)$transaction->vl_buy; // VL effective à la souscription
+
+        // On ajuste le capital investi pour qu'il soit cohérent mathématiquement (Parts * VL d'achat)
+        $montantInvesti = $nbParts * $vlAchat; 
 
         $valuationActuelle = $nbParts * $currentVl;
-        $montantInvesti = (float)$transaction->amount;
         $plusValue = $valuationActuelle - $montantInvesti;
 
         return [
@@ -101,14 +103,48 @@ class InvestmentService
     }
 
 
+    public function recordPmgMovement($transaction, $type = 'souscription_initiale')
+    {
+        $dateOp = $transaction->date_validation ?? ($transaction->created_at ?? now());
+        
+        // On récupère le dernier mouvement pour calculer le capital après
+        $lastMovement = FinancialMovement::where('transaction_id', $transaction->id)
+            ->orderBy('date_operation', 'desc')
+            ->orderBy('id', 'desc')
+            ->first();
+
+        $capitalBefore = $lastMovement ? $lastMovement->capital_after : 0;
+        $amount = (float) $transaction->amount;
+
+        return FinancialMovement::create([
+            'transaction_id' => $transaction->id,
+            'type'           => $type,
+            'amount'         => $amount,
+            'capital_before' => $capitalBefore,
+            'capital_after'  => $capitalBefore + $amount,
+            'date_operation' => $dateOp,
+            'interest_rate_at_moment' => $transaction->vl_buy,
+            'comment'        => $type == 'souscription_initiale' ? "Investissement initial PMG" : "Versement complémentaire PMG"
+        ]);
+    }
+
     public function recordFcpMovement($transaction, $type = 'souscription')
     {
-        // On récupère la VL actuelle (du dernier vendredi)
-        $latestVl = \App\Models\AssetValue::where('product_id', $transaction->product_id)
+        $dateOp = $transaction->date_validation ?? ($transaction->created_at ?? now());
+
+        // On récupère la VL en vigueur strictement avant ou à la date d'opération
+        // (Pour s'assurer du calcul correct au moment T)
+        $historicalVl = \App\Models\AssetValue::where('product_id', $transaction->product_id)
+            ->where('date_vl', '<', $dateOp) // On cherche AVANT la date pour un point d'entrée net
             ->orderBy('date_vl', 'desc')
             ->first();
 
-        $vl = $latestVl ? (float)$latestVl->vl : (float)$transaction->vl_buy;
+        // On utilise la VL historique, ou alors celle à l'achat, ou le défaut produit
+        $vl = $historicalVl ? (float)$historicalVl->vl : (float)($transaction->vl_buy ?: 0);
+        if ($vl <= 0) {
+            $product = \App\Models\Product::find($transaction->product_id);
+            $vl = (float)($product->vl ?? 100);
+        }
 
         // Calcul précis des parts
         $nbParts = (float)$transaction->nb_part > 0 ? (float)$transaction->nb_part : (float)$transaction->amount / $vl;
@@ -116,14 +152,14 @@ class InvestmentService
         return DB::table('fcp_movements')->insert([
             'transaction_id' => $transaction->id,
             'user_id'        => $transaction->user_id,
-            'product_id'     => $transaction->product_id, // Ajout du product_id manquant
+            'product_id'     => $transaction->product_id,
             'type'           => $type,
             'amount_xaf'     => $transaction->amount,
             'vl_applied'     => $vl,
             'nb_parts_change' => $nbParts,
             'nb_parts_total' => $this->getCurrentParts($transaction->user_id, $transaction->product_id) + $nbParts,
-            'date_operation' => $transaction->date_validation ?? now(),
-            'comment'        => "Validation de parts FCP via " . $transaction->payment_mode
+            'date_operation' => $dateOp,
+            'comment'        => "Validation de parts FCP (Valorisation à date)"
         ]);
     }
 
@@ -334,15 +370,16 @@ class InvestmentService
             $stats = $this->getCurrentStatus($userId, $productId);
 
             $latestVlEntry = \App\Models\AssetValue::where('product_id', $productId)
-                ->orderBy('created_at', 'desc')
+                ->orderBy('date_vl', 'desc')
                 ->first();
 
-            $currentVl = $latestVlEntry ? (float)$latestVlEntry->vl : 0;
+            // S'il n'y a pas encore d'historique de VL, on utilise la VL par défaut du produit
+            $currentVl = $latestVlEntry ? (float)$latestVlEntry->vl : (float)($product->vl ?? 100);
             
-            // Récupérer l'avant-dernière VL pour la performance hebdo
+            // Récupérer la VL précédente (pour l'évolution hebdo)
             $previousVlEntry = \App\Models\AssetValue::where('product_id', $productId)
-                ->where('id', '!=', $latestVlEntry ? $latestVlEntry->id : 0)
-                ->orderBy('created_at', 'desc')
+                ->where('date_vl', '<', $latestVlEntry ? $latestVlEntry->date_vl : now())
+                ->orderBy('date_vl', 'desc')
                 ->first();
             $prevVl = $previousVlEntry ? (float)$previousVlEntry->vl : $currentVl;
 
@@ -351,6 +388,14 @@ class InvestmentService
             $gainTotal = $valuation - $invested;
             $gainHebdo = $stats['parts'] * ($currentVl - $prevVl);
             $pru = $stats['parts'] > 0 ? $invested / $stats['parts'] : 0;
+
+            $firstMovement = DB::table('fcp_movements')
+                ->join('transactions', 'fcp_movements.transaction_id', '=', 'transactions.id')
+                ->where('fcp_movements.user_id', $userId)
+                ->where('fcp_movements.product_id', $productId)
+                ->orderBy('transactions.date_validation', 'asc')
+                ->select('fcp_movements.*', 'transactions.date_validation as official_date')
+                ->first();
 
             $portfolio[] = [
                 'product_id' => $product->id,
@@ -365,6 +410,8 @@ class InvestmentService
                 'total_gain' => $gainTotal,
                 'weekly_gain' => $gainHebdo,
                 'performance' => $invested > 0 ? ($gainTotal / $invested) * 100 : 0,
+                'first_subscription_date' => $firstMovement ? $firstMovement->official_date : null,
+                'first_vl' => $firstMovement ? $firstMovement->vl_applied : 0,
             ];
         }
 
@@ -386,10 +433,12 @@ class InvestmentService
 
         foreach ($movements as $m) {
             $parts += (float)$m->nb_parts_change;
+            $valuationAtEvent = (float)$m->nb_parts_change * (float)$m->vl_applied;
+
             if (in_array($m->type, ['souscription', 'versement_libre'])) {
-                $invested += (float)$m->amount_xaf;
-            } elseif (in_array($m->type, ['rachat_partiel', 'rachat_total'])) {
-                $invested -= abs((float)$m->amount_xaf);
+                $invested += $valuationAtEvent;
+            } elseif (in_array($m->type, ['rachat_partiel', 'rachat_total', 'rachat'])) {
+                $invested -= abs($valuationAtEvent);
             }
         }
 
@@ -407,7 +456,7 @@ class InvestmentService
         // On récupère les transactions de type FCP validées
         $transactions = \App\Models\Transaction::where('status', 'Succès')
             ->whereHas('product', function($query) {
-                $query->where('products_category_id', 1);
+                $query->where('products_category_id', 1); // FCP
             })->get();
 
         $count = 0;
@@ -423,7 +472,11 @@ class InvestmentService
         }
 
         // Transactions supplémentaires (versements libres)
-        $supps = \App\Models\TransactionSupplementaire::where('status', 'Succès')->get();
+        $supps = \App\Models\TransactionSupplementaire::where('status', 'Succès')
+            ->whereHas('product', function($query) {
+                $query->where('products_category_id', 1);
+            })->get();
+
         foreach ($supps as $trans) {
              $exists = DB::table('fcp_movements')
                 ->where('transaction_id', $trans->id)

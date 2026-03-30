@@ -14,6 +14,11 @@ class Product extends Model
         return $this->hasMany(Transaction::class, 'product_id');
     }
 
+    public function transactionssupplementaires()
+    {
+        return $this->hasMany(TransactionSupplementaire::class, 'product_id');
+    }
+
     public function scopeTypeTwo($query)
     {
         return $query->where('products_category_id', 1);

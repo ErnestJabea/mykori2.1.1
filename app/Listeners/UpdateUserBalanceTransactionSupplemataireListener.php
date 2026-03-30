@@ -36,6 +36,9 @@ class UpdateUserBalanceTransactionSupplemataireListener
                     } else {
                         $newBalancePmg = max(0, $user->solde_pmg + $amount);
                         $user->update(['solde_pmg' => $newBalancePmg]);
+                        
+                        // Enregistrement du mouvement PMG (VERSEMENT LIBRE / AJOUT)
+                        (new InvestmentService())->recordPmgMovement($transaction, 'versement_libre');
                     }
 
                     $transaction->update(['date_validation' => $event->date_transaction]);

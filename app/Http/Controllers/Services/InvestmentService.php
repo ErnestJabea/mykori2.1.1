@@ -39,7 +39,7 @@ class InvestmentService
     public function syncExistingTransactions()
         {
             // Récupérer toutes les transactions "Succès" qui n'ont pas encore de mouvement initial
-            $transactions = \App\Transaction::where('status', 'Succès')->get();
+            $transactions = \App\Models\Transaction::where('status', 'Succès')->get();
 
             foreach ($transactions as $transaction) {
                 $exists = FinancialMovement::where('transaction_id', $transaction->id)

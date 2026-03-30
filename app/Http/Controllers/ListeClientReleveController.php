@@ -192,8 +192,8 @@ public function previewFcp(int $clientId)
     $client = User::findOrFail($clientId);
     $service = new \App\Services\InvestmentService();
     
-    $dateN  = Carbon::now()->subMonth()->endOfMonth(); // 31/01/2026
-    $dateN1 = Carbon::now()->subMonths(2)->endOfMonth(); // 31/12/2025 
+    $dateN  = Carbon::now()->subMonth()->endOfMonth(); // Fin du mois dernier
+    $dateN1 = Carbon::now()->subMonths(2)->endOfMonth(); // Fin du mois d'avant
 
     // Récupération des IDs des produits FCP possédés par le client
     $productIds = DB::table('fcp_movements')
@@ -253,6 +253,7 @@ public function previewFcp(int $clientId)
             'parts_n1' => $partsN1,
             'vl_n' => $vlN,
             'vl_n1' => $vlN1,
+            'vl_souscription' => \DB::table('fcp_movements')->where('user_id', $client->id)->where('product_id', $productId)->min('vl_applied') ?? $product->vl,
             'valo_n' => $valoN,
             'valo_n1' => $valoN1,
             'gain_mensuel' => $valoN - $valoN1,
@@ -369,10 +370,19 @@ public function sendSelected(Request $request)
             }
         }
 
-        // 📊 Génération du rapport de synthèse (CSV format Excel-friendly)
         if (!empty($reportData)) {
             $reportPath = $this->genererRapportSynthese($reportData);
             
+            // ✅ Enregistrement en base pour Compliance/DG
+            \App\Models\StatementBatch::create([
+                'user_id' => auth()->id() ?? 1,
+                'periode' => $periode,
+                'client_count' => count($clientIds),
+                'success_count' => collect($reportData)->where('Statut', 'Succès')->count(),
+                'error_count' => collect($reportData)->where('Statut', 'Erreur')->count(),
+                'report_path' => str_replace(storage_path('app/public/'), '', $reportPath)
+            ]);
+
             // Envoi du rapport à l'admin
             Mail::raw("Synthèse de l'envoi manuel des relevés du " . now()->format('d/m/Y H:i') . ". Veuillez trouver le rapport Excel ci-joint.", function($message) use ($reportPath) {
                 $message->to('admin@koriassetmanagement.com')
@@ -581,6 +591,7 @@ private function genererPdfFcp(int $clientId): string
             'parts_n1' => $partsN1,
             'vl_n' => $vlN,
             'vl_n1' => $vlN1,
+            'vl_souscription' => \DB::table('fcp_movements')->where('user_id', $client->id)->where('product_id', $productId)->min('vl_applied') ?? $product->vl,
             'valo_n' => $valoN,
             'valo_n1' => $valoN1,
             'gain_mensuel' => $valoN - $valoN1,

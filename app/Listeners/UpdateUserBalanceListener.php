@@ -76,6 +76,9 @@ class UpdateUserBalanceListener
                         DB::table('users')
                             ->where('id', $userById)
                             ->update(['solde_pmg' => $newBalance_]);
+
+                        // Enregistrement du mouvement PMG (MANDAT)
+                        (new \App\Services\InvestmentService())->recordPmgMovement($transaction, 'souscription_initiale');
                     }
 
                     DB::table('transactions')

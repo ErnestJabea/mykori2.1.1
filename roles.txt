@@ -1,0 +1,50 @@
+array (
+  0 => 
+  (object) array(
+     'id' => 1,
+     'name' => 'admin',
+     'display_name' => 'Administrator',
+  ),
+  1 => 
+  (object) array(
+     'id' => 2,
+     'name' => 'user',
+     'display_name' => 'Normal User',
+  ),
+  2 => 
+  (object) array(
+     'id' => 3,
+     'name' => 'ASSET MANAGER',
+     'display_name' => 'ASSET MANAGER',
+  ),
+  3 => 
+  (object) array(
+     'id' => 4,
+     'name' => 'kam',
+     'display_name' => 'kam',
+  ),
+  4 => 
+  (object) array(
+     'id' => 5,
+     'name' => 'compliance',
+     'display_name' => 'Contrôle et Conformité',
+  ),
+  5 => 
+  (object) array(
+     'id' => 6,
+     'name' => 'backoffice',
+     'display_name' => 'Backoffice',
+  ),
+  6 => 
+  (object) array(
+     'id' => 7,
+     'name' => 'director_general',
+     'display_name' => 'Directeur Général',
+  ),
+  7 => 
+  (object) array(
+     'id' => 8,
+     'name' => 'admin_frontend',
+     'display_name' => 'Admin Frontend',
+  ),
+)

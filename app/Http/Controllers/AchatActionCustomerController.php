@@ -36,7 +36,7 @@ class AchatActionCustomerController extends Controller
         }
 
         // Pour FCP, on peut utiliser le taux inséré ou la dernière VL
-        $last_vl_record = AssetValue::where('product_id', $product)->orderBy('created_at', 'desc')->first();
+        $last_vl_record = AssetValue::where('product_id', $product)->orderBy('date_vl', 'desc')->first();
         $vl_val = $taux_insere ?: ($last_vl_record ? $last_vl_record->vl : $name_product->vl);
         $current_user = User::where('id', $customer)->first();
 
@@ -88,6 +88,16 @@ class AchatActionCustomerController extends Controller
         }
 
         $current_user->save();
+
+        // Logging l'activité
+        $targetTrans = $new_transaction ?? ($transaction ?? null);
+        if ($targetTrans) {
+            \App\Models\UserActivityLog::log(
+                "Nouvelle Souscription", 
+                $targetTrans, 
+                "Nouvelle souscription enregistrée pour " . $targetTrans->user->name . " (Réf: " . $targetTrans->ref . ")"
+            );
+        }
 
         return response()->json(['message' => 'Données enregistrées avec succès']);
     }

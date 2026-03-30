@@ -26,7 +26,7 @@
                     @endif
 
                     <form action="{{ route('asset-manager.store-customer') }}" method="POST"
-                        class="grid grid-cols-12 gap-6">
+                        class="grid grid-cols-12 gap-6" id="create-customer-form">
                         @csrf
 
                         <div class="col-span-12 lg:col-span-4">

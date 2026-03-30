@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
-use App\Transaction;
+use App\Models\Transaction;
 use App\Models\FinancialMovement;
 
 class MovementController extends Controller
@@ -25,7 +25,6 @@ class MovementController extends Controller
         // Insertion du mouvement de précompte
         DB::table('financial_movements')->insert([
             'transaction_id' => $transaction->id,
-            'user_id'        => $transaction->user_id,
             'date_operation' => $request->date_operation ?? now(),
             'type'           => 'precompte_interets', // Valeur ENUM exacte
             'amount'         => $amountToPay,
@@ -89,7 +88,6 @@ class MovementController extends Controller
         // 3. Insertion SQL
         DB::table('financial_movements')->insert([
             'transaction_id' => $transaction->id,
-            'user_id'        => $request->user_id,
             'date_operation' => $request->date_operation . ' ' . date('H:i:s'),
             'type'           => $type,
             'amount'         => $amount,
@@ -126,7 +124,6 @@ class MovementController extends Controller
 
             FinancialMovement::create([
                 'transaction_id' => $transaction->id,
-                'user_id' => $transaction->user_id,
                 'type' => 'rachat_partiel',
                 'amount' => $request->amount_brut,
                 'capital_before' => $capitalAvant,
@@ -137,7 +134,6 @@ class MovementController extends Controller
             DB::commit();
             FinancialMovement::create([
                 'transaction_id' => $transaction->id,
-                'user_id' => $transaction->user_id,
                 'type' => 'frais_gestion',
                 'amount' => $request->amount_frais,
                 'capital_before' => $capitalAvant,
@@ -214,5 +210,101 @@ class MovementController extends Controller
         }
 
         return back()->with('success', 'L\'opération sur les intérêts a été enregistrée.');
+    }
+
+    /**
+     * Rembourse les intérêts gagnés par le client
+     */
+    public function rembourserInterets(Request $request)
+    {
+        $request->validate([
+            'transaction_id' => 'required|exists:transactions,id',
+            'amount' => 'required|numeric|min:1',
+        ]);
+
+        $trans = Transaction::findOrFail($request->transaction_id);
+        $amountToRefund = (float)$request->amount;
+        $currentDate = Carbon::now();
+
+        // 1. Calcul des intérêts gagnés à ce jour
+        $valoTotale = $this->calculatePMGValorizationForRefund($trans, $currentDate);
+        $capitalActuel = (float)DB::table('financial_movements')
+            ->where('transaction_id', $trans->id)
+            ->orderBy('date_operation', 'desc')
+            ->value('capital_after') ?? (float)$trans->amount;
+
+        $interetsDisponibles = max(0, $valoTotale - $capitalActuel);
+
+        // 2. Vérification du solde d'intérêts
+        if ($amountToRefund > $interetsDisponibles) {
+            return response()->json([
+                'message' => "Montant insuffisant. Intérêts disponibles : " . number_format($interetsDisponibles, 0, ',', ' ') . " XAF"
+            ], 422);
+        }
+
+        // 3. Enregistrement du mouvement de remboursement
+        DB::table('financial_movements')->insert([
+            'transaction_id' => $trans->id,
+            'date_operation' => now(),
+            'type'           => 'paiement_interets', // On utilise le type existant pour la compatibilité
+            'amount'         => $amountToRefund,
+            'capital_before' => $capitalActuel,
+            'capital_after'  => $capitalActuel, // Le capital de base ne change pas, on ne retire que les intérêts
+            'comments'       => "Remboursement d'intérêts versés au client : " . number_format($amountToRefund, 0) . " XAF",
+            'created_at'     => now(),
+            'updated_at'     => now()
+        ]);
+
+        return response()->json([
+            'message' => "Remboursement de " . number_format($amountToRefund, 0, ',', ' ') . " XAF effectué avec succès."
+        ]);
+    }
+
+    /**
+     * Version locale simplifiée pour le contrôleur de mouvements
+     */
+    private function calculatePMGValorizationForRefund($trans, $refDate)
+    {
+        $targetDate = Carbon::parse($refDate)->min(Carbon::parse($trans->date_echeance));
+        $rate = (float)$trans->vl_buy / 100;
+
+        $lastMovement = DB::table('financial_movements')
+            ->where('transaction_id', $trans->id)
+            ->whereIn('type', ['capitalisation_interets', 'rachat_partiel'])
+            ->where('date_operation', '<=', $targetDate->toDateString())
+            ->orderBy('date_operation', 'desc')
+            ->first();
+
+        $baseCapital = $lastMovement ? (float)$lastMovement->capital_after : (float)$trans->amount;
+        $startDate = $lastMovement ? Carbon::parse($lastMovement->date_operation) : Carbon::parse($trans->date_validation);
+
+        $totalInterest = 0;
+        if ($targetDate->gt($startDate)) {
+            $nextMonth = $startDate->copy()->addMonthNoOverflow()->startOfMonth();
+
+            if ($targetDate->lt($nextMonth)) {
+                $totalInterest = ($baseCapital * $rate * $startDate->diffInDays($targetDate)) / 360;
+            } else {
+                $totalInterest = ($baseCapital * $rate * $startDate->diffInDays($startDate->copy()->endOfMonth())) / 360;
+                $fullMonths = $nextMonth->diffInMonths($targetDate->copy()->addDay());
+                $totalInterest += ($baseCapital * ($rate / 12)) * $fullMonths;
+                $lastMonthStart = $nextMonth->copy()->addMonths($fullMonths);
+                if ($lastMonthStart->lt($targetDate)) {
+                    $totalInterest += ($baseCapital * $rate * $lastMonthStart->diffInDays($targetDate)) / 360;
+                }
+            }
+        }
+
+        $precompte = DB::table('financial_movements')
+            ->where('transaction_id', $trans->id)
+            ->where('type', 'precompte_interets')
+            ->sum('amount') ?? 0;
+
+        $paiementsAnterieurs = DB::table('financial_movements')
+            ->where('transaction_id', $trans->id)
+            ->where('type', 'paiement_interets')
+            ->sum('amount') ?? 0;
+
+        return round(($baseCapital - $precompte - $paiementsAnterieurs) + $totalInterest, 0);
     }
 }

@@ -6,20 +6,26 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
 
 @section('content')
     <main class="main-content has-sidebar">
-        <div class="grid grid-cols-12 gap-4 xxl:gap-6">
-            <div class="col-span-12 flex flex-col gap-4 md:col-span-7 lg:col-span-8 xxl:gap-6">
+        <div class="grid grid-cols-12 gap-4 xxl:gap-6 items-center">
+            <div class="col-span-12 md:col-span-4 lg:col-span-5">
                 <p><a href="{{ route('customer') }}" style="font-size:15px; color: #ebb009">
                         < Retour</a>
                 </p>
                 <h3>CLIENTS / {{ $customer->name }}</h3>
             </div>
-            <div class="col-span-12 md:col-span-5 lg:col-span-4">
-                <p style="text-align: right">{{ date('d-m-Y') }}</p>
-                <div class="content-right">
-                    <button class="btn buy">
-                        <a href="{{ route('transactions-client', ['customer' => $customer->id]) }}">TRANSACTIONS</a>
-                    </button>
-                    <button class="btn add-placement-btn buy" style="background-color: #ebb009; color:white">
+
+            <div class="col-span-12 md:col-span-8 lg:col-span-7">
+                <div class="flex flex-wrap justify-end gap-3">
+                    <a href="{{ route('customer-history.pdf', ['customer_id' => $customer->id]) }}" class="btn buy shadow-sm"
+                        style="background-color: #00466a; color:white; border-radius: 12px; padding: 12px 20px;">
+                        <i class="las la-file-invoice-doll"></i> HISTORIQUE DE TRANSACTIONS
+                    </a>
+                    <a href="{{ route('transactions-client', ['customer' => $customer->id]) }}" class="btn buy shadow-sm"
+                        style="background-color: #531d09; color:white; border-radius: 12px; padding: 12px 20px;">
+                        <i class="las la-exchange-alt"></i> TRANSACTIONS
+                    </a>
+                    <button class="btn add-placement-btn buy shadow-sm"
+                        style="background-color: #ebb009; color:white; border-radius: 12px; padding: 12px 20px;">
                         <i class="las la-plus-circle"></i> AJOUTER UN PLACEMENT
                     </button>
                 </div>
@@ -30,12 +36,12 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
         <div
             class="ac-modal-overlay placement-modal fixed inset-0 z-[99] modalhide bg-black/60 duration-500 overflow-y-auto flex items-center justify-center p-4">
             <div
-                class="modal box modal-inner relative w-full max-w-550px] bg-white dark:bg-bg3 rounded-3xl shadow-2xl p-6 md:p-8 duration-300">
+                class="modal box modal-inner relative w-full max-w-[750px] bg-white dark:bg-bg3 rounded-3xl shadow-2xl p-6 md:p-10 duration-300">
                 <button class="ac-modal-close-btn absolute top-4 right-4 text-3xl hover:text-red-500 duration-300">
                     <i class="las la-times text-2xl"></i>
                 </button>
                 <div class="bb-dashed mb-6 pb-4 border-b border-dashed border-gray-300">
-                    <h4 class="h4 text-xl font-bold">Nouveau Placement</h4>
+                    <h4 class="h4 text-xl font-bold">Nouvelle Souscription</h4>
                     <p class="text-xs opacity-70 mt-1">Client : <span
                             class="text-primary font-bold">{{ $customer->name }}</span></p>
                 </div>
@@ -129,37 +135,44 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                 <!-- FCP Results -->
                                 <div id="summary-fcp-only" class="hidden">
                                     <div class="flex justify-between items-center mb-2">
-                                        <span class="text-xs font-semibold opacity-70">Frais de souscription (1%): </span>
-                                        <span id="summary-fees-fcp" class="font-bold text-primary">0 XAF</span>
+                                        <span class="text-xs font-semibold opacity-70">VL à la date sélectionnée : </span>
+                                        <span id="summary-vl-fcp" class="font-bold text-primary">0 XAF</span>
                                     </div>
-                                    <div class="flex justify-between items-center">
+                                    <div class="flex justify-between items-center mb-2">
                                         <span class="text-xs font-semibold opacity-70">Nombre de parts : </span>
                                         <span id="summary-parts" class="font-bold text-primary">0</span>
+                                    </div>
+                                    <div class="flex justify-between items-center mt-3 pt-2 border-t border-dashed">
+                                        <span class="text-xs opacity-60">Frais de souscription (1%): </span>
+                                        <span id="summary-fees-fcp" class="text-xs font-bold opacity-60">0 XAF (Infos)</span>
                                     </div>
                                 </div>
 
                                 <!-- PMG Results -->
                                 <div id="summary-pmg-only" class="hidden">
                                     <div class="flex justify-between items-center mb-2">
-                                        <span class="text-xs font-semibold opacity-70">Frais de souscription (1%): </span>
-                                        <span id="summary-fees-pmg" class="font-bold text-primary">0 XAF</span>
+                                        <span class="text-xs font-semibold opacity-70">Taux appliqué : </span>
+                                        <span id="summary-vl-pmg" class="font-bold text-primary">0 %</span>
                                     </div>
                                     <div class="flex justify-between items-center mb-2">
                                         <span class="text-xs font-semibold opacity-70">Gain Mensuel Net : </span>
                                         <span id="summary-monthly" class="font-bold text-secondary">0 XAF</span>
                                     </div>
-                                    <div class="flex justify-between items-center">
+                                    <div class="flex justify-between items-center mb-2">
                                         <span class="text-xs font-semibold opacity-70">Gain à l'échéance : </span>
                                         <span id="summary-annual" class="font-bold text-secondary">0 XAF</span>
+                                    </div>
+                                    <div class="flex justify-between items-center mt-3 pt-2 border-t border-dashed">
+                                        <span class="text-xs opacity-60">Frais de souscription (1%): </span>
+                                        <span id="summary-fees-pmg" class="text-xs font-bold opacity-60">0 XAF (Infos)</span>
                                     </div>
                                 </div>
                             </div>
 
-
                             <div class="mt-4 full-width">
                                 <button type="submit" id="btn-submit-placement"
                                     class="btn w-full justify-center bg-primary text-white py-4 rounded-xl hover:bg-primary/90 duration-300 font-bold tracking-wider shadow-lg">
-                                    ENREGISTRER LE PLACEMENT
+                                    ENREGISTRER LA SOUSCRIPTION
                                 </button>
                             </div>
 
@@ -206,7 +219,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                 <div class="item-product">
                                     <div class="content-link-title">
                                         <a href="#!" class="flex flex-space-between-center">
-                                            <span>{{ $my_product['product_name'] }}</span>
+                                            <span>Souscription : {{ $my_product['product_name'] }}</span>
                                         </a>
                                     </div>
                                     <div class="inner-header">
@@ -238,30 +251,33 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                                     0,
                                                     ' ',
                                                     '
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    ',
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    ',
                                                 ) }}
                                             </div>
                                         </div>
                                         <div class="content-label-info">
-                                            <div class="label-">Portofolio :</div>
+                                            <div class="label-">Portefeuille :</div>
                                             <div class="response-">XAF
                                                 {{ number_format(
                                                     $my_product['portfolio_valeur'],
                                                     0,
                                                     ' ',
                                                     '
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    ',
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    ',
                                                 ) }}
                                             </div>
                                         </div>
                                     </div>
                                     <div class="content-label-info">
                                         <div class="label-">Date de valeur:</div>
-                                        <div class="response-">{{ $my_product['souscription'] }}</div>
+                                        <div class="response-">
+                                            {{ \Carbon\Carbon::parse($my_product['souscription'])->format('d/m/Y') }}</div>
                                     </div>
                                     <div class="content-label-info">
                                         <div class="label-">Date d'échéance:</div>
-                                        <div class="response-">{{ $my_product['date_echeance'] }}</div>
+                                        <div class="response-">
+                                            {{ \Carbon\Carbon::parse($my_product['date_echeance'])->format('d/m/Y') }}
+                                        </div>
                                     </div>
                                 </div>
                                 {{-- <div class="item-product mb-4 p-4 border rounded bg-white dark:bg-bg4">
@@ -304,11 +320,17 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                             <div class="content-link-title">
                                 <a href="{{ route('product-detail-gain', ['slug' => $my_product['slug'] ?? 'fcp']) }}"
                                     class="flex flex-space-between-center">
-                                    <span>{{ $my_product['product_name'] }}</span>
+                                    <span>Souscription : {{ $my_product['product_name'] }}</span>
                                     <span><i class="las la-arrow-right"></i></span>
                                 </a>
                             </div>
                             <div class="inner-header">
+                                <div class="content-label-info">
+                                    <div class="label-">Date de souscription :</div>
+                                    <div class="response-">
+                                        {{ \Carbon\Carbon::parse($my_product['souscription'])->format('d/m/Y') }}
+                                    </div>
+                                </div>
                                 <div class="content-label-info">
                                     <div class="label-">Capital Investi :</div>
                                     <div class="response-">XAF
@@ -316,12 +338,21 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                     </div>
                                 </div>
                                 <div class="content-label-info">
+                                    <div class="label-">VL à la souscription :</div>
+                                    <div class="response-">XAF
+                                        {{ number_format($my_product['vl_achat'], 2, '.', ' ') }}
+                                    </div>
+                                </div>
+                                <div class="content-label-info">
                                     <div class="label-">Nombre de parts :</div>
-                                    <div class="response-">{{ number_format($my_product['nb_part'], 4, '.', ' ') }}</div>
+                                    <div class="response- text-primary font-bold">
+                                        {{ number_format($my_product['nb_part'], 2, '.', ' ') }}
+                                    </div>
                                 </div>
                                 <div class="content-label-info">
                                     <div class="label-">VL Actuelle :</div>
-                                    <div class="response-">XAF {{ number_format($my_product['vl_actuel'], 2, '.', ' ') }}
+                                    <div class="response-">XAF 
+                                        {{ number_format($my_product['vl_actuel'], 2, '.', ' ') }}
                                     </div>
                                 </div>
                                 <div class="content-label-info font-bold"
@@ -331,10 +362,138 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                         {{ number_format($my_product['portfolio_valeur'], 0, ' ', ' ') }}
                                     </div>
                                 </div>
+                                <div class="mt-4 flex justify-end">
+                                    <button type="button" 
+                                        onclick="showFcpEvolution({{ $my_product['product_id'] }}, '{{ $my_product['product_name'] }}')"
+                                        class="text-[10px] font-bold text-secondary uppercase italic border border-secondary/30 px-3 py-1 rounded-lg hover:bg-secondary/10 transition-all">
+                                        <i class="las la-chart-line"></i> Voir Évolution
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     @endif
                 @endforeach
+            </div>
+        </div>
+        </div>
+        </div>
+
+        <div class="grid grid-cols-12 gap-4 xxl:gap-6 mt-6">
+            <div class="col-span-12">
+                <div class="box rounded-2xl bg-n0 p-6 shadow-sm dark:bg-bg4">
+                    <h3 class="mb-6 uppercase">RELEVÉS MENSUELS DU CLIENT</h3>
+                    @if (isset($availableMonths) && count($availableMonths) > 0)
+                        <div class="overflow-x-auto">
+                            <table class="w-full whitespace-nowrap">
+                                <thead>
+                                    <tr class="bg-secondary1/5 dark:bg-bg3">
+                                        <th class="px-6 py-4 text-start font-semibold">Période</th>
+                                        <th class="px-6 py-4 text-center font-semibold">Types</th>
+                                        <th class="px-6 py-4 text-center font-semibold">Téléchargement (PDF)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach ($availableMonths as $m)
+                                        <tr class="border-b border-n30 last:border-0 hover:bg-secondary1/5 duration-200">
+                                            <td class="px-6 py-4">
+                                                <div class="flex items-center gap-3">
+                                                    <div
+                                                        class="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                                                        <i class="las la-calendar text-xl"></i>
+                                                    </div>
+                                                    <span class="font-bold">{{ $m['label'] }}</span>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 text-center">
+                                                <div class="flex justify-center gap-2">
+                                                    @if ($m['has_pmg'])
+                                                        <span
+                                                            class="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary border border-primary/20">PMG</span>
+                                                    @endif
+                                                    @if ($m['has_fcp'])
+                                                        <span
+                                                            class="rounded-full bg-secondary/10 px-3 py-1 text-xs font-bold text-secondary border border-secondary/20">FCP</span>
+                                                    @endif
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4">
+                                                <div class="flex justify-center gap-3">
+                                                    @if ($m['has_pmg'])
+                                                        <a href="{{ route('customer-statement.monthly', ['year' => $m['year'], 'month' => $m['month'], 'type' => 'pmg', 'customer_id' => $customer->id]) }}"
+                                                            class="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary/90 transition-all">
+                                                            <i class="las la-download text-base"></i> PMG
+                                                        </a>
+                                                    @endif
+                                                    @if ($m['has_fcp'])
+                                                        <a href="{{ route('customer-statement.monthly', ['year' => $m['year'], 'month' => $m['month'], 'type' => 'fcp', 'customer_id' => $customer->id]) }}"
+                                                            class="flex items-center gap-2 rounded-lg bg-secondary px-4 py-2 text-xs font-bold text-white hover:bg-secondary/90 transition-all"
+                                                            style="background-color: #ebb009">
+                                                            <i class="las la-download text-base"></i> FCP
+                                                        </a>
+                                                    @endif
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="mt-6 px-6 pb-6">
+                            {{ $availableMonths->links('partials.pagination') }}
+                        </div>
+                    @else
+                        <div class="py-10 text-center opacity-60">
+                            <i class="las la-folder-open text-5xl mb-2"></i>
+                            <p>Aucun relevé mensuel disponible pour ce client.</p>
+                        </div>
+                    @endif
+                </div>
+            </div>
+        </div>
+        </div>
+
+        <!-- MODALE ÉVOLUTION FCP -->
+        <div id="modal-evolution-fcp" class="ac-modal-overlay modalhide fixed inset-0 z-[100] bg-n900/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div class="modal-inner bg-white dark:bg-bg4 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden animate-modal-in">
+                <div class="p-6 border-b border-n30 flex justify-between items-center bg-n10/50">
+                    <h3 class="text-lg font-bold text-n900 flex items-center gap-3 italic uppercase">
+                        <i class="las la-history text-secondary text-2xl"></i>
+                        Évolution : <span id="evo-product-name" class="text-primary italic">Produit</span>
+                    </h3>
+                    <button type="button" onclick="closeEvoModal()" class="w-10 h-10 rounded-full hover:bg-n30 flex items-center justify-center text-n500 transition-all">
+                        <i class="las la-times text-2xl"></i>
+                    </button>
+                </div>
+                <div class="p-8 max-h-[70vh] overflow-y-auto">
+                    <div id="evo-loader" class="py-20 text-center">
+                        <div class="inline-block w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
+                        <p class="mt-4 text-n500 font-bold italic uppercase text-xs tracking-wider">Récupération de l'historique...</p>
+                    </div>
+                    <div id="evo-content" class="hidden">
+                        <div class="overflow-hidden rounded-2xl border border-n30">
+                            <table class="w-full text-left">
+                                <thead class="bg-n10 text-[10px] uppercase font-bold text-n500 tracking-widest border-b border-n30">
+                                    <tr>
+                                        <th class="px-5 py-4">Date de Valeur</th>
+                                        <th class="px-5 py-4">VL Publiée</th>
+                                        <th class="px-5 py-4">Parts Détenues</th>
+                                        <th class="px-5 py-4 text-right">Valorisation</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="evo-table-body" class="divide-y divide-n30">
+                                    <!-- AJAX rows -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="mt-6 p-4 bg-primary/5 rounded-2xl border border-primary/10">
+                            <p class="text-[10px] text-n500 italic leading-relaxed">
+                                <i class="las la-info-circle text-primary"></i> 
+                                Cette table présente la valorisation calculée au fur et à mesure de l'évolution de la VL pour l'ensemble des transactions cumulées à chaque date.
+                            </p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </main>
@@ -387,7 +546,6 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                         '0') + '-' + String(date.getDate()).padStart(2, '0');
                     input.value = value;
                 },
-                minDate: new Date(),
                 startDay: 1,
                 customDays: ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'],
                 customMonths: ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août',
@@ -399,9 +557,32 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                     const value = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2,
                         '0') + '-' + String(date.getDate()).padStart(2, '0');
                     instance.el.value = value;
-                    updateSummary();
+
+                    // Si le produit est sélectionné on va chercher la VL à cette date
+                    const prodId = prodSelect.value;
+                    if (prodId && typeSelect.value == 1) { // 1 = FCP
+                        fetchVlAtDate(prodId, value);
+                    } else {
+                        updateSummary();
+                    }
                 }
             });
+
+            function fetchVlAtDate(productId, date) {
+                vlTauxInput.value = "Chargement...";
+                fetch(`/api/product-vl/${productId}/${date}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            vlTauxInput.value = data.vl;
+                            updateSummary();
+                        }
+                    })
+                    .catch(err => {
+                        console.error("Erreur lors de la récupération de la VL:", err);
+                        vlTauxInput.value = "0";
+                    });
+            }
 
             const pickerEcheance = datepicker('#datepicker_echeance', {
                 formatter: (input, date, instance) => {
@@ -427,7 +608,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
             if (typeSelect) {
                 typeSelect.addEventListener('change', function() {
                     const catId = this.value;
-                    prodSelect.innerHTML = '<option value="">Sélectionner un produit</option>';
+                    prodSelect.innerHTML = '<option value="">Choisir un produit...</option>';
 
                     if (catId) {
                         prodSelect.disabled = false;
@@ -447,7 +628,8 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                             }
                             echeanceContainer.style.opacity = "0.5";
                             echeanceInput.disabled = true;
-                            document.getElementById('type_souscription_container').classList.remove('hidden');
+                            document.getElementById('type_souscription_container').classList.remove(
+                                'hidden');
                         } else { // PMG
                             labelVlTaux.textContent = "Taux d'intérêt (%)";
                             vlTauxInput.readOnly = false;
@@ -456,7 +638,16 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                             echeanceInput.disabled = false;
                             document.getElementById('type_souscription_container').classList.add('hidden');
                         }
-                        updateSummary();
+
+                        // Si un produit est déjà sélectionné (normalement non car re-rempli mais par précaution)
+                        if (prodSelect.value) {
+                            if (catId == 1) {
+                                fetchVlAtDate(prodSelect.value, document.getElementById('datepicker_valeur')
+                                    .value);
+                            } else {
+                                updateSummary();
+                            }
+                        }
                     } else {
                         prodSelect.disabled = true;
                     }
@@ -466,10 +657,19 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
             if (prodSelect) {
                 prodSelect.addEventListener('change', function() {
                     const productId = this.value;
-                    const product = productsList.find(p => p.id == productId);
-                    if (product) {
-                        vlTauxInput.value = product.recent_vl;
-                        updateSummary();
+                    const catId = typeSelect.value;
+                    const dateVal = document.getElementById('datepicker_valeur').value;
+
+                    if (productId) {
+                        if (catId == 1) { // FCP
+                            fetchVlAtDate(productId, dateVal);
+                        } else {
+                            const product = productsList.find(p => p.id == productId);
+                            if (product) {
+                                vlTauxInput.value = product.recent_vl;
+                                updateSummary();
+                            }
+                        }
                     }
                 });
             }
@@ -485,7 +685,19 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
 
             function updateSummary() {
                 const amount = parseFloat(amountInput.value) || 0;
-                const vl_taux = parseFloat(vlTauxInput.value) || 0;
+                const vl_raw = vlTauxInput.value;
+
+                if (vl_raw === "Chargement...") {
+                    const summaryDiv = document.getElementById('placement-summary');
+                    if (amount > 0) {
+                        summaryDiv.classList.remove('hidden');
+                        document.getElementById('summary-vl-fcp').textContent = "Chargement...";
+                        document.getElementById('summary-vl-pmg').textContent = "Chargement...";
+                    }
+                    return;
+                }
+
+                const vl_taux = parseFloat(vl_raw) || 0;
                 const typeId = typeSelect.value;
                 const summaryDiv = document.getElementById('placement-summary');
 
@@ -498,11 +710,15 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                         document.getElementById('summary-fcp-only').classList.remove('hidden');
                         document.getElementById('summary-pmg-only').classList.add('hidden');
 
+                        document.getElementById('summary-vl-fcp').textContent = vl_taux.toLocaleString('fr-FR', {
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 2
+                        }) + ' XAF';
                         document.getElementById('summary-fees-fcp').textContent = fees.toLocaleString('fr-FR') +
-                            ' XAF';
+                            ' XAF (Infos)';
 
                         if (vl_taux > 0) {
-                            const parts = (amount - fees) / vl_taux;
+                            const parts = amount / vl_taux; // Utilise le montant BRUT
                             document.getElementById('summary-parts').textContent = parts.toFixed(4);
                         } else {
                             document.getElementById('summary-parts').textContent = "0";
@@ -511,16 +727,17 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                         document.getElementById('summary-fcp-only').classList.add('hidden');
                         document.getElementById('summary-pmg-only').classList.remove('hidden');
 
+                        document.getElementById('summary-vl-pmg').textContent = vl_taux + ' %';
                         document.getElementById('summary-fees-pmg').textContent = fees.toLocaleString('fr-FR') +
-                            ' XAF';
+                            ' XAF (Infos)';
 
                         const dateValStr = document.getElementById('datepicker_valeur').value;
                         const dateEcheanceStr = document.getElementById('datepicker_echeance').value;
 
-                        const netAnnual = amount * (vl_taux / 100);
-                        const netMonthly = netAnnual / 12;
+                        const annualGain = amount * (vl_taux / 100); // Utilise le montant BRUT
+                        const monthlyGain = annualGain / 12;
 
-                        document.getElementById('summary-monthly').textContent = netMonthly.toLocaleString(
+                        document.getElementById('summary-monthly').textContent = monthlyGain.toLocaleString(
                             'fr-FR', {
                                 maximumFractionDigits: 0
                             }) + ' XAF';
@@ -532,7 +749,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
                             if (diffDays > 0) {
-                                const gainEcheance = (amount * (vl_taux / 100) * diffDays) / 360;
+                                const gainEcheance = (amount * (vl_taux / 100) * diffDays) / 360; // Utilise le montant BRUT
                                 document.getElementById('summary-annual').textContent = gainEcheance.toLocaleString(
                                     'fr-FR', {
                                         maximumFractionDigits: 0
@@ -572,7 +789,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                         _token: '{{ csrf_token() }}',
                         product: prodSelect.value,
                         customer: {{ $customer->id }},
-                        montantTotal: amount,
+                        montantTotal: amount, 
                         montant_normal: amount,
                         fraisGestion: fees,
                         date_valeur: formData.get('date_valeur'),
@@ -582,9 +799,9 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                     };
 
                     if (typeId == 1) {
-                        data.montantAchat = (amount - fees) / vl_taux; // nb_part
+                        data.montantAchat = amount / vl_taux; // Parts basées sur le montant BRUT
                     } else {
-                        data.montantAchat = (amount * (vl_taux / 100)); // interest amount estimate
+                        data.montantAchat = (amount * (vl_taux / 100)); // Estimation sur le montant BRUT
                     }
 
                     $.ajax({
@@ -593,11 +810,12 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                         data: data,
                         success: function(response) {
                             responseDiv.textContent =
-                                response.message || "Placement ajouté avec succès ! Redirection...";
+                                response.message ||
+                                "Placement ajouté avec succès ! Redirection...";
                             responseDiv.className =
                                 "alert alert-success show mb-4 p-4 rounded-xl bg-success/10 text-success border border-success/20";
                             responseDiv.classList.remove('hidden');
-                            
+
                             // Faire défiler vers le haut de la modale pour voir le message
                             document.querySelector('.modal-inner').scrollTop = 0;
 
@@ -609,25 +827,76 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                         error: function(xhr) {
                             let errorMsg = "Erreur lors de l'enregistrement.";
                             if (xhr.status === 422 && xhr.responseJSON.errors) {
-                                errorMsg = Object.values(xhr.responseJSON.errors).flat().join("<br>");
+                                errorMsg = Object.values(xhr.responseJSON.errors).flat().join(
+                                    "<br>");
                             } else if (xhr.responseJSON && xhr.responseJSON.message) {
                                 errorMsg = xhr.responseJSON.message;
                             }
-                            
+
                             responseDiv.innerHTML = errorMsg;
                             responseDiv.className =
                                 "alert alert-danger show mb-4 p-4 rounded-xl bg-red-100 text-red-600 border border-red-200";
                             responseDiv.classList.remove('hidden');
-                            
+
                             // Faire défiler vers le haut de la modale
                             document.querySelector('.modal-inner').scrollTop = 0;
 
                             btn.disabled = false;
-                            btn.textContent = "ENREGISTRER LE PLACEMENT";
+                            btn.textContent = "ENREGISTRER LA SOUSCRIPTION";
                         }
                     });
                 });
             }
         });
+
+        function showFcpEvolution(productId, productName) {
+            const modal = document.getElementById('modal-evolution-fcp');
+            const title = document.getElementById('evo-product-name');
+            const loader = document.getElementById('evo-loader');
+            const content = document.getElementById('evo-content');
+            const tbody = document.getElementById('evo-table-body');
+
+            title.textContent = productName;
+            modal.classList.remove('modalhide');
+            modal.classList.add('modalshow');
+            loader.classList.remove('hidden');
+            content.classList.add('hidden');
+            tbody.innerHTML = '';
+
+            $.ajax({
+                url: `/api/fcp-evolution/${productId}/{{ $customer->id }}`,
+                method: 'GET',
+                success: function(response) {
+                    loader.classList.add('hidden');
+                    content.classList.remove('hidden');
+
+                    if (response.history && response.history.length > 0) {
+                        response.history.reverse().forEach(row => {
+                            const tr = document.createElement('tr');
+                            tr.className = "hover:bg-n10 transition-all italic";
+                            tr.innerHTML = `
+                                <td class="px-5 py-4 text-sm font-bold text-n800">${row.date}</td>
+                                <td class="px-5 py-4 text-xs text-n600">XAF ${row.vl.toLocaleString('fr-FR')}</td>
+                                <td class="px-5 py-4 text-xs font-bold text-primary">${row.parts.toFixed(2)}</td>
+                                <td class="px-5 py-4 text-right text-sm font-extrabold text-n900">${row.valuation.toLocaleString('fr-FR')} XAF</td>
+                            `;
+                            tbody.appendChild(tr);
+                        });
+                    } else {
+                        tbody.innerHTML = '<tr><td colspan="4" class="py-10 text-center text-n400 italic">Aucune donnée historique.</td></tr>';
+                    }
+                },
+                error: function() {
+                    loader.classList.add('hidden');
+                    tbody.innerHTML = '<tr><td colspan="4" class="py-10 text-center text-danger font-bold uppercase italic">Erreur lors du chargement.</td></tr>';
+                }
+            });
+        }
+
+        function closeEvoModal() {
+            const modal = document.getElementById('modal-evolution-fcp');
+            modal.classList.remove('modalshow');
+            modal.classList.add('modalhide');
+        }
     </script>
 @endsection

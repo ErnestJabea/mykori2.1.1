@@ -30,21 +30,37 @@
             </div>
 
             <!-- Stats Cards Overview -->
-            <div class="col-span-12 lg:col-span-6">
+            <!-- Total Invested Card -->
+            <div class="col-span-12 lg:col-span-3">
                 <div
-                    class="box bg-primary p-6 rounded-2xl text-white relative overflow-hidden h-full min-h-[160px] flex flex-col justify-center">
+                    class="box bg-primary p-6 rounded-2xl text-white relative overflow-hidden h-full min-h-[160px] flex flex-col justify-center shadow-lg transform hover:scale-[1.02] duration-300">
                     <div class="relative z-10">
-                        <p class="text-sm opacity-80 mb-1 font-medium text-white/90">Encours Global Sous Gestion (AUM)</p>
-                        <h2 class="h2 mb-0 text-white">{{ number_format($globalAum, 0, ' ', ' ') }} <span
-                                class="text-sm">XAF</span></h2>
-                        <div class="mt-4 pt-4 border-t border-white/20">
-                            <a href="{{ route('customer') }}"
-                                class="text-xs flex items-center gap-2 hover:gap-3 duration-300 text-white/80">
-                                Détails par client <i class="las la-arrow-right"></i>
-                            </a>
+                        <p class="text-sm opacity-80 mb-2 font-medium text-white/90 uppercase tracking-wider">Total Investi
+                            (Capital)</p>
+                        <h2 class="h2 mb-0 text-white font-bold">{{ number_format($globalTotalInvested, 0, ' ', ' ') }}
+                            <span class="text-xs opacity-70">XAF</span>
+                        </h2>
+                        <div class="mt-4 pt-3 border-t border-white/20 flex items-center gap-2">
+                            <span class="text-[10px] bg-white/20 px-2 py-0.5 rounded-full">Global</span>
                         </div>
                     </div>
-                    <i class="las la-wallet -bottom-6 -right-6 text-[140px] opacity-10 rotate-12"></i>
+                </div>
+            </div>
+
+            <!-- Total Interests Card -->
+            <div class="col-span-12 lg:col-span-3">
+                <div class="box bg-green-600 p-6 rounded-2xl text-white relative overflow-hidden h-full min-h-[160px] flex flex-col justify-center shadow-lg transform hover:scale-[1.02] duration-300"
+                    style="background-color: #10b981;">
+                    <div class="relative z-10">
+                        <p class="text-sm opacity-80 mb-2 font-medium text-white/90 uppercase tracking-wider">Intérêts
+                            Générés</p>
+                        <h2 class="h2 mb-0 text-white font-bold">{{ number_format($globalTotalInterests, 0, ' ', ' ') }}
+                            <span class="text-xs opacity-70">XAF</span>
+                        </h2>
+                        <div class="mt-4 pt-3 border-t border-white/20">
+                            <span class="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-medium">Clients actifs</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -77,12 +93,6 @@
                                     <i class="las la-chart-line text-primary highlight-text"></i> Évolution des Valeurs
                                     Liquidatives (FCP)
                                 </h4>
-                                <div class="flex gap-2">
-                                    @foreach ($fcpProducts as $product)
-                                        <span
-                                            class="text-[10px] px-2 py-1 rounded-full border border-n30 bg-primary/5 text-primary">{{ $product->title }}</span>
-                                    @endforeach
-                                </div>
                             </div>
                             <div id="fcp-vls-chart" class="w-full h-80"></div>
                         </div>
@@ -93,7 +103,7 @@
                         <div class="box bg-white dark:bg-bg3 p-6 rounded-2xl border border-n30 shadow-sm h-full">
                             <div class="mb-6 bb-dashed pb-4">
                                 <h4 class="h4 flex items-center gap-2">
-                                    <i class="las la-chart-pie text-secondary1"></i> Répartition du Portefeuille
+                                    <i class="las la-chart-pie text-secondary1"></i> Total actifs & intérêts générés
                                 </h4>
                             </div>
                             <div id="portfolio-distribution-chart" class="w-full h-80 flex items-center justify-center">
@@ -1888,7 +1898,7 @@
                         type: 'donut',
                         height: 320
                     },
-                    labels: ['FCP (Bourse)', 'PMG (Mandats)'],
+                    labels: ['FCP', 'PMG'],
                     colors: ['#E5C646', '#10b981'],
                     plotOptions: {
                         pie: {
@@ -1898,7 +1908,7 @@
                                     show: true,
                                     total: {
                                         show: true,
-                                        label: 'Total AUM',
+                                        label: '',
                                         formatter: function(w) {
                                             return "{{ number_format($globalAum, 0, ' ', ' ') }} XAF";
                                         }
