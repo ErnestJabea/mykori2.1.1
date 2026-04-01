@@ -428,7 +428,7 @@
                                     @endif
                                 </span>
                             </td>
-                            <td class="text-right">0</td>
+                             <td class="text-right">0</td>
                             <td class="text-right"></td>
                         </tr>
                     @endforeach
