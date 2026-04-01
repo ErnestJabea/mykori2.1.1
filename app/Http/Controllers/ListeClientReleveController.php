@@ -176,6 +176,11 @@ public function previewPmg(int $clientId)
                 $currentTransGain = ($gA + $gB);
             } else {
                 $currentTransGain = ($vN + $mensualOutflows) - $vN1;
+                
+                // Si c'est un nouveau produit (N-1 = 0), on déduit le capital pour ne montrer que les intérêts
+                if ($vN1 <= 0 && $vN > 0) {
+                    $currentTransGain -= (float)$trans->amount;
+                }
             }
 
             // --- FILTRE D'ACTIVITÉ ---
@@ -533,6 +538,11 @@ private function genererPdfPmg(int $clientId): string
                 $currentTransGain = ($gA + $gB);
             } else {
                 $currentTransGain = ($vN + $mensualOutflows) - $vN1;
+
+                // Si c'est un nouveau produit (N-1 = 0), on déduit le capital pour ne montrer que les intérêts
+                if ($vN1 <= 0 && $vN > 0) {
+                    $currentTransGain -= (float)$trans->amount;
+                }
             }
 
             // --- FILTRE D'ACTIVITÉ ---
