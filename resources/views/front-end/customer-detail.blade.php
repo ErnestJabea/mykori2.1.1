@@ -143,8 +143,8 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                         <span id="summary-parts" class="font-bold text-primary">0</span>
                                     </div>
                                     <div class="flex justify-between items-center mt-3 pt-2 border-t border-dashed">
-                                        <span class="text-xs opacity-60">Frais de souscription (1%): </span>
-                                        <span id="summary-fees-fcp" class="text-xs font-bold opacity-60">0 XAF (Infos)</span>
+                                        <span id="label-fees-fcp" class="text-xs opacity-60">Frais de souscription : </span>
+                                        <span id="summary-fees-fcp" class="text-xs font-bold opacity-60">0 XAF</span>
                                     </div>
                                 </div>
 
@@ -163,8 +163,8 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                         <span id="summary-annual" class="font-bold text-secondary">0 XAF</span>
                                     </div>
                                     <div class="flex justify-between items-center mt-3 pt-2 border-t border-dashed">
-                                        <span class="text-xs opacity-60">Frais de souscription (1%): </span>
-                                        <span id="summary-fees-pmg" class="text-xs font-bold opacity-60">0 XAF (Infos)</span>
+                                        <span id="label-fees-pmg" class="text-xs opacity-60">Frais de souscription : </span>
+                                        <span id="summary-fees-pmg" class="text-xs font-bold opacity-60">0 XAF</span>
                                     </div>
                                 </div>
                             </div>
@@ -224,7 +224,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                     </div>
                                     <div class="inner-header">
                                         <div class="content-label-info">
-                                            <div class="label-">Investissement initial :</div>
+                                            <div class="label-">Investissement initial (Brut) :</div>
                                             <div class="response-">XAF
                                                 {{ number_format($my_product['capital_investi'], 0, ' ', ' ') }}
                                             </div>
@@ -246,25 +246,13 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                         <div class="content-label-info">
                                             <div class="label-">Gains cumulés :</div>
                                             <div class="response-">XAF
-                                                {{ number_format(
-                                                    $my_product['interets_generes'],
-                                                    0,
-                                                    ' ',
-                                                    '
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    ',
-                                                ) }}
+                                                {{ number_format($my_product['interets_generes'], 0, ' ', ' ') }}
                                             </div>
                                         </div>
                                         <div class="content-label-info">
                                             <div class="label-">Portefeuille :</div>
                                             <div class="response-">XAF
-                                                {{ number_format(
-                                                    $my_product['portfolio_valeur'],
-                                                    0,
-                                                    ' ',
-                                                    '
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    ',
-                                                ) }}
+                                                {{ number_format($my_product['portfolio_valeur'], 0, ' ', ' ') }}
                                             </div>
                                         </div>
                                     </div>
@@ -332,7 +320,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                     </div>
                                 </div>
                                 <div class="content-label-info">
-                                    <div class="label-">Capital Investi :</div>
+                                    <div class="label-">Capital Total Investi (Brut) :</div>
                                     <div class="response-">XAF
                                         {{ number_format($my_product['capital_investi'], 0, ' ', ' ') }}
                                     </div>
@@ -353,6 +341,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                     <div class="label-">VL Actuelle :</div>
                                     <div class="response-">XAF 
                                         {{ number_format($my_product['vl_actuel'], 2, '.', ' ') }}
+                                        <span class="text-[10px] opacity-70 italic text-n600"> (du {{ \Carbon\Carbon::parse($my_product['date_vl_actuel'] ?? now())->format('d/m/Y') }})</span>
                                     </div>
                                 </div>
                                 <div class="content-label-info font-bold"
@@ -502,6 +491,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
 @section('script_front_end')
     <script>
         const productsList = @json($products);
+        const ownedPmgProductIds = @json($ownedPmgProductIds);
 
         document.addEventListener('DOMContentLoaded', function() {
             const addBtn = document.querySelector(".add-placement-btn");
@@ -601,9 +591,34 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                     const value = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2,
                         '0') + '-' + String(date.getDate()).padStart(2, '0');
                     instance.el.value = value;
+                    
+                    // Auto-calculate expiry for PMG
+                    if (typeSelect.value == 2) {
+                        calculateExpiry();
+                    }
                     updateSummary();
                 }
             });
+
+            function calculateExpiry() {
+                const dateValStr = document.getElementById('datepicker_valeur').value;
+                const productId = prodSelect.value;
+                const product = productsList.find(p => p.id == productId);
+
+                if (dateValStr && product && product.duree) {
+                    const dateVal = new Date(dateValStr);
+                    const duree = parseInt(product.duree);
+                    
+                    // On ajoute la durée en mois
+                    dateVal.setMonth(dateVal.getMonth() + duree);
+                    
+                    const expiryStr = dateVal.getFullYear() + '-' + String(dateVal.getMonth() + 1).padStart(2, '0') + '-' + String(dateVal.getDate()).padStart(2, '0');
+                    document.getElementById('datepicker_echeance').value = expiryStr;
+                    
+                    // On met à jour l'instance du datepicker
+                    pickerEcheance.setDate(dateVal);
+                }
+            }
 
             if (typeSelect) {
                 typeSelect.addEventListener('change', function() {
@@ -612,7 +627,17 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
 
                     if (catId) {
                         prodSelect.disabled = false;
-                        const filtered = productsList.filter(p => p.products_category_id == catId);
+                        const filtered = productsList.filter(p => {
+                            if (p.products_category_id == catId) {
+                                // Filter out PMG products already owned
+                                if (catId == 2 && ownedPmgProductIds.includes(p.id)) {
+                                    return false;
+                                }
+                                return true;
+                            }
+                            return false;
+                        });
+                        
                         filtered.forEach(p => {
                             const opt = document.createElement('option');
                             opt.value = p.id;
@@ -665,10 +690,13 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                             fetchVlAtDate(productId, dateVal);
                         } else {
                             const product = productsList.find(p => p.id == productId);
-                            if (product) {
-                                vlTauxInput.value = product.recent_vl;
-                                updateSummary();
-                            }
+                             if (product) {
+                                 vlTauxInput.value = product.recent_vl;
+                                 if (catId == 2) {
+                                     calculateExpiry();
+                                 }
+                                 updateSummary();
+                             }
                         }
                     }
                 });
@@ -684,12 +712,15 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
             }
 
             function updateSummary() {
-                const amount = parseFloat(amountInput.value) || 0;
+                const total_input = parseFloat(amountInput.value) || 0;
                 const vl_raw = vlTauxInput.value;
+                const productId = prodSelect.value;
+                const product = productsList.find(p => p.id == productId);
+                const feeRate = product ? (parseFloat(product.free) || 0) : 0;
 
                 if (vl_raw === "Chargement...") {
                     const summaryDiv = document.getElementById('placement-summary');
-                    if (amount > 0) {
+                    if (total_input > 0) {
                         summaryDiv.classList.remove('hidden');
                         document.getElementById('summary-vl-fcp').textContent = "Chargement...";
                         document.getElementById('summary-vl-pmg').textContent = "Chargement...";
@@ -701,10 +732,17 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                 const typeId = typeSelect.value;
                 const summaryDiv = document.getElementById('placement-summary');
 
-                if (amount > 0 && typeId) {
+                if (total_input > 0 && typeId) {
                     summaryDiv.classList.remove('hidden');
 
-                    const fees = amount * 0.01;
+                    let fees = (total_input * feeRate) / 100;
+                    let net_invested = total_input - fees;
+
+                    // PMG (Type 2) has no fees and works with the full amount
+                    if (typeId == 2) {
+                        fees = 0;
+                        net_invested = total_input;
+                    }
 
                     if (typeId == 1) { // FCP
                         document.getElementById('summary-fcp-only').classList.remove('hidden');
@@ -714,11 +752,12 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                             minimumFractionDigits: 0,
                             maximumFractionDigits: 2
                         }) + ' XAF';
+                        document.getElementById('label-fees-fcp').textContent = 'Frais de souscription (' + feeRate + '%):';
                         document.getElementById('summary-fees-fcp').textContent = fees.toLocaleString('fr-FR') +
-                            ' XAF (Infos)';
+                            ' XAF';
 
                         if (vl_taux > 0) {
-                            const parts = amount / vl_taux; // Utilise le montant BRUT
+                            const parts = net_invested / vl_taux; // Parts basées sur le montant net (Total - Frais)
                             document.getElementById('summary-parts').textContent = parts.toFixed(4);
                         } else {
                             document.getElementById('summary-parts').textContent = "0";
@@ -728,13 +767,14 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                         document.getElementById('summary-pmg-only').classList.remove('hidden');
 
                         document.getElementById('summary-vl-pmg').textContent = vl_taux + ' %';
+                        document.getElementById('label-fees-pmg').textContent = 'Frais de souscription (' + feeRate + '%):';
                         document.getElementById('summary-fees-pmg').textContent = fees.toLocaleString('fr-FR') +
-                            ' XAF (Infos)';
+                            ' XAF';
 
                         const dateValStr = document.getElementById('datepicker_valeur').value;
                         const dateEcheanceStr = document.getElementById('datepicker_echeance').value;
 
-                        const annualGain = amount * (vl_taux / 100); // Utilise le montant BRUT
+                        const annualGain = net_invested * (vl_taux / 100); // Utilise le montant NET investi
                         const monthlyGain = annualGain / 12;
 
                         document.getElementById('summary-monthly').textContent = monthlyGain.toLocaleString(
@@ -749,7 +789,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
                             if (diffDays > 0) {
-                                const gainEcheance = (amount * (vl_taux / 100) * diffDays) / 360; // Utilise le montant BRUT
+                                const gainEcheance = (net_invested * (vl_taux / 100) * diffDays) / 360; // Utilise le montant NET investi
                                 document.getElementById('summary-annual').textContent = gainEcheance.toLocaleString(
                                     'fr-FR', {
                                         maximumFractionDigits: 0
@@ -781,16 +821,27 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                     const url = typeId == 1 ? '{{ route('achat-action-customer-fcp') }}' :
                         '{{ route('achat-action-customer-pmg') }}';
 
-                    const amount = parseFloat(document.getElementById('amount_input').value);
+                    const total_paid = parseFloat(document.getElementById('amount_input').value);
+                    const productId = prodSelect.value;
+                    const product = productsList.find(p => p.id == productId);
+                    const feeRate = product ? (parseFloat(product.free) || 0) : 0;
+                    
                     const vl_taux = parseFloat(vlTauxInput.value);
-                    const fees = amount * 0.01;
+                    
+                    let fees = (total_paid * feeRate) / 100;
+                    let net_invested = total_paid - fees;
+                    
+                    if (typeId == 2) {
+                        fees = 0;
+                        net_invested = total_paid;
+                    }
 
                     const data = {
                         _token: '{{ csrf_token() }}',
-                        product: prodSelect.value,
+                        product: productId,
                         customer: {{ $customer->id }},
-                        montantTotal: amount, 
-                        montant_normal: amount,
+                        montantTotal: total_paid, 
+                        montant_normal: net_invested,
                         fraisGestion: fees,
                         date_valeur: formData.get('date_valeur'),
                         date_echeance: formData.get('date_echeance'),
@@ -799,9 +850,9 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                     };
 
                     if (typeId == 1) {
-                        data.montantAchat = amount / vl_taux; // Parts basées sur le montant BRUT
+                        data.montantAchat = net_invested / vl_taux; // Parts basées sur le montant NET
                     } else {
-                        data.montantAchat = (amount * (vl_taux / 100)); // Estimation sur le montant BRUT
+                        data.montantAchat = net_invested; // Pour PMG, nb_part = Capital investi
                     }
 
                     $.ajax({

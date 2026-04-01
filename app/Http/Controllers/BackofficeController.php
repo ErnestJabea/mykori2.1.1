@@ -48,32 +48,55 @@ class BackofficeController extends Controller
             ->whereBetween('date_echeance', [$today->toDateString(), $thirtyDaysLater->toDateString()])
             ->get();
 
-        // Récupérer les 10 dernières opérations en attente
+        // Récupérer les 10 dernières opérations en attente (mixte)
         $pendingTransactions = Transaction::with(['user', 'product'])
-            ->where('status', '!=', 'Succès')
-            ->orderBy('created_at', 'desc')
-            ->limit(10)
-            ->get();
+            ->where('status', 'En attente')
+            ->get()
+            ->map(function($t) { $t->type_flux = 'main'; return $t; });
 
-        return view('front-end.backoffice.dashboard', compact(
-            'pendingCount',
-            'pendingSuppCount',
-            'expiringPmg',
-            'pendingTransactions'
-        ));
+        $pendingSupps = TransactionSupplementaire::with(['user', 'product'])
+            ->where('status', 'En attente')
+            ->get()
+            ->map(function($t) { $t->type_flux = 'supp'; return $t; });
+
+        $allPending = $pendingTransactions->merge($pendingSupps)
+            ->sortByDesc('created_at')
+            ->take(10);
+
+        return view('front-end.backoffice.dashboard', [
+            'pendingCount' => $pendingCount,
+            'pendingSuppCount' => $pendingSuppCount,
+            'expiringPmg' => $expiringPmg,
+            'pendingTransactions' => $allPending
+        ]);
     }
 
     public function transactions(Request $request)
     {
-        $query = Transaction::with(['user', 'product']);
+        $main = Transaction::with(['user', 'product'])
+            ->where('status', 'En attente')
+            ->get()
+            ->map(function($t) { $t->type_flux = 'main'; return $t; });
+
+        $supp = TransactionSupplementaire::with(['user', 'product'])
+            ->where('status', 'En attente')
+            ->get()
+            ->map(function($t) { $t->type_flux = 'supp'; return $t; });
+
+        $all = $main->merge($supp)->sortByDesc('created_at');
         
-        if ($request->get('filter') == 'pending') {
-            $query->where('status', '!=', 'Succès');
-        }
+        // Pagination manuelle simple pour la démo/usage actuel
+        $currentPage = $request->get('page', 1);
+        $perPage = 20;
+        $pagedData = new \Illuminate\Pagination\LengthAwarePaginator(
+            $all->forPage($currentPage, $perPage),
+            $all->count(),
+            $perPage,
+            $currentPage,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
 
-        $transactions = $query->orderBy('created_at', 'desc')->paginate(20);
-
-        return view('front-end.backoffice.transactions', compact('transactions'));
+        return view('front-end.backoffice.transactions', ['transactions' => $pagedData]);
     }
 
     public function validateTransaction(Request $request, $id, $type = 'main')

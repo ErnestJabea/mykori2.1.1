@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use App\Transaction;
 use App\Services\InvestmentService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class SyncFcpTransactions extends Command
 {
@@ -39,6 +40,7 @@ class SyncFcpTransactions extends Command
 
                 DB::table('fcp_movements')->insert([
                     'transaction_id'  => $t->id,
+                    'reference'       => 'RCH-' . date('dmY', strtotime($t->date_validation ?? $t->created_at)) . '-' . strtoupper(Str::random(4)),
                     'user_id'         => $t->user_id,
                     'product_id'      => $t->product_id,
                     'type'            => 'souscription',

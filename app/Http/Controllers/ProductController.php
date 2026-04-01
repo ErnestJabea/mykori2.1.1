@@ -165,7 +165,7 @@ class ProductController extends Controller
                     'product_id' => $product->id,
                     'product_name' => $product->title,
                     'type_product' => 2,
-                    'capital_investi' => $amount, // Vrai capital de départ
+                    'capital_investi' => $amount + (float)($transaction->fees ?? 0), // Capital BRUT (Montant + Frais)
                     'capital_actuel' => $baseCapital, // Capital après capitalisation
                     'montant_transaction' => $amount, // Vrai capital pour les calculs de portfolio
                     'interets_generes' => (float)($totalValo + $totalPaidOut) - $amount,
@@ -189,24 +189,33 @@ class ProductController extends Controller
         $service = new \App\Services\InvestmentService();
         $fcpPortfolio = $service->getConsolidatedFcpPortfolio($userId);
         
-        $fcpResult = array_map(function($p) {
+        $fcpResult = array_map(function($p) use ($userId) {
+            // Pour l'affichage BRUT (Net + Fees) cohérent avec la demande
+            $prodId = $p['product_id'];
+            $mainGross = DB::table('transactions')
+                ->where('user_id', $userId)->where('product_id', $prodId)->where('status', 'Succès')->sum(DB::raw('amount + COALESCE(fees, 0)'));
+            $suppGross = DB::table('transaction_supplementaires')
+                ->where('user_id', $userId)->where('product_id', $prodId)->where('status', 'Succès')->sum(DB::raw('amount + COALESCE(fees, 0)'));
+            $totalGross = (float)$mainGross + (float)$suppGross;
+
             return [
                 'id' => $p['product_id'],
                 'product_id' => $p['product_id'],
                 'product_name' => $p['name'],
                 'type_product' => 1,
-                'montant_transaction' => $p['total_invested'],
-                'capital_investi' => $p['total_invested'],
-                'total_gains_fcp' => $p['total_gain'],
-                'gain_semaine_fcp' => $p['weekly_gain'],
-                'portfolio_valeur' => $p['valuation'],
-                'nb_part' => $p['total_parts'],
-                'pru' => $p['pru'],
-                'vl_achat' => $p['current_vl'],
-                'vl_actuel' => $p['current_vl'],
-                'slug' => $p['slug'],
+                'montant_transaction' => $totalGross,
+                'capital_investi' => $totalGross,
+                'total_gains_fcp' => $p['total_gain'] ?? 0,
+                'gain_semaine_fcp' => $p['weekly_gain'] ?? 0,
+                'portfolio_valeur' => $p['current_valuation'] ?? 0,
+                'nb_part' => $p['total_parts'] ?? 0,
+                'pru' => $p['pru'] ?? 0,
+                'vl_achat' => $p['first_vl'] ?? 0,
+                'vl_actuel' => $p['current_vl'] ?? 0,
+                'date_vl_actuel' => $p['current_vl_date'] ?? null,
+                'slug' => $p['slug'] ?? '',
                 'date_echeance' => Carbon::now()->addYears(10)->toDateString(),
-                'souscription' => Carbon::now()->toDateString()
+                'souscription' => $p['first_subscription_date'] ?? Carbon::now()->toDateString()
             ];
         }, $fcpPortfolio);
 
@@ -353,9 +362,9 @@ class ProductController extends Controller
                     'product_id' => $product->id,
                     'product_name' => $product->title,
                     'type_product' => 2,
-                    'capital_investi' => $amount, // Vrai capital de départ (amount direct de transaction)
-                    'capital_actuel' => $baseCapital, // Capital composé actuel
-                    'montant_transaction' => $amount, // Legacy support pour calcul gains totaux
+                    'capital_investi' => $amount, // Pas de frais pour PMG
+                    'capital_actuel' => $baseCapital, 
+                    'montant_transaction' => $amount, 
                     'interets_generes' => (float)($totalValo + $totalPaidOut) - $amount,
                     'gain_month' => (float)$totalValo - $baseCapital, // Intérêts du cycle actuel
                     'soulte' => $baseCapital, // Capital capitalisé
@@ -373,23 +382,32 @@ class ProductController extends Controller
         }
 
         // Transformer le format FCP pour la compatibilité avec les vues existantes
-        $fcpResult = array_map(function($p) {
+        $fcpResult = array_map(function($p) use ($user_id) {
+            // Pour l'affichage BRUT (Net + Fees) cohérent avec la demande
+            $prodId = $p['product_id'];
+            $mainGross = DB::table('transactions')
+                ->where('user_id', $user_id)->where('product_id', $prodId)->where('status', 'Succès')->sum(DB::raw('amount + COALESCE(fees, 0)'));
+            $suppGross = DB::table('transaction_supplementaires')
+                ->where('user_id', $user_id)->where('product_id', $prodId)->where('status', 'Succès')->sum(DB::raw('amount + COALESCE(fees, 0)'));
+            $totalGross = (float)$mainGross + (float)$suppGross;
+
             return [
                 'id' => $p['product_id'],
                 'product_id' => $p['product_id'],
                 'product_name' => $p['name'],
                 'type_product' => 1,
-                'montant_transaction' => $p['total_invested'],
-                'capital_investi' => $p['total_invested'],
-                'total_gains_fcp' => $p['total_gain'],
-                'gain_semaine_fcp' => $p['weekly_gain'],
-                'portfolio_valeur' => $p['valuation'], // Nouveau nom
-                'valorisation_portefeuille_fcp' => $p['valuation'], // Legacy
-                'nb_part' => $p['total_parts'],
-                'pru' => $p['pru'], // Nouveau: Prix de Revient Unitaire
-                'vl_achat' => $p['first_vl'], // Utiliser la VL initiale effective
-                'vl_actuel' => $p['current_vl'],
-                'slug' => $p['slug'],
+                'montant_transaction' => $totalGross,
+                'capital_investi' => $totalGross,
+                'total_gains_fcp' => $p['total_gain'] ?? 0,
+                'gain_semaine_fcp' => $p['weekly_gain'] ?? 0,
+                'portfolio_valeur' => $p['current_valuation'] ?? 0, // Nom normalisé
+                'valorisation_portefeuille_fcp' => $p['current_valuation'] ?? 0, // Legacy
+                'nb_part' => $p['total_parts'] ?? 0,
+                'pru' => $p['pru'] ?? 0,
+                'vl_achat' => $p['first_vl'] ?? 0,
+                'vl_actuel' => $p['current_vl'] ?? 0,
+                'date_vl_actuel' => $p['latest_vl_date'] ?? null,
+                'slug' => $p['slug'] ?? '',
                 'date_echeance' => Carbon::now()->addYears(10)->toDateString(),
                 'souscription' => $p['first_subscription_date'] ?? Carbon::now()->toDateString()
             ];
@@ -578,8 +596,19 @@ class ProductController extends Controller
     {
         $start = new DateTime($startDate);
         $end = new DateTime($endDate);
+        if (!$start || !$end) return ['months' => 0, 'days' => 0];
+
         $interval = $start->diff($end);
-        return ['months' => $interval->m + ($interval->y * 12), 'days' => $interval->d];
+        $months = ($interval->y * 12) + $interval->m;
+        $days = $interval->d;
+
+        // Human-friendly adjustment: if days are >= 28, it's effectively a full month for PMG duration display
+        if ($days >= 28) {
+            $months++;
+            $days = 0;
+        }
+
+        return ['months' => $months, 'days' => $days];
     }
 
     public function showProductsWithGains()
@@ -646,22 +675,28 @@ class ProductController extends Controller
             $customerTotalInvesti = 0;
             $totalValorization = 0;
             $allTrans = $customer->transactions->concat($customer->transactionssupplementaires);
+            $processedFcpProducts = [];
 
             foreach ($allTrans as $trans) {
+                if ($trans->status != 'Succès') continue;
                 $dateEcheance = Carbon::parse($trans->date_echeance);
                 if ($dateEcheance->gte($currentDate)) {
                     $principalInitial = (float)($trans->amount);
-                    $globalTotalInvested += $principalInitial;
-                    $customerTotalInvesti += $principalInitial;
+                    $fees = (float)($trans->fees ?? 0);
+                    $globalTotalInvested += ($principalInitial + $fees);
+                    $customerTotalInvesti += ($principalInitial + $fees);
 
                     if ($trans->product->products_category_id == 2) {
                         $valo = (float)$this->calculatePMGValorization($trans, $currentDate);
                         $totalValorization += $valo;
                         $totalPmgAum += $valo;
                     } else {
-                        $fcpData = $this->getFcpPortfolioValue($customer->id, $trans->product_id, $currentDate);
-                        $totalValorization += (float)$fcpData['valorisation'];
-                        $totalFcpAum += (float)$fcpData['valorisation'];
+                        if (!in_array($trans->product_id, $processedFcpProducts)) {
+                            $fcpData = $this->getFcpPortfolioValue($customer->id, $trans->product_id, $currentDate);
+                            $totalValorization += (float)$fcpData['valorisation'];
+                            $totalFcpAum += (float)$fcpData['valorisation'];
+                            $processedFcpProducts[] = $trans->product_id;
+                        }
                     }
                 }
             }
@@ -835,19 +870,25 @@ class ProductController extends Controller
         foreach ($allMatchedCustomers as $cust) {
             $customerTotalInvesti = 0;
             $allTrans = $cust->transactions->concat($cust->transactionssupplementaires);
+            $processedFcpProducts = [];
             
             foreach ($allTrans as $trans) {
+                if ($trans->status != 'Succès') continue;
                 $dateEcheance = Carbon::parse($trans->date_echeance);
                 if ($dateEcheance->gte($currentDate)) {
                     $principalInitial = (float)($trans->amount);
-                    $globalTotalInvesti += $principalInitial;
-                    $customerTotalInvesti += $principalInitial;
+                    $fees = (float)($trans->fees ?? 0);
+                    $globalTotalInvesti += ($principalInitial + $fees);
+                    $customerTotalInvesti += ($principalInitial + $fees);
 
                     if ($trans->product->products_category_id == 2) {
                         $globalTotalAum += $this->calculatePMGValorization($trans, $currentDate);
                     } else {
-                        $fcpData = $this->getFcpPortfolioValue($cust->id, $trans->product_id, $currentDate);
-                        $globalTotalAum += $fcpData['valorisation'];
+                        if (!in_array($trans->product_id, $processedFcpProducts)) {
+                            $fcpData = $this->getFcpPortfolioValue($cust->id, $trans->product_id, $currentDate);
+                            $globalTotalAum += $fcpData['valorisation'];
+                            $processedFcpProducts[] = $trans->product_id;
+                        }
                     }
                 }
             }
@@ -870,6 +911,8 @@ class ProductController extends Controller
             $totalValorisationActive = 0;
             $activeContractsCount = 0;
 
+            $processedFcpProducts = [];
+
             $allTrans = $customer->transactions->concat($customer->transactionssupplementaires);
 
             foreach ($allTrans as $trans) {
@@ -878,13 +921,17 @@ class ProductController extends Controller
                 if ($dateEcheance->gte($currentDate)) {
                     $activeContractsCount++;
                     $principalInitial = (float)($trans->amount);
-                    $totalInvestiActive += $principalInitial;
+                    $fees = (float)($trans->fees ?? 0);
+                    $totalInvestiActive += ($principalInitial + $fees);
 
                     if ($trans->product->products_category_id == 2) {
                         $totalValorisationActive += $this->calculatePMGValorization($trans, $currentDate);
                     } else {
-                        $fcpData = $this->getFcpPortfolioValue($customer->id, $trans->product_id, $currentDate);
-                        $totalValorisationActive += $fcpData['valorisation'];
+                        if (!in_array($trans->product_id, $processedFcpProducts)) {
+                            $fcpData = $this->getFcpPortfolioValue($customer->id, $trans->product_id, $currentDate);
+                            $totalValorisationActive += $fcpData['valorisation'];
+                            $processedFcpProducts[] = $trans->product_id;
+                        }
                     }
                 }
             }
@@ -944,6 +991,14 @@ class ProductController extends Controller
         $totalPmgPayouts = collect($allProducts)->where('type_product', 2)->sum('total_payouts');
         $totalInterets = max(0, ($portefeuilleTotal + $totalPmgPayouts) - $totalInvestiActive);
 
+        // Récupérer les IDs des produits PMG auxquels le client a déjà souscrit
+        $ownedPmgProductIds = collect($allProducts)
+            ->where('type_product', 2)
+            ->pluck('id_product')
+            ->unique()
+            ->values()
+            ->toArray();
+
         // Récupération de tous les produits pour le formulaire de placement
         $products = Product::orderBy('created_at', 'desc')->where('nb_action', '>', 0)->get();
         foreach ($products as $product) {
@@ -983,7 +1038,8 @@ class ProductController extends Controller
             'total_investi' => $totalInvestiActive,
             'products' => $products,
             'categories' => $categories,
-            'availableMonths' => $availableMonths
+            'availableMonths' => $availableMonths,
+            'ownedPmgProductIds' => $ownedPmgProductIds
         ]);
     }
     
@@ -1373,6 +1429,29 @@ class ProductController extends Controller
         ]);
     }
 
+    public function getHoldingsAtDate($userId, $productId, $date)
+    {
+        $service = new \App\Services\InvestmentService();
+        $status = $service->getCurrentStatusAtDate($userId, $productId, $date);
+        
+        // On récupère aussi la VL
+        $vlEntry = \DB::table('asset_values')
+            ->where('product_id', $productId)
+            ->where('date_vl', '<=', $date)
+            ->orderBy('date_vl', 'desc')
+            ->first();
+            
+        $product = Product::find($productId);
+        $vl = $vlEntry ? (float)$vlEntry->vl : (float)($product->vl ?? 100);
+
+        return response()->json([
+            'parts' => $status['parts'],
+            'valuation' => $status['parts'] * $vl,
+            'vl' => $vl,
+            'status' => 'success'
+        ]);
+    }
+
     public function getUserStats($userId)
     {
         $productsWithGains = $this->getProductsWithGainsUser($userId);
@@ -1495,6 +1574,12 @@ class ProductController extends Controller
                 'periode' => $periodeLabel
             ]);
 
+            \App\Models\UserActivityLog::log(
+                "TELECHARGEMENT_RELEVE_PMG",
+                $client,
+                "Téléchargement du relevé PMG pour {$periodeLabel}"
+            );
+
             return $pdf->download("releve_pmg_{$year}_{$month}.pdf");
 
         } else {
@@ -1513,53 +1598,83 @@ class ProductController extends Controller
                 $product = Product::find($productId);
                 if (!$product) continue;
 
+                // 1. Solde TOTAL actuel des parts (pour éviter les erreurs de flux cumulés)
                 $partsN = DB::table('fcp_movements')
                     ->where('user_id', $client->id)
                     ->where('product_id', $productId)
                     ->where('date_operation', '<=', $dateN->toDateString())
-                    ->sum('nb_parts_change');
+                    ->sum('nb_parts_change') ?? 0;
 
+                // 2. Solde parts à la fin du mois précédent
                 $partsN1 = DB::table('fcp_movements')
                     ->where('user_id', $client->id)
                     ->where('product_id', $productId)
                     ->where('date_operation', '<=', $dateN1->toDateString())
-                    ->sum('nb_parts_change');
+                    ->sum('nb_parts_change') ?? 0;
 
-                $vlN = AssetValue::where('product_id', $productId)->where('date_vl', '<=', $dateN->toDateString())->orderBy('date_vl', 'desc')->value('vl') ?? (float)$product->vl;
-                $vlN1 = AssetValue::where('product_id', $productId)->where('date_vl', '<=', $dateN1->toDateString())->orderBy('date_vl', 'desc')->value('vl') ?? (float)$product->vl;
+                // 3. Mouvements précis du mois courant
+                $partsSouscritesMois = DB::table('fcp_movements')
+                        ->where('user_id', $client->id)
+                        ->where('product_id', $productId)
+                        ->whereBetween('date_operation', [$dateN1->copy()->addDay()->toDateString(), $dateN->toDateString()])
+                        ->where('nb_parts_change', '>', 0)
+                        ->sum('nb_parts_change') ?? 0;
 
-                // On récupère aussi la VL d'achat initiale effective
-                $firstMvt = DB::table('fcp_movements')
+                $partsRacheteesMois = abs(DB::table('fcp_movements')
+                        ->where('user_id', $client->id)
+                        ->where('product_id', $productId)
+                        ->whereBetween('date_operation', [$dateN1->copy()->addDay()->toDateString(), $dateN->toDateString()])
+                        ->where('nb_parts_change', '<', 0)
+                        ->sum('nb_parts_change')) ?? 0;
+
+                // 4. VL
+                $vlN = AssetValue::where('product_id', $productId)
+                    ->where('date_vl', '<=', $dateN->toDateString())
+                    ->orderBy('date_vl', 'desc')
+                    ->value('vl') ?? (float)$product->vl;
+
+                $vlN1 = AssetValue::where('product_id', $productId)
+                    ->where('date_vl', '<=', $dateN1->toDateString())
+                    ->orderBy('date_vl', 'desc')
+                    ->value('vl') ?? (float)$product->vl;
+
+                // 5. Montant investi (Cumul historique des apports)
+                $cumulInvesti = DB::table('fcp_movements')
                     ->where('user_id', $client->id)
                     ->where('product_id', $productId)
-                    ->orderBy('date_operation', 'asc')
-                    ->orderBy('id', 'asc')
-                    ->first();
-                
-                $vlSouscription = $firstMvt ? (float)$firstMvt->vl_applied : (float)$product->vl;
+                    ->where('date_operation', '<=', $dateN->toDateString())
+                    ->where('nb_parts_change', '>', 0)
+                    ->sum('amount_xaf');
 
-                $valoN = $partsN * $vlN;
-                $valoN1 = $partsN1 * $vlN1;
-                
-                // Capital investi réel (Parts * VL d'achat)
-                $investi = $partsN * $vlSouscription;
+                // Si cumulInvesti est à 0 (migration), on tente de récupérer via les transactions liées
+                if ($cumulInvesti <= 0) {
+                     $cumulInvesti = DB::table('transactions')
+                        ->where('user_id', $client->id)
+                        ->where('product_id', $productId)
+                        ->where('status', 'Succès')
+                        ->where('date_validation', '<=', $dateN->toDateString())
+                        ->sum('amount');
+                }
 
+                $valoN = (float)$partsN * (float)$vlN;
+                $valoN1 = (float)$partsN1 * (float)$vlN1;
+                
                 $totalValoN += $valoN;
                 $totalValoN1 += $valoN1;
 
-                $produitsAffiches[] = (object)[
+                $produitsAffiches[] = [
                     'nom' => $product->title,
-                    'parts' => $partsN,
-                    'parts_n1' => $partsN1,
+                    'parts_n' => (float)$partsN,
+                    'parts_n1' => (float)$partsN1,
+                    'parts_souscrites' => (float)$partsSouscritesMois,
+                    'parts_rachetees' => (float)$partsRacheteesMois,
                     'vl_n' => (float)$vlN,
                     'vl_n1' => (float)$vlN1,
-                    'vl_souscription' => $vlSouscription,
                     'valo_n' => (float)$valoN,
                     'valo_n1' => (float)$valoN1,
-                    'gain_mensuel' => $valoN - $valoN1,
-                    'gain_total' => $valoN - $investi,
-                    'investi' => $investi,
-                    'souscription' => $firstMvt ? $firstMvt->date_operation : null
+                    'cumul_investi' => (float)$cumulInvesti,
+                    'plus_value' => (float)($valoN - $cumulInvesti),
+                    'gain_mensuel' => (float)($valoN - $valoN1),
                 ];
             }
 
@@ -1572,6 +1687,12 @@ class ProductController extends Controller
                 'date_releve_precedent' => $dateN1->format('d/m/Y'),
                 'periode' => $periodeLabel
             ]);
+
+            \App\Models\UserActivityLog::log(
+                "TELECHARGEMENT_RELEVE_FCP",
+                $client,
+                "Téléchargement du relevé FCP pour {$periodeLabel}"
+            );
 
             return $pdf->download("releve_fcp_{$year}_{$month}.pdf");
         }
@@ -1591,13 +1712,20 @@ class ProductController extends Controller
             ->orderBy('date_validation', 'desc')
             ->get();
 
-        $txIds = $transactions->pluck('id');
+        $supplementalTx = \App\Models\TransactionSupplementaire::where('user_id', $userId)
+            ->where('status', 'Succès')
+            ->orderBy('date_validation', 'desc')
+            ->get();
+
+        $txIds = $transactions->pluck('id')->merge($supplementalTx->pluck('id'));
+        
         $financialMovements = DB::table('financial_movements')
             ->whereIn('transaction_id', $txIds)
             ->orderBy('date_operation', 'desc')
             ->get()
-            ->map(function ($m) use ($transactions) {
-                $tx = $transactions->firstWhere('id', $m->transaction_id);
+            ->map(function ($m) use ($transactions, $supplementalTx) {
+                $tx = $transactions->firstWhere('id', $m->transaction_id) 
+                      ?? $supplementalTx->firstWhere('id', $m->transaction_id);
                 $productTitle = $tx
                     ? optional(Product::find($tx->product_id))->title
                     : 'PMG';
@@ -1620,15 +1748,17 @@ class ProductController extends Controller
                 $isIncoming   = $m->nb_parts_change >= 0;
                 return (object)[
                     'date'    => $m->date_operation,
-                    'libelle' => $isIncoming ? 'SOUSCRIPTION FCP' : 'RACHAT FCP',
-                    'ref'     => $m->reference ?? '-',
+                    'libelle' => strtoupper($m->type) . ' FCP',
+                    'ref'     => $m->reference ?? $m->transaction_id ?? '-',
                     'produit' => $productTitle,
-                    'montant' => (float)$m->montant,
+                    'montant' => (float)($m->amount_xaf ?? 0),
                     'sens'    => $isIncoming ? 'entrant' : 'sortant',
                 ];
             });
 
-        $officialTx = $transactions->map(function ($tx) {
+        $officialTx = $transactions->filter(function($tx) {
+            return optional(Product::find($tx->product_id))->products_category_id != 1;
+        })->map(function ($tx) {
             $productTitle = optional(Product::find($tx->product_id))->title ?? 'Produit';
             return (object)[
                 'date'    => $tx->date_validation ?? $tx->created_at,
@@ -1640,8 +1770,21 @@ class ProductController extends Controller
             ];
         });
 
+        $suppMovements = $supplementalTx->map(function ($tx) {
+            $productTitle = optional(Product::find($tx->product_id))->title ?? 'Produit';
+            return (object)[
+                'date'    => $tx->date_validation ?? $tx->created_at,
+                'libelle' => $tx->title ?? 'VERSEMENT LIBRE',
+                'ref'     => $tx->ref,
+                'produit' => $productTitle,
+                'montant' => (float)$tx->amount,
+                'sens'    => 'entrant',
+            ];
+        });
+
         $allMovements = collect()
             ->merge($officialTx)
+            ->merge($suppMovements)
             ->merge($financialMovements)
             ->merge($fcpMovements)
             ->sortByDesc('date')
@@ -1654,7 +1797,13 @@ class ProductController extends Controller
         ]);
         $pdf->setPaper('A4', 'portrait');
 
-        return $pdf->download('historique_transactions_' . Carbon::now()->format('Y-m-d') . '.pdf');
+            \App\Models\UserActivityLog::log(
+                "TELECHARGEMENT_HISTORIQUE",
+                $user,
+                "Téléchargement de l'historique complet des transactions"
+            );
+
+            return $pdf->download('historique_transactions_' . Carbon::now()->format('Y-m-d') . '.pdf');
     }
 
     /**

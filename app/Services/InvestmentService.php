@@ -115,6 +115,8 @@ class InvestmentService
 
         $capitalBefore = $lastMovement ? $lastMovement->capital_after : 0;
         $amount = (float) $transaction->amount;
+        $fees = (float) ($transaction->fees ?? 0);
+        $total_cost = $amount + $fees;
 
         return FinancialMovement::create([
             'transaction_id' => $transaction->id,
@@ -124,7 +126,7 @@ class InvestmentService
             'capital_after'  => $capitalBefore + $amount,
             'date_operation' => $dateOp,
             'interest_rate_at_moment' => $transaction->vl_buy,
-            'comment'        => $type == 'souscription_initiale' ? "Investissement initial PMG" : "Versement complémentaire PMG"
+            'comment'        => $type == 'souscription_initiale' ? "Investissement initial PMG (Frais: $fees)" : "Versement complémentaire PMG (Frais: $fees)"
         ]);
     }
 
@@ -146,20 +148,22 @@ class InvestmentService
             $vl = (float)($product->vl ?? 100);
         }
 
-        // Calcul précis des parts
-        $nbParts = (float)$transaction->nb_part > 0 ? (float)$transaction->nb_part : (float)$transaction->amount / $vl;
+        // On s'assure que les parts sont bien basées sur le montant NET (déjà déduit des frais dans le controller)
+        $nbParts = (float)$transaction->amount / $vl;
+        $fees = (float)($transaction->fees ?? 0);
 
         return DB::table('fcp_movements')->insert([
             'transaction_id' => $transaction->id,
+            'reference'      => $transaction->ref ?? null,
             'user_id'        => $transaction->user_id,
             'product_id'     => $transaction->product_id,
             'type'           => $type,
-            'amount_xaf'     => $transaction->amount,
+            'amount_xaf'     => (float)$transaction->amount + (float)($transaction->fees ?? 0), // Montant BRUT (Net + Frais)
             'vl_applied'     => $vl,
             'nb_parts_change' => $nbParts,
             'nb_parts_total' => $this->getCurrentParts($transaction->user_id, $transaction->product_id) + $nbParts,
             'date_operation' => $dateOp,
-            'comment'        => "Validation de parts FCP (Valorisation à date)"
+            'comment'        => "Validation de parts FCP (Frais: $fees)"
         ]);
     }
 
@@ -351,13 +355,14 @@ class InvestmentService
     /**
      * Récupère le portefeuille consolidé FCP d'un utilisateur.
      */
-    public function getConsolidatedFcpPortfolio($userId)
+    public function getConsolidatedFcpPortfolio($userId, $targetDate = null)
     {
-        $currentDate = Carbon::now();
+        $currentDate = $targetDate ? Carbon::parse($targetDate) : Carbon::now();
 
-        // 1. On récupère tous les produits FCP que l'utilisateur possède via les mouvements
+        // 1. On récupère tous les produits FCP que l'utilisateur possède via les mouvements avant la date cible
         $productIds = DB::table('fcp_movements')
             ->where('user_id', $userId)
+            ->where('date_operation', '<=', $currentDate->toDateString())
             ->distinct()
             ->pluck('product_id');
 
@@ -367,34 +372,35 @@ class InvestmentService
             $product = \App\Models\Product::find($productId);
             if (!$product) continue;
 
-            $stats = $this->getCurrentStatus($userId, $productId);
+            $stats = $this->getCurrentStatusAtDate($userId, $productId, $currentDate->toDateString());
 
+            // On cherche la VL la plus proche (égale ou antérieure) de la date cible
             $latestVlEntry = \App\Models\AssetValue::where('product_id', $productId)
+                ->where('date_vl', '<=', $currentDate->toDateString())
                 ->orderBy('date_vl', 'desc')
                 ->first();
 
-            // S'il n'y a pas encore d'historique de VL, on utilise la VL par défaut du produit
             $currentVl = $latestVlEntry ? (float)$latestVlEntry->vl : (float)($product->vl ?? 100);
             
-            // Récupérer la VL précédente (pour l'évolution hebdo)
-            $previousVlEntry = \App\Models\AssetValue::where('product_id', $productId)
-                ->where('date_vl', '<', $latestVlEntry ? $latestVlEntry->date_vl : now())
-                ->orderBy('date_vl', 'desc')
-                ->first();
-            $prevVl = $previousVlEntry ? (float)$previousVlEntry->vl : $currentVl;
-
             $valuation = $stats['parts'] * $currentVl;
             $invested = $stats['invested'];
             $gainTotal = $valuation - $invested;
-            $gainHebdo = $stats['parts'] * ($currentVl - $prevVl);
-            $pru = $stats['parts'] > 0 ? $invested / $stats['parts'] : 0;
 
+            // Calcul du gain hebdomadaire (Evolution VL sur 7 jours)
+            $oneWeekAgo = $currentDate->copy()->subDays(7);
+            $oldVlEntry = \App\Models\AssetValue::where('product_id', $product->id)
+                ->where('date_vl', '<=', $oneWeekAgo->toDateString())
+                ->orderBy('date_vl', 'desc')
+                ->first();
+            $oldVl = $oldVlEntry ? (float)$oldVlEntry->vl : $currentVl;
+            $weeklyGain = ($currentVl - $oldVl) * $stats['parts'];
+
+            // Récupérer la première souscription pour avoir la VL et date initiale
             $firstMovement = DB::table('fcp_movements')
-                ->join('transactions', 'fcp_movements.transaction_id', '=', 'transactions.id')
-                ->where('fcp_movements.user_id', $userId)
-                ->where('fcp_movements.product_id', $productId)
-                ->orderBy('transactions.date_validation', 'asc')
-                ->select('fcp_movements.*', 'transactions.date_validation as official_date')
+                ->where('user_id', $userId)
+                ->where('product_id', $productId)
+                ->whereIn('type', ['souscription', 'versement_libre'])
+                ->orderBy('date_operation', 'asc')
                 ->first();
 
             $portfolio[] = [
@@ -403,15 +409,82 @@ class InvestmentService
                 'slug' => $product->slug,
                 'total_parts' => $stats['parts'],
                 'total_invested' => $invested,
+                'current_valuation' => $valuation,
                 'current_vl' => $currentVl,
-                'previous_vl' => $prevVl,
-                'pru' => $pru, // Prix de Revient Unitaire
-                'valuation' => $valuation,
+                'latest_vl_date' => $latestVlEntry ? $latestVlEntry->date_vl : $currentDate->toDateString(),
+                'first_vl' => $firstMovement ? (float)$firstMovement->vl_applied : $currentVl,
+                'first_subscription_date' => $firstMovement ? $firstMovement->date_operation : $currentDate->toDateString(),
                 'total_gain' => $gainTotal,
-                'weekly_gain' => $gainHebdo,
-                'performance' => $invested > 0 ? ($gainTotal / $invested) * 100 : 0,
-                'first_subscription_date' => $firstMovement ? $firstMovement->official_date : null,
-                'first_vl' => $firstMovement ? $firstMovement->vl_applied : 0,
+                'weekly_gain' => $weeklyGain,
+                'performance' => $invested > 0 ? ($gainTotal / $invested) * 100 : 0
+            ];
+        }
+
+        return $portfolio;
+    }
+
+    public function getCurrentStatusAtDate($userId, $productId, $date)
+    {
+        $movements = DB::table('fcp_movements')
+            ->where('user_id', $userId)
+            ->where('product_id', $productId)
+            ->where('date_operation', '<=', $date)
+            ->get();
+
+        $parts = 0;
+        $invested = 0;
+
+        foreach ($movements as $m) {
+            $parts += (float)$m->nb_parts_change;
+            if (in_array($m->type, ['souscription', 'versement_libre'])) {
+                $invested += (float)$m->amount_xaf; 
+            } elseif (in_array($m->type, ['rachat_partiel', 'rachat_total', 'rachat'])) {
+                $invested -= abs((float)$m->nb_parts_change * (float)$m->vl_applied);
+            }
+        }
+
+        return ['parts' => $parts, 'invested' => $invested];
+    }
+
+
+    /**
+     * Récupère le portefeuille consolidé PMG d'un utilisateur.
+     */
+    public function getConsolidatedPmgPortfolio($userId, $targetDate = null)
+    {
+        $currentDate = $targetDate ? Carbon::parse($targetDate) : Carbon::now();
+
+        // 1. Récupérer toutes les transactions PMG du client (status Succès) validées avant ou à la date cible
+        $transactions = Transaction::where('user_id', $userId)
+            ->where('status', 'Succès')
+            ->where('date_validation', '<=', $currentDate->toDateString())
+            ->whereHas('product', function($q) {
+                $q->where('products_category_id', 2); // PMG
+            })
+            ->with('product')
+            ->get();
+
+        $portfolio = [];
+
+        foreach ($transactions as $trans) {
+            // Récupérer le dernier mouvement financier AVANT la date cible
+            $lastMovement = FinancialMovement::where('transaction_id', $trans->id)
+                ->where('date_operation', '<=', $currentDate->toDateString())
+                ->orderBy('date_operation', 'desc')
+                ->orderBy('id', 'desc')
+                ->first();
+
+            $invested = (float) $trans->amount;
+            $currentValuation = $lastMovement ? (float) $lastMovement->capital_after : $invested;
+            $gain = $currentValuation - $invested;
+
+            $portfolio[] = [
+                'transaction_id' => $trans->id,
+                'product_name' => $trans->product->title ?? 'PMG',
+                'total_invested' => $invested,
+                'current_valuation' => $currentValuation,
+                'total_gain' => $gain,
+                'performance' => $invested > 0 ? ($gain / $invested) * 100 : 0
             ];
         }
 
@@ -436,8 +509,10 @@ class InvestmentService
             $valuationAtEvent = (float)$m->nb_parts_change * (float)$m->vl_applied;
 
             if (in_array($m->type, ['souscription', 'versement_libre'])) {
-                $invested += $valuationAtEvent;
+                // On prend le BRUT (Net + Fees) pour la performance réelle (ce qui a été décaissé)
+                $invested += (float)$m->amount_xaf; 
             } elseif (in_array($m->type, ['rachat_partiel', 'rachat_total', 'rachat'])) {
+                // Pour les rachats, on déduit la valorisation au moment de l'événement
                 $invested -= abs($valuationAtEvent);
             }
         }

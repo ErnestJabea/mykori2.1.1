@@ -49,8 +49,8 @@ class UpdateUserBalanceListener
 
                 if ($newStatus === 'Succès') {
                     // Logique pour mettre à jour le solde de l'utilisateur en fonction de la transaction
-                    //Mise à jour de la date de validation
-                    $transaction->date_validation = $date_transaction;
+                    //Mise à jour de la date de validation SEULEMENT si elle est vide
+                    $transaction->date_validation = $transaction->date_validation ?? $date_transaction;
                     // Mettre à jour le solde de l'utilisateur et la transaction dans une transaction unique
 
                     if ($product->products_category_id == 1) {
@@ -83,7 +83,7 @@ class UpdateUserBalanceListener
 
                     DB::table('transactions')
                         ->where('id', $transaction->id)
-                        ->update(['date_validation' => $date_transaction]);
+                        ->update(['date_validation' => $transaction->date_validation]);
 
                     // Envoyer un e-mail de confirmation
                     if ($product->products_category_id == 1) {

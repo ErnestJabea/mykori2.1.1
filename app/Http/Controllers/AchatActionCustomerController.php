@@ -56,7 +56,8 @@ class AchatActionCustomerController extends Controller
             $new_transaction->title = "Souscription suppl. " . $type_souscription . " de " . $name_product->title;
             $new_transaction->ref = "Kori-" . $existing_transaction->ref . "-" . $unique_id;
             $new_transaction->payment_mode = "A définir";
-            $new_transaction->amount = $montantTotal;
+            $new_transaction->amount = $montant_normal;
+            $new_transaction->fees = $fraisGestion;
             $new_transaction->status = "En attente";
             $new_transaction->user_id = $customer;
             $new_transaction->vl_buy = $vl_val;
@@ -75,6 +76,7 @@ class AchatActionCustomerController extends Controller
             $transaction->ref = "Kori-" . $unique_id;
             $transaction->payment_mode = "A définir";
             $transaction->amount = $montant_normal;
+            $transaction->fees = $fraisGestion;
             $transaction->status = "En attente";
             $transaction->user_id = $customer;
             $transaction->vl_buy = $vl_val;
@@ -113,6 +115,7 @@ class AchatActionCustomerController extends Controller
         $date_valeur = $request->input('date_valeur');
         $date_echeance = $request->input('date_echeance');
         $taux_insere = $request->input('taux_insere');
+        $montant_normal = $request->input('montant_normal'); // On récupère le NET (Capital de travail)
         $type_souscription = $request->input('type_souscription', 'ponctuelle');
 
         $name_product = Product::where('id', $product)->first();
@@ -137,7 +140,15 @@ class AchatActionCustomerController extends Controller
             $new_transaction->title = "Souscription suppl. " . $type_souscription . " de " . $name_product->title;
             $new_transaction->ref = $existing_transaction->ref . "-" . $unique_id;
             $new_transaction->payment_mode = "A définir";
-            $new_transaction->amount = $montantTotal;
+            
+            // Logic distinction: PMG (2) has no fees, FCP (1) has fees
+            if ($name_product->products_category_id == 2) {
+                $new_transaction->amount = $montantTotal; 
+                $new_transaction->fees = 0; 
+            } else {
+                $new_transaction->amount = $montant_normal; 
+                $new_transaction->fees = $fraisGestion;
+            }
             $new_transaction->status = "En attente";
             $new_transaction->user_id = $customer;
             $new_transaction->vl_buy = $taux_insere ?: $name_product->vl;
@@ -156,7 +167,16 @@ class AchatActionCustomerController extends Controller
             $transaction->title = "Souscription " . $type_souscription . " de " . $name_product->title;
             $transaction->ref = "Kori-" . $unique_id;
             $transaction->payment_mode = "A définir";
-            $transaction->amount = $montantTotal;
+            
+            // Logic distinction: PMG (2) has no fees, FCP (1) has fees
+            if ($name_product->products_category_id == 2) {
+                $transaction->amount = $montantTotal; 
+                $transaction->fees = 0; 
+            } else {
+                $transaction->amount = $montant_normal; 
+                $transaction->fees = $fraisGestion;
+            }
+            
             $transaction->status = "En attente";
             $transaction->user_id = $customer;
             $transaction->vl_buy = $taux_insere ?: $name_product->vl;

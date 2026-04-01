@@ -25,8 +25,8 @@ class UpdateTransactionAchatObservateur
 
     public function updated(Transaction $transaction)
     {
-        // Obtenir la date et l'heure actuelle
-        $date_validation = Carbon::now();
+        // Obtenir la date de validation existante ou l'heure actuelle par défaut
+        $date_validation = $transaction->date_validation ?? Carbon::now();
 
         // Obtenir le nouveau statut de la transaction
         $newStatus = $transaction->status;

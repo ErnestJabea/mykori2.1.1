@@ -40,22 +40,23 @@ class ComplianceController extends Controller
         $totalClients = User::where('role_id', 2)->count();
         $totalTransactions = Transaction::where('status', 'Succès')->count();
         
-        // Mouvements récents pour le flux de contrôle
+        // Mouvements à valider (unifiés)
         $recentTransactions = Transaction::with(['user', 'product'])
-            ->orderBy('created_at', 'desc')
-            ->limit(10)
-            ->get();
+            ->where('status', 'En attente')
+            ->get()
+            ->map(function($t) { $t->type_flux = 'main'; return $t; });
 
         $recentSupps = TransactionSupplementaire::with(['user', 'product'])
-            ->orderBy('created_at', 'desc')
-            ->limit(10)
-            ->get();
+            ->where('status', 'En attente')
+            ->get()
+            ->map(function($t) { $t->type_flux = 'supp'; return $t; });
+
+        $allPending = $recentTransactions->merge($recentSupps)->sortByDesc('created_at');
 
         return view('front-end.compliance.dashboard', compact(
             'totalClients', 
             'totalTransactions', 
-            'recentTransactions',
-            'recentSupps'
+            'allPending'
         ));
     }
 
@@ -88,14 +89,14 @@ class ComplianceController extends Controller
         
         // 2. Toutes les transactions (Principales)
         $transactions = Transaction::where('user_id', $client->id)
-            ->whereBetween('created_at', [$startDate, $endDate . ' 23:59:59'])
-            ->orderBy('created_at', 'asc')
+            ->whereBetween('date_validation', [$startDate, $endDate])
+            ->orderBy('date_validation', 'asc')
             ->get();
 
         // 3. Toutes les transactions supplémentaires
         $supplements = TransactionSupplementaire::where('user_id', $client->id)
-            ->whereBetween('created_at', [$startDate, $endDate . ' 23:59:59'])
-            ->orderBy('created_at', 'asc')
+            ->whereBetween('date_validation', [$startDate, $endDate])
+            ->orderBy('date_validation', 'asc')
             ->get();
 
         // 4. Mouvements financiers (PMG) - Nécessite une jointure car pas de user_id direct
@@ -111,6 +112,12 @@ class ComplianceController extends Controller
             ->where('user_id', $client->id)
             ->whereBetween('date_operation', [$startDate, $endDate])
             ->get();
+
+        \App\Models\UserActivityLog::log(
+            "CONSULTATION_HISTORIQUE_CLIENT",
+            $client,
+            "Consultation de l'historique complet du client ID #{$client->id} par le profil Compliance"
+        );
 
         return view('front-end.compliance.client-detail', compact(
             'client', 
@@ -167,14 +174,14 @@ class ComplianceController extends Controller
             if ($type == 'transactions') {
                 fputcsv($file, ['Date', 'Client', 'Produit', 'Montant', 'Statut', 'Ref'], ';');
                 $query = Transaction::with(['user', 'product']);
-                if ($startDate) $query->where('created_at', '>=', $startDate);
-                if ($endDate) $query->where('created_at', '<=', $endDate . ' 23:59:59');
+                if ($startDate) $query->where('date_validation', '>=', $startDate);
+                if ($endDate) $query->where('date_validation', '<=', $endDate);
                 if ($clientId) $query->where('user_id', $clientId);
                 
                 $query->chunk(100, function($rows) use ($file) {
                     foreach ($rows as $row) {
                         fputcsv($file, [
-                            $row->created_at->format('d/m/Y'),
+                            ($row->date_validation ?? $row->created_at)->format('d/m/Y'),
                             $row->user->name,
                             $row->product->title,
                             $row->amount,
@@ -220,6 +227,12 @@ class ComplianceController extends Controller
             fclose($file);
         };
 
+        \App\Models\UserActivityLog::log(
+            "EXPORT_COMPLIANCE",
+            null,
+            "Exportation de données de type $type pour la période du $startDate au $endDate"
+        );
+
         return response()->stream($callback, 200, $headers);
     }
 
@@ -237,5 +250,109 @@ class ComplianceController extends Controller
             return response()->download($path);
         }
         return back()->with('error', 'Fichier introuvable.');
+    }
+
+    /**
+     * Audit de Portefeuille Consolidé
+     */
+    public function portfolioAudit(Request $request)
+    {
+        $startDate = $request->get('start_date', Carbon::now()->startOfMonth()->format('Y-m-d'));
+        $endDate = $request->get('end_date', Carbon::now()->format('Y-m-d'));
+        
+        $clients = User::where('role_id', 2)
+            ->where('created_at', '<=', $endDate . ' 23:59:59')
+            ->get();
+        $auditData = [];
+        
+        foreach($clients as $client) {
+            $fcpPortfolios = $this->investmentService->getConsolidatedFcpPortfolio($client->id, $endDate);
+            $pmgPortfolios = $this->investmentService->getConsolidatedPmgPortfolio($client->id, $endDate);
+            
+            $valuationFcp = collect($fcpPortfolios)->sum('current_valuation');
+            $valuationPmg = collect($pmgPortfolios)->sum('current_valuation');
+            $totalValuation = $valuationFcp + $valuationPmg;
+
+            if ($totalValuation > 0) {
+                $auditData[] = (object)[
+                    'client' => $client,
+                    'valuation_fcp' => $valuationFcp,
+                    'valuation_pmg' => $valuationPmg,
+                    'total_valuation' => $totalValuation,
+                ];
+            }
+        }
+
+        // Statistiques globales
+        $globalValuationFcp = collect($auditData)->sum('valuation_fcp');
+        $globalValuationPmg = collect($auditData)->sum('valuation_pmg');
+        $globalValuation = $globalValuationFcp + $globalValuationPmg;
+
+        return view('front-end.compliance.portfolio-audit', compact(
+            'auditData', 
+            'startDate', 
+            'endDate', 
+            'globalValuationFcp', 
+            'globalValuationPmg',
+            'globalValuation'
+        ));
+    }
+
+    /**
+     * Exportation globale de l'audit de portefeuille
+     */
+    public function exportAudit(Request $request)
+    {
+        $startDate = $request->get('start_date');
+        $endDate = $request->get('end_date', Carbon::now()->format('Y-m-d'));
+        $selectedIds = $request->get('client_ids') ? explode(',', $request->get('client_ids')) : [];
+        
+        \App\Models\UserActivityLog::log(
+            "EXPORT_AUDIT_PORTEFEUILLE",
+            null,
+            "Exportation de l'audit de portefeuille au $endDate"
+        );
+        
+        $fileName = 'audit_portefeuille_selection_' . now()->format('YmdHis') . '.csv';
+        $headers = [
+            "Content-type"        => "text/csv; charset=UTF-8",
+            "Content-Disposition" => "attachment; filename=$fileName",
+            "Pragma"              => "no-cache",
+            "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
+            "Expires"             => "0"
+        ];
+        
+        $query = User::where('role_id', 2)->where('created_at', '<=', $endDate . ' 23:59:59');
+        if (!empty($selectedIds)) {
+            $query->whereIn('id', $selectedIds);
+        }
+        $clients = $query->get();
+
+        $callback = function() use ($clients, $endDate) {
+            $file = fopen('php://output', 'w');
+            fputs($file, (chr(0xEF) . chr(0xBB) . chr(0xBF))); // BOM UTF-8
+            fputcsv($file, ['ID Client', 'Nom Client', 'Valorisation FCP', 'Valorisation PMG', 'VALORISATION TOTALE'], ';');
+
+            foreach ($clients as $client) {
+                $fcp = $this->investmentService->getConsolidatedFcpPortfolio($client->id, $endDate);
+                $pmg = $this->investmentService->getConsolidatedPmgPortfolio($client->id, $endDate);
+                
+                $valuationFcp = collect($fcp)->sum('current_valuation');
+                $valuationPmg = collect($pmg)->sum('current_valuation');
+                
+                if ($valuationFcp > 0 || $valuationPmg > 0) {
+                    fputcsv($file, [
+                        $client->id,
+                        $client->name,
+                        round($valuationFcp, 0),
+                        round($valuationPmg, 0),
+                        round($valuationFcp + $valuationPmg, 0)
+                    ], ';');
+                }
+            }
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
     }
 }

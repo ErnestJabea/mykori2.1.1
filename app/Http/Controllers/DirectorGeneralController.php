@@ -53,7 +53,22 @@ class DirectorGeneralController extends Controller
             ->limit(5)
             ->get();
 
-        // 4. Derniers Flux de Trésorerie (Succès)
+        // 4. Flux en attente de signature DG (Unifiés)
+        $pendingTransactions = Transaction::with(['user', 'product'])
+            ->where('status', 'En attente')
+            ->where('is_dg_validated', 0)
+            ->get()
+            ->map(function($t) { $t->type_flux = 'main'; return $t; });
+
+        $pendingSupps = TransactionSupplementaire::with(['user', 'product'])
+            ->where('status', 'En attente')
+            ->where('is_dg_validated', 0)
+            ->get()
+            ->map(function($t) { $t->type_flux = 'supp'; return $t; });
+
+        $allPending = $pendingTransactions->merge($pendingSupps)->sortByDesc('created_at');
+
+        // 5. Derniers Flux de Trésorerie (Succès)
         $recentSuccessFlows = Transaction::with(['user', 'product'])
             ->where('status', 'Succès')
             ->orderBy('updated_at', 'desc')
@@ -78,7 +93,8 @@ class DirectorGeneralController extends Controller
             'aumByType',
             'topProducts',
             'recentSuccessFlows',
-            'expiringMandats'
+            'expiringMandats',
+            'allPending'
         ));
     }
 

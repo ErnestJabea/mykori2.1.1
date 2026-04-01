@@ -190,58 +190,72 @@ $logoBase64 = file_exists($logoPath) ? 'data:image/png;base64,'.base64_encode(fi
             <div class="title-period">{{ ucfirst($periode) }}</div>
         </div>
 
-        <div class="clearfix">
-            @foreach ($produits as $p)
-            <div class="product-item">
-                <div class="title-product">{{ $p->nom }}</div>
-                <div class="details-product">
-                    <div><strong>Date de souscription :</strong> {{ \Carbon\Carbon::parse($p->souscription)->format('d/m/Y') }}</div>
-                    <div><strong>Nombre de parts :</strong> {{ number_format($p->parts, 2, ',', ' ') }}</div>
-                    <div><strong>VL à la souscription :</strong> XAF {{ number_format($p->vl_souscription, 2, ',', ' ') }}</div>
-                    <div><strong>VL au {{ $date_releve }} :</strong> XAF {{ number_format($p->vl_n, 2, ',', ' ') }}</div>
-                    <div><strong>Valorisation :</strong> XAF {{ number_format($p->valo_n, 0, ' ', ' ') }}</div>
-                    <div><strong>Plus-value :</strong> XAF {{ number_format($p->gain_total, 0, ' ', ' ') }}</div>
-                </div>
+        @foreach ($produits as $p)
+        <div style="margin-bottom: 40px;">
+            <h3 style="color: #531d09; margin-bottom: 10px; border-bottom: 2px solid #ebb008; padding-bottom: 5px;">{{ data_get($p, 'nom') }}</h3>
+            
+            <!-- TABLEAU 1: DETAIL SYNTHETIQUE -->
+            <div class="table-container">
+                <p style="font-size: 11px; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; color: #666;">I. Détail Synthétique</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="text-center">Date de Valorisation</th>
+                            <th class="text-center">VL à date (XAF)</th>
+                            <th class="text-right">Capital Total Investi (Brut)</th>
+                            <th class="text-center">Nombre de Parts Cumulé</th>
+                            <th class="text-right">Valorisation Portefeuille</th>
+                            <th class="text-right">Plus-Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="text-center">{{ $date_releve }}</td>
+                            <td class="text-center">{{ number_format(data_get($p, 'vl_n', 0), 2, ',', ' ') }}</td>
+                            <td class="text-right">XAF {{ number_format(data_get($p, 'cumul_investi', 0), 0, ' ', ' ') }}</td>
+                            <td class="text-center">{{ number_format(data_get($p, 'parts_n', 0), 4, ',', ' ') }}</td>
+                            <td class="text-right" style="font-weight: bold;">XAF {{ number_format(data_get($p, 'valo_n', 0), 0, ' ', ' ') }}</td>
+                            <td class="text-right" style="color: {{ data_get($p, 'plus_value', 0) >= 0 ? 'green' : 'red' }}; font-weight: bold;">
+                                XAF {{ number_format(data_get($p, 'plus_value', 0), 0, ' ', ' ') }}
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
-            @endforeach
+
+            <!-- TABLEAU 2: DETAIL DES TRANSACTIONS -->
+            <div class="table-container" style="margin-top: 10px;">
+                <p style="font-size: 11px; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; color: #666;">II. Détails des Transactions (Parts)</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Désignation</th>
+                            <th class="text-center">Nb Parts (Mois précédent)</th>
+                            <th class="text-center">Nb Parts (Souscrites)</th>
+                            <th class="text-center">Nb Parts (Rachetées)</th>
+                            <th class="text-center">Nombre de Parts Actuel</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Mouvements du {{ $periode }}</td>
+                            <td class="text-center">{{ number_format(data_get($p, 'parts_n1', 0), 4, ',', ' ') }}</td>
+                            <td class="text-center" style="color: green;">+ {{ number_format(data_get($p, 'parts_souscrites', 0), 4, ',', ' ') }}</td>
+                            <td class="text-center" style="color: red;">- {{ number_format(data_get($p, 'parts_rachetees', 0), 4, ',', ' ') }}</td>
+                            <td class="text-center" style="font-weight: bold; background-color: #fcfcfc;">{{ number_format(data_get($p, 'parts_n', 0), 4, ',', ' ') }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
+        @endforeach
 
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Désignation</th>
-                        <th class="text-center">Parts</th>
-                        <th class="text-center">VL au {{ $date_releve_precedent }}</th>
-                        <th class="text-center">VL au {{ $date_releve }}</th>
-                        <th class="text-right">Variation Mensuelle</th>
-                        <th class="text-right">Valeur Estimée</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr class="total-row">
-                        <td colspan="5">Valorisation du portefeuille au {{ $date_releve_precedent }}</td>
-                        <td class="text-right">XAF {{ number_format($valorisation_precedente, 0, ' ', ' ') }}</td>
-                    </tr>
-
-                    @foreach ($produits as $p)
-                    <tr>
-                        <td>{{ $p->nom }}</td>
-                        <td class="text-center">{{ number_format($p->parts, 2, ',', ' ') }}</td>
-                        <td class="text-center">{{ number_format($p->vl_n1, 2, ',', ' ') }}</td>
-                        <td class="text-center">{{ number_format($p->vl_n, 2, ',', ' ') }}</td>
-                        <td class="text-right" style="color: {{ $p->gain_mensuel >= 0 ? 'green' : 'red' }}">
-                            {{ $p->gain_mensuel >= 0 ? '+' : '' }}{{ number_format($p->gain_mensuel, 0, ' ', ' ') }}
-                        </td>
-                        <td class="text-right">XAF {{ number_format($p->valo_n, 0, ' ', ' ') }}</td>
-                    </tr>
-                    @endforeach
-
-                    <tr class="total-row">
-                        <td colspan="5">Valeur liquidative totale au {{ $date_releve }}</td>
-                        <td class="text-right" style="font-size: 1.2em;">XAF {{ number_format($valorisation_courante, 0, ' ', ' ') }}</td>
-                    </tr>
-                </tbody>
+        <div class="table-container" style="margin-top: 30px;">
+            <table style="border: 2px solid #531d09;">
+                <tr class="total-row">
+                    <td style="padding: 15px; font-size: 14px;">VALEUR LIQUIDATIVE TOTALE AU {{ $date_releve }}</td>
+                    <td class="text-right" style="padding: 15px; font-size: 18px;">XAF {{ number_format($valorisation_courante, 0, ' ', ' ') }}</td>
+                </tr>
             </table>
         </div>
 

@@ -18,38 +18,45 @@
                     </div>
                 </div>
 
-                <!-- Strategic KPIs (Même ligne) -->
-                <div class="flex flex-wrap md:flex-nowrap gap-6">
-                    <div class="flex-1 min-w-[240px] bg-primary text-white p-6 rounded-3xl shadow-lg relative overflow-hidden group border border-primary/20">
+                <!-- Strategic KPIs (Premium Refinement) -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="bg-marron text-white p-7 rounded-3xl shadow-xl relative overflow-hidden group border border-white/5 transition-all hover:-translate-y-1">
                         <div class="relative z-10">
-                            <p class="text-white/70 text-[10px] font-bold uppercase tracking-widest mb-1 italic">Investisseurs Actifs</p>
-                            <h3 class="text-3xl font-bold">{{ number_format($totalClients, 0, '.', ' ') }}</h3>
+                            <p class="text-white/60 text-[10px] font-bold uppercase tracking-widest mb-2 italic">Portefeuille Clients</p>
+                            <h3 class="text-4xl font-bold tracking-tighter">{{ number_format($totalClients, 0, '.', ' ') }}</h3>
+                            <p class="text-[9px] mt-2 opacity-50 font-medium italic">Comptes sous surveillance directe</p>
                         </div>
-                        <i class="las la-user-tie absolute -bottom-4 -right-2 text-8xl opacity-10 group-hover:scale-110 transition-transform"></i>
+                        <i class="las la-user-shield absolute -bottom-6 -right-4 text-[120px] opacity-10 group-hover:rotate-12 transition-all duration-700"></i>
                     </div>
 
-                    <div class="flex-1 min-w-[240px] bg-success text-white p-6 rounded-3xl shadow-lg relative overflow-hidden group border border-success/20">
+                    <div class="bg-white dark:bg-bg3 p-7 rounded-3xl shadow-sm border border-n30 relative overflow-hidden group transition-all hover:shadow-md">
                         <div class="relative z-10">
-                            <p class="text-white/70 text-[10px] font-bold uppercase tracking-widest mb-1 italic">Actifs Sous Gestion (AUM)</p>
-                            <h3 class="text-3xl font-bold">{{ number_format($totalAum, 0, '.', ' ') }} <span class="text-sm">XAF</span></h3>
+                            <p class="text-n500 text-[10px] font-bold uppercase tracking-widest mb-2 italic">AUM Global</p>
+                            <h3 class="text-3xl font-bold text-marron tracking-tighter">{{ number_format($totalAum, 0, '.', ' ') }} <span class="text-xs">XAF</span></h3>
+                            <div class="mt-2 flex items-center gap-1">
+                                <span class="w-2 h-2 rounded-full bg-success animate-pulse"></span>
+                                <span class="text-[9px] text-success font-bold uppercase">Actifs gérés en temps réel</span>
+                            </div>
                         </div>
-                        <i class="las la-piggy-bank absolute -bottom-4 -right-2 text-8xl opacity-10 group-hover:scale-110 transition-transform"></i>
+                        <i class="las la-chart-line absolute -bottom-6 -right-4 text-[120px] text-marron opacity-5 group-hover:scale-110 transition-all duration-700"></i>
                     </div>
 
-                    <div class="flex-1 min-w-[240px] bg-secondary text-white p-6 rounded-3xl shadow-lg relative overflow-hidden group border border-secondary/20">
+                    <div class="bg-white dark:bg-bg3 p-7 rounded-3xl shadow-sm border border-n30 relative overflow-hidden group transition-all hover:shadow-md">
                         <div class="relative z-10">
-                            <p class="text-white/70 text-[10px] font-bold uppercase tracking-widest mb-1 italic">Paiements Intérêts</p>
-                            <h3 class="text-3xl font-bold">{{ number_format($totalInterets, 0, '.', ' ') }} <span class="text-sm">XAF</span></h3>
+                            <p class="text-n500 text-[10px] font-bold uppercase tracking-widest mb-2 italic">Intérêts Distribués</p>
+                            <h3 class="text-3xl font-bold text-secondary tracking-tighter">{{ number_format($totalInterets, 0, '.', ' ') }} <span class="text-xs text-secondary/50">XAF</span></h3>
+                            <p class="text-[9px] mt-2 text-n400 italic">Volume cumulé des capitalisations</p>
                         </div>
-                        <i class="las la-hand-holding-usd absolute -bottom-4 -right-2 text-8xl opacity-10 group-hover:scale-110 transition-transform"></i>
+                        <i class="las la-wallet absolute -bottom-6 -right-4 text-[120px] text-secondary opacity-5 group-hover:rotate-12 transition-all duration-700"></i>
                     </div>
 
-                    <div class="flex-1 min-w-[240px] bg-n900 text-white p-6 rounded-3xl shadow-lg relative overflow-hidden group border border-white/10">
+                    <div class="bg-white dark:bg-bg3 p-7 rounded-3xl shadow-sm border border-n30 relative overflow-hidden group transition-all hover:shadow-md">
                         <div class="relative z-10">
-                            <p class="text-white/60 text-[10px] font-bold uppercase tracking-widest mb-1 italic">Ticket Moyen</p>
-                            <h3 class="text-3xl font-bold italic">{{ number_format($totalClients > 0 ? $totalAum / $totalClients : 0, 0, '.', ' ') }} <span class="text-[10px] opacity-60">XAF</span></h3>
+                            <p class="text-n500 text-[10px] font-bold uppercase tracking-widest mb-2 italic">Ticket Moyen</p>
+                            <h3 class="text-3xl font-bold text-n900 tracking-tighter">{{ number_format($totalClients > 0 ? $totalAum / $totalClients : 0, 0, '.', ' ') }} <span class="text-xs text-n400">XAF</span></h3>
+                            <p class="text-[9px] mt-2 text-primary font-bold italic">Valeur moyenne par investisseur</p>
                         </div>
-                        <i class="las la-calculator absolute -bottom-4 -right-2 text-8xl opacity-10 group-hover:scale-110 transition-transform"></i>
+                        <i class="las la-hand-holding-heart absolute -bottom-6 -right-4 text-[120px] text-n900 opacity-5 group-hover:scale-110 transition-all duration-700"></i>
                     </div>
                 </div>
 
@@ -156,14 +163,95 @@
                         </div>
                     </div>
 
+                    <!-- Dossiers En Attente de Signature DG -->
+                    <div class="xl:col-span-7 bg-white rounded-3xl border border-warning/30 shadow-sm overflow-hidden border-t-8 border-t-warning">
+                        <div class="p-8 border-b border-n30 flex justify-between items-center bg-warning/5">
+                            <h3 class="font-bold text-n900 flex items-center gap-3">
+                                <i class="las la-file-signature text-warning text-2xl"></i>
+                                Dossiers en attente de signature finale
+                            </h3>
+                            <span class="px-3 py-1 bg-marron text-white text-[10px] font-bold rounded-full uppercase italic">Vigilance Direction</span>
+                        </div>
+                        <div class="overflow-x-auto min-h-[300px]">
+                            <table class="w-full text-left">
+                                <thead class="bg-gray-50 text-n500 text-[11px] uppercase tracking-widest font-extrabold border-b border-n30">
+                                    <tr>
+                                        <th class="px-6 py-5">Date</th>
+                                        <th class="px-6 py-5">Client / Flux</th>
+                                        <th class="px-6 py-5">Produit Cible</th>
+                                        <th class="px-6 py-5 text-right font-bold">Volume</th>
+                                        <th class="px-6 py-5 text-center">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-n30 italic">
+                                    @forelse($allPending as $flow)
+                                        <tr class="hover:bg-n10 transition-all border-l-4 border-transparent hover:border-marron shadow-sm/0 hover:shadow-md">
+                                            <td class="px-6 py-5">
+                                                <span class="text-[12px] font-extrabold text-n700 uppercase tracking-tighter">{{ $flow->created_at->format('d/m/Y') }}</span>
+                                            </td>
+                                            <td class="px-6 py-5">
+                                                <div class="flex flex-col">
+                                                    <span class="font-bold text-n900 text-base italic leading-tight">{{ $flow->user->name ?? 'Client KORI' }}</span>
+                                                    <div class="flex items-center gap-2 mt-1">
+                                                        <span class="text-[10px] text-n400 font-bold uppercase tracking-widest">ID: {{ $flow->ref ?? 'T-'.$flow->id }}</span>
+                                                        @if($flow->type_flux == 'main')
+                                                            <span class="text-[9px] bg-marron text-white px-2 py-0.5 rounded-lg font-bold uppercase tracking-tighter">Initial</span>
+                                                        @else
+                                                            <span class="text-[9px] bg-secondary text-white px-2 py-0.5 rounded-lg font-bold uppercase tracking-tighter">Ajout Libre</span>
+                                                        @endif
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-5">
+                                                <span class="px-3 py-1 rounded-xl bg-gray-50 text-marron text-[11px] font-extrabold uppercase border border-marron/10 shadow-sm">{{ $flow->product->title ?? 'N/A' }}</span>
+                                            </td>
+                                            <td class="px-6 py-5 text-right">
+                                                <span class="text-lg font-black text-marron tracking-tight">{{ number_format($flow->amount + ($flow->fees ?? 0), 0, '.', ' ') }}</span> 
+                                                <span class="text-[10px] font-bold text-n400 uppercase ml-1">XAF</span>
+                                            </td>
+                                            <td class="px-6 py-5 text-center">
+                                                <div class="flex items-center justify-center gap-2">
+                                                    <button 
+                                                        onclick="openTransactionModal({{ $flow->toJson() }}, '{{ route('backoffice.validate-transaction', [$flow->id, $flow->type_flux]) }}')"
+                                                        class="w-10 h-10 bg-marron/10 text-marron rounded-2xl flex items-center justify-center hover:bg-marron hover:text-white transition-all shadow-sm" 
+                                                        title="Auditer avant signature">
+                                                        <i class="las la-eye text-xl"></i>
+                                                    </button>
+                                                    <form action="{{ route('backoffice.validate-transaction', [$flow->id, $flow->type_flux]) }}" method="POST" class="inline">
+                                                        @csrf
+                                                        <button type="submit" class="w-10 h-10 bg-marron text-white rounded-2xl shadow-lg hover:rotate-6 active:scale-95 transition-all flex items-center justify-center group" title="Signature DG (Activation finale)">
+                                                            <i class="las la-pen-nib text-xl group-hover:scale-110"></i>
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="5" class="py-24 text-center">
+                                                <div class="flex flex-col items-center gap-4 opacity-30">
+                                                    <i class="las la-folder-open text-6xl"></i>
+                                                    <p class="text-sm font-bold italic uppercase tracking-widest">Aucun dossier en attente de signature.</p>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="p-4 bg-marron/5 border-t border-n30">
+                            <p class="text-[10px] text-n500 italic text-center font-medium">La signature Direction Générale active définitivement le versement et déclenche la génération des parts.</p>
+                        </div>
+                    </div>
+
                     <!-- Dossiers Récents Traités -->
-                    <div class="xl:col-span-7 bg-white rounded-3xl border border-n30 shadow-sm overflow-hidden border-t-8 border-t-primary">
+                    <div class="xl:col-span-12 bg-white rounded-3xl border border-n30 shadow-sm overflow-hidden border-t-8 border-t-marron mt-8">
                         <div class="p-8 border-b border-n30 flex justify-between items-center bg-n10/20">
                             <h3 class="font-bold text-n900 flex items-center gap-3">
-                                <i class="las la-file-signature text-primary text-xl"></i>
-                                Dossiers Finalisés Récemment
+                                <i class="las la-check-circle text-success text-xl"></i>
+                                Historique des Derniers Investissements Finalisés
                             </h3>
-                            <span class="px-3 py-1 bg-success text-white text-[10px] font-bold rounded-full uppercase italic">Live monitoring</span>
+                            <span class="px-3 py-1 bg-marron text-white text-[10px] font-bold rounded-full uppercase italic">Vérification Validée</span>
                         </div>
                         <div class="overflow-x-auto">
                             <table class="w-full text-left">
@@ -205,4 +293,5 @@
             </div>
         </div>
     </main>
+    @include('partials.transaction-details-modal')
 @endsection

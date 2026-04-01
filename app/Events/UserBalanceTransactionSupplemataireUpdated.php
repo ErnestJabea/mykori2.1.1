@@ -2,8 +2,8 @@
 
 namespace App\Events;
 
-use App\Transaction;
-use App\TransactionSupplementaire;
+use App\Models\Transaction;
+use App\Models\TransactionSupplementaire;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PresenceChannel;

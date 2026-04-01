@@ -97,7 +97,9 @@
                                         <th class="px-6 py-4 text-left">Placement</th> --}}
                                         <th class="px-6 py-4 text-left">Référence</th>
                                         <th class="px-6 py-4 text-center">Type</th>
-                                        <th class="px-6 py-4 text-right">Montant (XAF)</th>
+                                        <th class="px-6 py-4 text-right">Montant (Net)</th>
+                                        <th class="px-6 py-4 text-right">Frais</th>
+                                        <th class="px-6 py-4 text-right">Total</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-n30 dark:divide-bg4">
@@ -162,11 +164,30 @@
                                                 @endif
                                             </td>
 
-                                            {{-- Montant --}}
+                                            {{-- Montant Net --}}
                                             <td class="px-6 py-3.5 text-right">
                                                 <p
-                                                    class="font-bold text-base {{ $isEntrant ? 'text-green-600' : 'text-red-500' }}">
+                                                    class="font-bold text-sm {{ $isEntrant ? 'text-green-600' : 'text-red-500' }}">
                                                     {{ $isEntrant ? '+' : '-' }}{{ number_format(abs($mvt->montant), 0, ' ', ' ') }}
+                                                </p>
+                                            </td>
+
+                                            {{-- Frais --}}
+                                            <td class="px-6 py-3.5 text-right">
+                                                <p class="text-xs {{ ($mvt->fees ?? 0) > 0 ? 'text-red-500' : 'opacity-40' }}">
+                                                    {{ ($mvt->fees ?? 0) > 0 ? '-' . number_format(abs($mvt->fees), 0, ' ', ' ') : '-' }}
+                                                </p>
+                                            </td>
+
+                                            {{-- Total --}}
+                                            @php
+                                                $feeVal = $mvt->fees ?? 0;
+                                                $totalTx = $isEntrant ? ($mvt->montant + $feeVal) : ($mvt->montant - $feeVal);
+                                            @endphp
+                                            <td class="px-6 py-3.5 text-right bg-n10/30">
+                                                <p
+                                                    class="font-bold text-base {{ $isEntrant ? 'text-green-700' : 'text-red-600' }}">
+                                                    {{ $isEntrant ? '+' : '-' }}{{ number_format(abs($totalTx), 0, ' ', ' ') }}
                                                 </p>
                                             </td>
                                         </tr>

@@ -39,11 +39,10 @@ class UpdateUserBalanceMinusListener
 
         // Vérifie si la sauvegarde de l'utilisateur s'est effectuée avec succès
         if ($user->save()) {
-            // Met à jour la date de validation de la transaction
-            $transaction->date_validation = $date_transaction;
+            // Met à jour la date de validation de la transaction (seulement si vide)
+            $transaction->date_validation = $transaction->date_validation ?? $date_transaction;
             // Vérifie si la sauvegarde de la transaction s'est effectuée avec succès
             if ($transaction->save()) {
-                dd($transaction->date_validation);
                 // Gère l'erreur de sauvegarde de la transaction
                 // Loggue ou notifie l'erreur, ou prend d'autres mesures nécessaires
             }

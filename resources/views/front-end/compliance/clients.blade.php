@@ -32,7 +32,7 @@
                                 <tr class="bg-n20 dark:bg-bg3 text-n500 uppercase text-[11px] font-bold">
                                     <th class="py-4 px-6 text-start">ID</th>
                                     <th class="py-4 px-6 text-start">Nom Complet</th>
-                                    <th class="py-4 px-6 text-start">Email</th>
+                                    {{-- <th class="py-4 px-6 text-start">Email</th> --}}
                                     <th class="py-4 px-6 text-start">Date de Création</th>
                                     <th class="py-4 px-6 text-center">Action</th>
                                 </tr>
@@ -50,12 +50,12 @@
                                                 <span class="text-sm font-semibold">{{ $c->name }}</span>
                                             </div>
                                         </td>
-                                        <td class="py-4 px-6 text-sm text-n600">{{ $c->email }}</td>
+                                        {{-- <td class="py-4 px-6 text-sm text-n600">{{ $c->email }}</td> --}}
                                         <td class="py-4 px-6 text-sm">{{ $c->created_at->format('d/m/Y') }}</td>
                                         <td class="py-4 px-6 text-center">
                                             <a href="{{ route('compliance.client-history', $c->id) }}"
                                                 class="btn-outline border border-primary text-primary px-4 py-1.5 rounded-full text-xs font-bold hover:bg-primary hover:text-white duration-300">
-                                                Voir Dossier Complet
+                                                Voir plus
                                             </a>
                                         </td>
                                     </tr>

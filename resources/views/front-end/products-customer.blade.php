@@ -143,6 +143,7 @@
 @section('script_front_end')
 <script>
     const productsList = @json($products);
+    const ownedPmgProductIds = @json($ownedPmgProductIds);
 
     document.addEventListener('DOMContentLoaded', function() {
         const addBtn = document.querySelector(".add-placement-btn");
@@ -186,7 +187,17 @@
             
             if (catId) {
                 prodSelect.disabled = false;
-                const filtered = productsList.filter(p => p.products_category_id == catId);
+                const filtered = productsList.filter(p => {
+                    if (p.products_category_id == catId) {
+                        // Filter out PMG products already owned
+                        if (catId == 2 && ownedPmgProductIds.includes(p.id)) {
+                            return false;
+                        }
+                        return true;
+                    }
+                    return false;
+                });
+                
                 filtered.forEach(p => {
                     const opt = document.createElement('option');
                     opt.value = p.id;
@@ -212,11 +223,34 @@
             }
         });
 
+        function calculateExpiry() {
+            const dateValStr = document.querySelector('input[name="date_valeur"]').value;
+            const productId = prodSelect.value;
+            const product = productsList.find(p => p.id == productId);
+
+            if (dateValStr && product && product.duree) {
+                const dateVal = new Date(dateValStr);
+                const duree = parseInt(product.duree);
+                dateVal.setMonth(dateVal.getMonth() + duree);
+                const expiryStr = dateVal.getFullYear() + '-' + String(dateVal.getMonth() + 1).padStart(2, '0') + '-' + String(dateVal.getDate()).padStart(2, '0');
+                document.getElementById('date_echeance_input').value = expiryStr;
+            }
+        }
+
+        document.querySelector('input[name="date_valeur"]').addEventListener('change', function() {
+            if (typeSelect.value == 2) {
+                calculateExpiry();
+            }
+        });
+
         prodSelect.addEventListener('change', function() {
             const productId = this.value;
             const product = productsList.find(p => p.id == productId);
             if (product) {
                 vlTauxInput.value = product.recent_vl;
+                if (typeSelect.value == 2) {
+                    calculateExpiry();
+                }
             }
         });
 
@@ -235,24 +269,35 @@
                 const url = typeId == 1 ? '{{ route("achat-action-customer-fcp") }}' : '{{ route("achat-action-customer-pmg") }}';
                 
                 const amount = document.getElementById('amount_input').value;
-                const vl_taux = vlTauxInput.value;
+                const vl_taux = parseFloat(vlTauxInput.value);
+                const pId = prodSelect.value;
+                const product = productsList.find(p => p.id == pId);
+                const feeRate = product ? (parseFloat(product.free) || 0) : 0;
+                
+                let fees = (amount * feeRate) / 100;
+                let net_invested = amount - fees;
+
+                if (typeId == 2) {
+                    fees = 0;
+                    net_invested = amount;
+                }
 
                 const data = {
                     _token: '{{ csrf_token() }}',
-                    product: prodSelect.value,
+                    product: pId,
                     customer: {{ $customer->id }},
                     montantTotal: amount,
-                    montant_normal: amount,
-                    fraisGestion: 0,
+                    montant_normal: net_invested,
+                    fraisGestion: fees,
                     date_valeur: formData.get('date_valeur'),
                     date_echeance: formData.get('date_echeance'),
                     taux_insere: vl_taux
                 };
 
                 if(typeId == 1) {
-                    data.montantAchat = amount / vl_taux;
+                    data.montantAchat = net_invested / vl_taux;
                 } else {
-                    data.montantAchat = (amount * (vl_taux / 100));
+                    data.montantAchat = net_invested; // Capital pour PMG
                 }
 
                 $.ajax({

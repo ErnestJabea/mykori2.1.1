@@ -1,0 +1,15 @@
+﻿
+Warning: Module "mysqli" is already loaded in Unknown on line 0
+
+Warning: Module "pdo_mysql" is already loaded in Unknown on line 0
+
+Warning: Module "openssl" is already loaded in Unknown on line 0
+
+Warning: Module "curl" is already loaded in Unknown on line 0
+
+Warning: Module "fileinfo" is already loaded in Unknown on line 0
+Client: FOMETHE Patrick Alexandre
+--- Transactions Principales ---
+Statut: 'Succ├¿s' | Somme: 7006137 (2 tx)
+--- Transactions Suppl├®mentaires ---
+Statut: 'Refus├®' | Somme: 5000000 (1 tx)

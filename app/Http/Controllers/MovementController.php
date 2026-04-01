@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use App\Models\Transaction;
 use App\Models\FinancialMovement;
+use Illuminate\Support\Str;
 
 class MovementController extends Controller
 {
@@ -61,7 +62,15 @@ class MovementController extends Controller
 
         $customer = \App\Models\User::findOrFail($customerId);
 
-        return view('front-end.customer-transactions-management', compact('movements', 'customerId', 'transactionsUsers', 'customer'));
+        // Récupérer les produits FCP que le client possède réellement
+        $ownedFcpIds = DB::table('fcp_movements')
+            ->where('user_id', $customerId)
+            ->distinct()
+            ->pluck('product_id');
+
+        $ownedFcpProducts = \App\Models\Product::whereIn('id', $ownedFcpIds)->get();
+
+        return view('front-end.customer-transactions-management', compact('movements', 'customerId', 'transactionsUsers', 'customer', 'ownedFcpProducts'));
     }
 
     public function storeFinancialMovement(Request $request)
@@ -97,6 +106,12 @@ class MovementController extends Controller
             'created_at'     => now(),
             'updated_at'     => now()
         ]);
+
+        \App\Models\UserActivityLog::log(
+            "AJOUT_MOUVEMENT_PMG",
+            $transaction,
+            "Enregistrement d'un mouvement PMG de type $type pour un montant de $amount XAF"
+        );
 
         return response()->json(['message' => 'Mouvement enregistré avec succès !']);
     }
@@ -143,6 +158,12 @@ class MovementController extends Controller
             ]);
 
             DB::commit();
+
+            \App\Models\UserActivityLog::log(
+                "RACHAT_PARTIEL_PMG",
+                $transaction,
+                "Rachat partiel de " . number_format($request->amount_brut) . " XAF validé."
+            );
 
             // ✅ Retourner du JSON pour AJAX
             return response()->json([
@@ -207,6 +228,12 @@ class MovementController extends Controller
                 'created_at'     => now(),
                 'updated_at'     => now()
             ]);
+
+            \App\Models\UserActivityLog::log(
+                "VERSEMENT_INTERET",
+                $trans,
+                "Versement d'intérêts de type payment_interets pour un montant de $amount XAF"
+            );
         }
 
         return back()->with('success', 'L\'opération sur les intérêts a été enregistrée.');
@@ -254,6 +281,12 @@ class MovementController extends Controller
             'created_at'     => now(),
             'updated_at'     => now()
         ]);
+
+        \App\Models\UserActivityLog::log(
+            "REMBOURSEMENT_INTERETS",
+            $trans,
+            "Remboursement d'intérêts de " . number_format($amountToRefund, 0) . " XAF validé."
+        );
 
         return response()->json([
             'message' => "Remboursement de " . number_format($amountToRefund, 0, ',', ' ') . " XAF effectué avec succès."
@@ -306,5 +339,95 @@ class MovementController extends Controller
             ->sum('amount') ?? 0;
 
         return round(($baseCapital - $precompte - $paiementsAnterieurs) + $totalInterest, 0);
+    }
+
+    /**
+     * Gère les rachats sur les produits FCP
+     */
+    public function rachatFcp(Request $request)
+    {
+        $request->validate([
+            'product_id' => 'required|exists:products,id',
+            'customer_id' => 'required|exists:users,id',
+            'date_operation' => 'required|date',
+            'amount_brut' => 'required|numeric|min:1',
+            'amount_frais' => 'nullable|numeric|min:0',
+        ]);
+
+        $productId = $request->product_id;
+        $userId = $request->customer_id;
+        $dateOp = $request->date_operation;
+        $amountBrut = (float)$request->amount_brut;
+        $amountFrais = (float)($request->amount_frais ?? 0);
+
+        // 1. Récupérer la VL à la date choisie (ou plus proche précédente)
+        // Note: On utilise AssetValue via ProductController::getVlAtDate logic
+        $vlEntry = \DB::table('asset_values')
+            ->where('product_id', $productId)
+            ->where('date_vl', '<=', $dateOp)
+            ->orderBy('date_vl', 'desc')
+            ->first();
+
+        if (!$vlEntry) {
+            return response()->json(['message' => "Aucune Valeur Liquidative trouvée à cette date pour ce produit."], 422);
+        }
+
+        $vl = (float)$vlEntry->vl;
+        $nbPartsARetirer = $amountBrut / $vl;
+
+        // 2. Vérifier si le client a assez de parts à cette date
+        $partsActuelles = \DB::table('fcp_movements')
+            ->where('user_id', $userId)
+            ->where('product_id', $productId)
+            ->where('date_operation', '<=', $dateOp)
+            ->sum('nb_parts_change');
+
+        if ($nbPartsARetirer > $partsActuelles) {
+            return response()->json([
+                'message' => "Parts insuffisantes. Le client possède " . round($partsActuelles, 4) . " parts à cette date, or l'opération demande d'en retirer " . round($nbPartsARetirer, 4) . "."
+            ], 422);
+        }
+
+        \DB::beginTransaction();
+        try {
+            // 3. Enregistrer le mouvement de rachat
+            $oldNbPartsTotal = \DB::table('fcp_movements')
+                ->where('user_id', $userId)
+                ->where('product_id', $productId)
+                ->sum('nb_parts_change');
+
+            $reference = 'RCH-' . date('dmY') . '-' . strtoupper(Str::random(4));
+            \DB::table('fcp_movements')->insert([
+                'user_id' => $userId,
+                'product_id' => $productId,
+                'reference' => $reference,
+                'date_operation' => $dateOp,
+                'type' => 'rachat',
+                'amount_xaf' => $amountBrut,
+                'nb_parts_change' => -$nbPartsARetirer,
+                'nb_parts_total' => $oldNbPartsTotal - $nbPartsARetirer,
+                'vl_applied' => $vl,
+                'comment' => "Rachat FCP de $amountBrut XAF (Net Client: " . ($amountBrut - $amountFrais) . " XAF). Frais: $amountFrais XAF.",
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+
+            \DB::commit();
+
+            \App\Models\UserActivityLog::log(
+                "RACHAT_FCP",
+                $product,
+                "Rachat FCP de $amountBrut XAF pour le client ID $userId (VL: $vl)"
+            );
+
+            return response()->json([
+                'status' => 'ok',
+                'message' => "Rachat FCP validé avec succès. VL appliquée: $vl XAF (" . round($nbPartsARetirer, 4) . " parts retirées)."
+            ]);
+
+        } catch (\Exception $e) {
+            \DB::rollback();
+            return response()->json(['message' => "Erreur technique : " . $e->getMessage()], 500);
+        }
     }
 }

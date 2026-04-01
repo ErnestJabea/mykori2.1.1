@@ -80,6 +80,41 @@
 
 
 
+                    <div class="content-bloc-list-pr                        <div class="grid grid-cols-1 gap-4">
+                        @foreach ($productsWithGains as $my_product)
+                            @if ($my_product['type_product'] == 1)
+                                <div class="bg-white rounded-2xl border border-n30 overflow-hidden shadow-sm hover:shadow-md transition-all">
+                                    <div class="bg-gray-50/50 p-4 border-b border-n30 flex justify-between items-center">
+                                        <h4 class="text-xs font-bold text-n900 uppercase italic">{{ $my_product['product_name'] }}</h4>
+                                        <a href="{{ route('product-detail-gain', ['slug' => $my_product['slug']]) }}" class="text-primary group flex items-center gap-1 text-[10px] font-bold uppercase transition-all">
+                                            Détails <i class="las la-arrow-right group-hover:translate-x-1 duration-200"></i>
+                                        </a>
+                                    </div>
+                                    <div class="p-4">
+                                        <div class="space-y-2">
+                                            <div class="flex justify-between items-center">
+                                                <span class="text-[10px] text-n500 uppercase font-medium">Investissement initial</span>
+                                                <span class="text-xs font-bold text-n900">XAF {{ number_format($my_product['montant_transaction'], 0, ' ', ' ') }}</span>
+                                            </div>
+                                            <div class="flex justify-between items-center">
+                                                <span class="text-[10px] text-n500 uppercase font-medium">Nombre de parts</span>
+                                                <span class="text-sm font-bold text-primary italic">{{ round($my_product['nb_part'], 2) }}</span>
+                                            </div>
+                                            <div class="flex justify-between items-center">
+                                                <span class="text-[10px] text-n500 uppercase font-medium">VL souscription</span>
+                                                <span class="text-xs font-bold text-n800 italic">XAF {{ number_format(floor($my_product['vl_achat']), 0, ' ', ' ') }}</span>
+                                            </div>
+                                            <div class="flex justify-between items-center">
+                                                <span class="text-[10px] text-n500 uppercase font-medium">VL actuelle</span>
+                                                <span class="text-xs font-bold text-secondary italic">XAF {{ number_format(floor((float) $my_product['vl_actuel']), 0, ' ', ' ') }}</span>
+                                            </div>
+                                            <div class="flex justify-between items-center">
+                                                <span class="text-[10px] text-n500 uppercase font-medium">Gain cumulé</span>
+                                                <span class="text-xs font-bold text-success">{{ number_format($my_product['total_gains_fcp'], 0, ' ', ' ') }} XAF</span>
+                                            </div>
+                                            
+                                            <div class="pt-2 border-t border-dashed border-n30 flex justify-between items-center">
+                                                <span class="text-[10px] text-n900 font-bold uppercase">Portefeuille</span>
                     <div class="content-bloc-list-produit">
                         <h3>MES SOUSCRIPTIONS FCP</h3>
                         @foreach ($productsWithGains as $my_product)

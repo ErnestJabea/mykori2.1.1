@@ -43,7 +43,7 @@
                     <thead>
                         <tr class="bg-secondary1/5 dark:bg-bg4">
                             <th class="px-6 py-5 text-left font-semibold opacity-70">Client</th>
-                            <th class="px-6 py-5 text-right font-semibold opacity-70">Total Investi (XAF)</th>
+                            <th class="px-6 py-5 text-right font-semibold opacity-70 italic">Total Investi (Brut)</th>
                             <th class="px-6 py-5 text-right font-semibold opacity-70">Total Portefeuille (XAF)</th>
                             <th class="px-6 py-5 text-center font-semibold opacity-70">Actions</th>
                         </tr>

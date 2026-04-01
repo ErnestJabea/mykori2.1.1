@@ -26,6 +26,13 @@ class EventServiceProvider extends ServiceProvider
             'App\Listeners\UpdateUserBalanceTransactionSupplemataireListener',
         ],
 
+        \Illuminate\Auth\Events\Login::class => [
+            \App\Listeners\LogUserLoginLogoutListener::class,
+        ],
+        \Illuminate\Auth\Events\Logout::class => [
+            \App\Listeners\LogUserLoginLogoutListener::class,
+        ],
+
         Registered::class => [
             SendEmailVerificationNotification::class,
         ],

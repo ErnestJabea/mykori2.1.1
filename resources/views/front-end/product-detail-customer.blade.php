@@ -201,14 +201,35 @@
                                             id="montantInput" name="montantInput" required />
                                     </div>
                                     <div class="col-span-2">
+                                        <label for="date_valeur" class="mb-4 block font-medium md:text-lg">
+                                            Date Valeur
+                                        </label>
+                                        <input type="date"
+                                            class="w-full rounded-3xl border border-n30 bg-secondary1/5 px-6 py-2.5 dark:border-n500 dark:bg-bg3 md:py-3"
+                                            id="date_valeur" name="date_valeur" value="{{ date('Y-m-d') }}" required />
+                                    </div>
+                                    <div class="col-span-2">
+                                        <label for="date_echeance" class="mb-4 block font-medium md:text-lg">
+                                            Date d'échéance
+                                        </label>
+                                        <input type="date"
+                                            class="w-full rounded-3xl border border-n30 bg-secondary1/5 px-6 py-2.5 dark:border-n500 dark:bg-bg3 md:py-3"
+                                            id="date_echeance" name="date_echeance" value="{{ date('Y-m-d', strtotime('+'.$product->duree.' months')) }}" required />
+                                    </div>
+                                    <div class="col-span-2">
                                         <label for="number" class="mb-4 block font-medium md:text-lg"
                                             id="valeur-liquidative">
                                             Gains potentiels (par an): 0
                                         </label>
                                     </div>
                                     <div class="col-span-2">
+                                        <label for="number" class="mb-4 block font-medium md:text-lg" id="frais-de-gestion">
+                                            Frais de souscription : XAF 0
+                                        </label>
+                                    </div>
+                                    <div class="col-span-2">
                                         <label for="number" class="mb-4 block font-medium md:text-lg" id="montantTotal">
-                                            Montant total : XAF 0
+                                            Montant à payer : XAF 0
                                         </label>
                                     </div>
                                     <div class="col-span-2 mt-4">
@@ -245,8 +266,16 @@
                                         </label>
                                         <input type="number"
                                             class="w-full rounded-3xl border border-n30 bg-secondary1/5 px-6 py-2.5 dark:border-n500 dark:bg-bg3 md:py-3"
-                                            placeholder="Indiquez le montant" min="0" id="montantInput"
-                                            name="montantInput" required />
+                                            placeholder="Indiquez le montant" min="250000" id="montantInvesti"
+                                            name="montantAchat" required />
+                                    </div>
+                                    <div class="col-span-2">
+                                        <label for="date_valeur_fcp" class="mb-4 block font-medium md:text-lg">
+                                            Date Valeur
+                                        </label>
+                                        <input type="date"
+                                            class="w-full rounded-3xl border border-n30 bg-secondary1/5 px-6 py-2.5 dark:border-n500 dark:bg-bg3 md:py-3"
+                                            id="date_valeur_fcp" name="date_valeur" value="{{ date('Y-m-d') }}" required />
                                     </div>
                                     <div class="col-span-2">
                                         <label for="number" class="mb-4 block font-medium md:text-lg"
@@ -295,17 +324,16 @@
 
             $(document).ready(function() {
                 // Écoutez les changements de l'input
-                $('#montantInput').on('input', function() {
-                    // Récupérez la nouvelle valeur de l'input
-                    var nouveauMontant = parseFloat($(this).val());
+                $('#montantInvesti').on('input', function() {
+                    // Récupérez la nouvelle valeur de l'input (C'est le montant BRUT total à payer)
+                    var montantInvesti = parseFloat($(this).val());
 
-                    var montantAchat = nouveauMontant / {{ $asset_value->vl }};
-                    var frais = (nouveauMontant * {{ $product->free }}) / 100;
-                    var montantTotal = frais + nouveauMontant;
-                    var montant_normal = nouveauMontant;
+                    var frais = (montantInvesti * {{ $product->free }}) / 100;
+                    var montant_normal = montantInvesti - frais;
+                    var montantAchatParts = montant_normal / {{ $asset_value->vl }}; // Parts basées sur le NET
 
 
-                    if (nouveauMontant > 0) {
+                    if (montantInvesti > 0) {
                         submitButton.attr('disabled', false);
 
                         $("#response").removeClass("show-response");
@@ -314,13 +342,13 @@
                         );
 
                         // Mettez à jour les valeurs des spans
-                        $('#valeur-liquidative').text('Nombre de parts : ' + montantAchat
+                        $('#valeur-liquidative').text('Nombre de parts : ' + montantAchatParts
                             .toLocaleString(
                                 'fr-FR'));
                         $('#frais-de-gestion').text('Frais de souscription : XAF ' + frais
                             .toLocaleString(
                                 'fr-FR'));
-                        $('#montantTotal').text('Montant à payer  : XAF ' + montantTotal.toLocaleString(
+                        $('#montantTotal').text('Montant investi (Net) : XAF ' + montant_normal.toLocaleString(
                             'fr-FR'));
 
                         submitButton.off('click').on('click', function(event) {
@@ -333,12 +361,13 @@
                                 method: 'POST',
                                 data: {
                                     _token: '{{ csrf_token() }}',
-                                    montantAchat: montantAchat,
+                                    montantAchat: montantAchatParts,
                                     fraisGestion: frais,
                                     customer: {{ $customer->id }},
                                     montant_normal: montant_normal,
-                                    montantTotal: montantTotal,
-                                    product: {{ $product->id }}
+                                    montantTotal: montantInvesti,
+                                    product: {{ $product->id }},
+                                    date_valeur: $('#date_valeur_fcp').val()
                                 },
                                 success: function(response) {
                                     console.log(response.message);
@@ -379,14 +408,15 @@
             $(document).ready(function() {
                 // Écoutez les changements de l'input
                 $('#montantInput').on('input', function() {
-                    // Récupérez la nouvelle valeur de l'input
-                    var nouveauMontant = parseFloat($(this).val());
+                    // Récupérez la nouvelle valeur de l'input (C'est le montant BRUT total à payer)
+                    var montantTotal = parseFloat($(this).val());
 
-                    var montantAchat = (nouveauMontant * {{ $product->vl / 100 }});
-                    var montantTotal = nouveauMontant;
+                    var frais = (montantTotal * {{ $product->free }}) / 100;
+                    var montant_normal = montantTotal - frais;
+                    var montantAchat = (montant_normal * {{ $product->vl / 100 }}); // Gains basés sur le NET
 
 
-                    if (nouveauMontant > 0) {
+                    if (montantTotal > 0) {
                         submitButton.attr('disabled', false);
 
 
@@ -394,7 +424,10 @@
                         $('#valeur-liquidative').text('Gains potentiels (par an) : ' + montantAchat
                             .toLocaleString(
                                 'fr-FR'));
-                        $('#montantTotal').text('Montant à payer  : XAF ' + montantTotal.toLocaleString(
+                        $('#frais-de-gestion').text('Frais de souscription : XAF ' + frais
+                            .toLocaleString(
+                                'fr-FR'));
+                        $('#montantTotal').text('Montant investi (Net) : XAF ' + montant_normal.toLocaleString(
                             'fr-FR'));
 
                         submitButton.off('click').on('click', function(event) {
@@ -408,16 +441,19 @@
                                 data: {
                                     _token: '{{ csrf_token() }}',
                                     montantAchat: montantAchat,
-                                    fraisGestion: 0,
+                                    fraisGestion: frais,
                                     customer: {{ $customer->id }},
+                                    montant_normal: montant_normal,
                                     montantTotal: montantTotal,
-                                    product: {{ $product->id }}
+                                    product: {{ $product->id }},
+                                    date_valeur: $('#date_valeur').val(),
+                                    date_echeance: $('#date_echeance').val()
                                 },
                                 success: function(response) {
                                     console.log(response.message);
                                     // Redirigez vers une autre vue si nécessaire
                                     window.location.href =
-                                        '{{ route('success-transaction') }}';
+                                        '{{ route('success-transaction-customer') }}'; // Using the customer specific success route if available
                                 },
                                 error: function(error) {
                                     console.error(

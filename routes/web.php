@@ -298,6 +298,7 @@ Route::middleware('auth')->group(function () {
 
             Route::post('/rachat-partiel', [MovementController::class, 'rachatPartiel'])->name('transactions.rachat-partiel');
     
+            Route::post('/rachat-fcp', [MovementController::class, 'rachatFcp'])->name('transactions.rachat-fcp');
             // Route pour les intérêts précomptés
             Route::post('/precompte', [MovementController::class, 'verserPrecompte'])->name('transactions.precompte');
 
@@ -323,7 +324,21 @@ Route::middleware('auth')->group(function () {
                     }
                 }
 
-                return view('front-end.products-customer')->with('customer', $customer)->with('products', $products)->with('products_categories', $products_categories);
+                $ownedPmgProductIds = App\Models\Transaction::where('user_id', $customer->id)
+                    ->where('status', 'Succès')
+                    ->whereIn('product_id', $products->where('products_category_id', 2)->pluck('id'))
+                    ->pluck('product_id')
+                    ->merge(
+                        App\Models\TransactionSupplementaire::where('user_id', $customer->id)
+                        ->where('status', 'Succès')
+                        ->whereIn('product_id', $products->where('products_category_id', 2)->pluck('id'))
+                        ->pluck('product_id')
+                    )
+                    ->unique()
+                    ->values()
+                    ->toArray();
+
+                return view('front-end.products-customer')->with('customer', $customer)->with('products', $products)->with('products_categories', $products_categories)->with('ownedPmgProductIds', $ownedPmgProductIds);
             })->name('products-customer');
 
             Route::get('/customer/{customer}/products/{slug}/', function ($customer, $slug) {
@@ -376,7 +391,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [ComplianceController::class, 'dashboard'])->name('compliance.dashboard');
         Route::get('/clients', [ComplianceController::class, 'clients'])->name('compliance.clients');
         Route::get('/clients/{client}/history', [ComplianceController::class, 'clientHistory'])->name('compliance.client-history');
-        Route::get('/clients/{client}/history', [ComplianceController::class, 'clientHistory'])->name('compliance.history');
+        Route::get('/portfolio-audit', [ComplianceController::class, 'portfolioAudit'])->name('compliance.portfolio-audit');
+        Route::match(['GET', 'POST'], '/portfolio-audit/export', [ComplianceController::class, 'exportAudit'])->name('compliance.portfolio-audit.export');
         Route::get('/vl-history', [ComplianceController::class, 'vlHistory'])->name('compliance.vl-history');
         Route::get('/export', [ComplianceController::class, 'export'])->name('compliance.export');
         
@@ -408,6 +424,10 @@ Route::middleware('auth')->group(function () {
             ->get()
             ->map(function ($m) use ($transactions) {
                 $tx = $transactions->firstWhere('id', $m->transaction_id);
+                // Si non trouvé dans transactions, chercher dans supplémetaires
+                if(!$tx) {
+                    $tx = App\Models\TransactionSupplementaire::find($m->transaction_id);
+                }
                 $productTitle = $tx
                     ? optional(App\Models\Product::find($tx->product_id))->title
                     : 'PMG';
@@ -417,6 +437,7 @@ Route::middleware('auth')->group(function () {
                     'ref'         => $tx->ref ?? '-',
                     'produit'     => $productTitle,
                     'montant'     => (float)$m->amount,
+                    'fees'        => 0, // Les mouvements financiers sont déjà nets
                     'sens'        => in_array($m->type, ['rachat_partiel', 'rachat_total', 'precompte_interets', 'paiement_interets', 'remboursement']) ? 'sortant' : 'entrant',
                     'source'      => 'pmg',
                     'id'          => $m->id,
@@ -438,13 +459,14 @@ Route::middleware('auth')->group(function () {
                     'ref'     => $m->reference ?? '-',
                     'produit' => $productTitle,
                     'montant' => (float)$m->montant,
+                    'fees'    => 0, // Déjà net dans les mouvements
                     'sens'    => $isIncoming ? 'entrant' : 'sortant',
                     'source'  => 'fcp',
                     'id'      => $m->id,
                 ];
             });
 
-        // 4. Transactions initiales (souscriptions officielles)
+        // 4. Transactions initiales
         $officialTx = $transactions->map(function ($tx) {
             $productTitle = optional(App\Models\Product::find($tx->product_id))->title ?? 'Produit';
             return (object)[
@@ -453,15 +475,35 @@ Route::middleware('auth')->group(function () {
                 'ref'     => $tx->ref,
                 'produit' => $productTitle,
                 'montant' => (float)$tx->amount,
+                'fees'    => (float)$tx->fees,
                 'sens'    => 'entrant',
                 'source'  => 'tx',
                 'id'      => $tx->id,
             ];
         });
 
+        $supplementalTx = App\Models\TransactionSupplementaire::where('user_id', $userId)
+            ->where('status', 'Succès')
+            ->get()
+            ->map(function ($tx) {
+                $productTitle = optional(App\Models\Product::find($tx->product_id))->title ?? 'Produit';
+                return (object)[
+                    'date'    => $tx->date_validation ?? $tx->created_at,
+                    'libelle' => $tx->title ?? 'VERSEMENT LIBRE',
+                    'ref'     => $tx->ref,
+                    'produit' => $productTitle,
+                    'montant' => (float)$tx->amount,
+                    'fees'    => (float)$tx->fees,
+                    'sens'    => 'entrant',
+                    'source'  => 'tx_supp',
+                    'id'      => $tx->id,
+                ];
+            });
+
         // 5. Fusionner et trier par date décroissante
         $allMovements = collect()
             ->merge($officialTx)
+            ->merge($supplementalTx)
             ->merge($financialMovements)
             ->merge($fcpMovements)
             ->sortByDesc('date')
@@ -534,6 +576,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/customer-statements', [AssetManagerController::class, 'customersStatementsMenu'])->name('customer.statements');
     Route::get('/api/customer-available-months/{customer_id}', [ProductController::class, 'getAvailableMonthsApi'])->name('api.customer-months');
     Route::get('/api/product-vl/{product_id}/{date}', [ProductController::class, 'getVlAtDate'])->name('api.product-vl');
+    Route::get('/api/product-holdings/{user_id}/{product_id}/{date}', [ProductController::class, 'getHoldingsAtDate'])->name('api.product-holdings');
     Route::get('/api/fcp-evolution/{product_id}/{customer_id}', [ProductController::class, 'getFcpEvolutionApi'])->name('api.fcp-evolution');
     Route::get('/customer-statement/monthly/{year}/{month}/{type}/{customer_id}', [ProductController::class, 'downloadMonthlyStatement'])->name('customer-statement.monthly');
 

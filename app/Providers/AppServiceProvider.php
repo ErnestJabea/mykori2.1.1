@@ -30,7 +30,7 @@ class AppServiceProvider extends ServiceProvider
         Paginator::useTailwind();
         //
 
-        // Transaction::observe(UpdateTransactionAchatObservateur::class);
-        Transaction::observe(ValidationTransactionAchatObservateur::class);
+        Transaction::observe(\App\Observers\TransactionAuditObserver::class);
+        // Transaction::observe(ValidationTransactionAchatObservateur::class);
     }
 }

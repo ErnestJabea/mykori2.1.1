@@ -9,6 +9,10 @@ class TransactionSupplementaire extends Model
 {
     use HasFactory;
 
+    protected $casts = [
+        'date_validation' => 'date',
+    ];
+
     protected $dispatchesEvents = [
         'updated' => \App\Events\UserBalanceTransactionSupplemataireUpdated::class,
     ];
@@ -18,6 +22,7 @@ class TransactionSupplementaire extends Model
         'ref',
         'payment_mode',
         'amount',
+        'fees',
         'status',
         'user_id',
         'vl_buy',
@@ -30,7 +35,8 @@ class TransactionSupplementaire extends Model
         'compliance_validated_at',
         'backoffice_validated_at',
         'dg_validated_at',
-        'date_validation'
+        'date_validation',
+        'date_echeance'
     ];
 
     public function transaction()

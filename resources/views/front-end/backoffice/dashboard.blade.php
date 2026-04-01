@@ -75,11 +75,19 @@
                                                 <td class="px-6 py-4">
                                                     <div class="flex flex-col">
                                                         <span class="font-bold text-n900 text-sm italic">{{ $trans->user->name ?? 'N/A' }}</span>
-                                                        <span class="text-xs text-n500">{{ $trans->product->title ?? 'N/A' }}</span>
+                                                        <div class="flex items-center gap-2">
+                                                            <span class="text-[10px] text-n500">{{ $trans->product->title ?? 'N/A' }}</span>
+                                                            @if(($trans->type_flux ?? 'main') == 'main')
+                                                                <span class="text-[8px] bg-primary/10 text-primary px-1 rounded font-bold uppercase">Initial</span>
+                                                            @else
+                                                                <span class="text-[8px] bg-secondary/10 text-secondary px-1 rounded font-bold uppercase">Ajout</span>
+                                                            @endif
+                                                        </div>
                                                     </div>
                                                 </td>
                                                 <td class="px-6 py-4 text-right">
-                                                    <span class="font-bold text-n900 text-sm">{{ number_format($trans->amount, 0, '.', ' ') }} XAF</span>
+                                                    <span class="text-marron font-black text-base italic">{{ number_format($trans->amount + ($trans->fees ?? 0), 0, '.', ' ') }}</span> 
+                                                    <span class="text-[9px] text-n400 font-bold ml-1">XAF</span>
                                                 </td>
                                                 <td class="px-6 py-4">
                                                     <div class="flex gap-1 items-center">
@@ -89,12 +97,20 @@
                                                     </div>
                                                 </td>
                                                 <td class="px-6 py-4 text-center">
-                                                    <form action="{{ route('backoffice.validate-transaction', [$trans->id, 'main']) }}" method="POST">
-                                                        @csrf
-                                                        <button type="submit" class="p-2 bg-primary/10 text-primary rounded-xl hover:bg-primary hover:text-white transition-all">
-                                                            <i class="las la-check"></i>
+                                                    <div class="flex items-center justify-center gap-2">
+                                                        <button 
+                                                            onclick="openTransactionModal({{ $trans->toJson() }}, '{{ route('backoffice.validate-transaction', [$trans->id, $trans->type_flux ?? 'main']) }}')"
+                                                            class="p-2 bg-marron/10 text-marron rounded-xl hover:bg-marron hover:text-white transition-all shadow-sm" 
+                                                            title="Audit Transactionnel">
+                                                            <i class="las la-eye text-lg"></i>
                                                         </button>
-                                                    </form>
+                                                        <form action="{{ route('backoffice.validate-transaction', [$trans->id, $trans->type_flux ?? 'main']) }}" method="POST">
+                                                            @csrf
+                                                            <button type="submit" class="p-2 bg-primary/10 text-primary rounded-xl hover:bg-primary hover:text-white transition-all shadow-sm transform active:scale-95 transition-all">
+                                                                <i class="las la-check"></i>
+                                                            </button>
+                                                        </form>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         @empty
@@ -161,4 +177,5 @@
             </div>
         </div>
     </main>
+    @include('partials.transaction-details-modal')
 @endsection

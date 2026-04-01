@@ -35,33 +35,35 @@
 
                     <div class="space-y-4 border-t border-n30 pt-6">
                         <div class="flex justify-between text-sm">
-                            <span class="opacity-60">Localisation:</span>
                             <span class="font-medium">{{ $client->localisation ?? 'N/A' }}</span>
                         </div>
                         <div class="flex justify-between text-sm">
-                            <span class="opacity-60">Genre:</span>
-                            <span class="font-medium">{{ $client->genre == 1 ? 'Femme' : 'Homme' }}</span>
+                            <span
+                                class="font-medium">{{ $client->genre == 1 || 2 ? 'Personne Morale' : 'Personne Physique' }}</span>
                         </div>
                         <div class="flex justify-between text-sm">
-                            <span class="opacity-60">Boîte Postale:</span>
                             <span class="font-medium">{{ $client->bp ?? 'N/A' }}</span>
                         </div>
                         <hr class="border-n30 my-4">
-                        <form action="{{ route('compliance.export') }}" method="GET" class="space-y-4">
+                        <form action="{{ route('compliance.export') }}" method="GET" class="space-y-4" id="exportForm">
                             <input type="hidden" name="type" value="transactions">
                             <input type="hidden" name="client_id" value="{{ $client->id }}">
                             <div>
                                 <label class="text-xs font-bold uppercase opacity-60 mb-2 block">Période d'Audit</label>
-                                <div class="grid grid-cols-2 gap-2">
-                                    <input type="date" name="start_date" value="{{ $startDate }}"
-                                        class="w-full bg-n10 border border-n30 rounded px-2 py-1.5 text-xs focus:outline-none focus:border-primary">
-                                    <input type="date" name="end_date" value="{{ $endDate }}"
-                                        class="w-full bg-n10 border border-n30 rounded px-2 py-1.5 text-xs focus:outline-none focus:border-primary">
+                                <div class="space-y-2">
+                                    <input type="text" name="start_date" id="audit_start_date"
+                                        value="{{ $startDate }}" readonly
+                                        class="w-full bg-n10 border border-n30 rounded px-3 py-2 text-xs font-bold text-n900 focus:outline-none focus:border-primary cursor-pointer"
+                                        placeholder="Date Début">
+                                    <input type="text" name="end_date" id="audit_end_date" value="{{ $endDate }}"
+                                        readonly
+                                        class="w-full bg-n10 border border-n30 rounded px-3 py-2 text-xs font-bold text-n900 focus:outline-none focus:border-primary cursor-pointer"
+                                        placeholder="Date Fin">
                                 </div>
                             </div>
                             <button type="submit"
                                 class="w-full btn bg-success text-white rounded-lg py-3 flex items-center justify-center gap-2 hover:opacity-90 duration-300 font-bold uppercase text-xs">
-                                <i class="las la-file-csv text-xl"></i> Exporter l'Audit Complet
+                                <i class="las la-file-csv text-xl"></i> Exporter l'historique
                             </button>
                         </form>
                     </div>
@@ -82,7 +84,7 @@
                             <thead>
                                 <tr class="bg-n20 dark:bg-bg3 text-n500 uppercase text-[11px] font-bold">
                                     <th class="py-4 px-6 text-start">Date</th>
-                                    <th class="py-4 px-6 text-start">Produit</th>
+                                    <th class="py-4 px-6 text-start">Placement</th>
                                     <th class="py-4 px-6 text-end">Montant</th>
                                     <th class="py-4 px-6 text-center">Statut</th>
                                     <th class="py-4 px-6 text-start">Référence</th>
@@ -91,7 +93,7 @@
                             <tbody class="divide-y divide-n30">
                                 @foreach ($transactions as $t)
                                     <tr class="hover:bg-primary/5 duration-200">
-                                        <td class="py-4 px-6 text-sm">{{ $t->created_at->format('d/m/Y') }}</td>
+                                        <td class="py-4 px-6 text-sm">{{ optional($t->date_validation)->format('d/m/Y') ?? $t->created_at->format('d/m/Y') }}</td>
                                         <td class="py-4 px-6">
                                             <span
                                                 class="px-2 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-bold uppercase">
@@ -140,7 +142,13 @@
                                                 <span class="text-sm font-medium">{{ $m->type }}</span>
                                             </td>
                                             @php
-                                                $isNegative = in_array($m->type, ['rachat_partiel', 'rachat_total', 'precompte_interets', 'paiement_interets', 'remboursement']);
+                                                $isNegative = in_array($m->type, [
+                                                    'rachat_partiel',
+                                                    'rachat_total',
+                                                    'precompte_interets',
+                                                    'paiement_interets',
+                                                    'remboursement',
+                                                ]);
                                             @endphp
                                             <td
                                                 class="py-4 px-6 text-end font-bold {{ $isNegative ? 'text-danger' : 'text-success' }}">
@@ -198,4 +206,39 @@
             </div>
         </div>
     </main>
+@endsection
+@section('script_front_end')
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const pickerStart = datepicker('#audit_start_date', {
+                formatter: (input, date, instance) => {
+                    const value = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2,
+                        '0') + '-' + String(date.getDate()).padStart(2, '0');
+                    input.value = value;
+                },
+                startDay: 1,
+                customDays: ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'],
+                customMonths: ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août',
+                    'Septembre', 'Octobre', 'Novembre', 'Décembre'
+                ],
+                overlayButton: "Valider",
+                overlayPlaceholder: "Année (4 chiffres)"
+            });
+
+            const pickerEnd = datepicker('#audit_end_date', {
+                formatter: (input, date, instance) => {
+                    const value = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2,
+                        '0') + '-' + String(date.getDate()).padStart(2, '0');
+                    input.value = value;
+                },
+                startDay: 1,
+                customDays: ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'],
+                customMonths: ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août',
+                    'Septembre', 'Octobre', 'Novembre', 'Décembre'
+                ],
+                overlayButton: "Valider",
+                overlayPlaceholder: "Année (4 chiffres)"
+            });
+        });
+    </script>
 @endsection

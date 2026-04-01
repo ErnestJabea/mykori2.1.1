@@ -72,13 +72,13 @@
                 </div>
             </div>
 
-            <!-- Recent Flows Table -->
+            <!-- Unified Validation Flows Table -->
             <div class="col-span-12">
                 <div class="box bg-white dark:bg-bg3 rounded-2xl border border-n30 shadow-sm overflow-hidden">
                     <div class="p-6 border-b border-n30 flex justify-between items-center bg-n10/30">
                         <h4 class="h4 flex items-center gap-2">
-                            <i class="las la-exchange-alt text-primary font-bold"></i> Flux Récent des Transactions
-                            Principales
+                            <i class="las la-exchange-alt text-primary font-bold"></i> Flux de Souscriptions à Valider
+                            (Initiale & Complémentaire)
                         </h4>
                     </div>
                     <div class="overflow-x-auto">
@@ -88,20 +88,22 @@
                                     <th class="py-4 px-6 text-start">Date</th>
                                     <th class="py-4 px-6 text-start">Client</th>
                                     <th class="py-4 px-6 text-start">Produit</th>
+                                    {{-- <th class="py-4 px-6 text-center">Type Flux</th> --}}
                                     <th class="py-4 px-6 text-end">Montant</th>
-                                    <th class="py-4 px-6 text-center">Workflow</th>
+                                    {{-- <th class="py-4 px-6 text-center">Workflow</th> --}}
                                     <th class="py-4 px-6 text-center">Action</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-n30">
-                                @foreach ($recentTransactions as $transaction)
+                                @forelse ($allPending as $transaction)
                                     <tr class="hover:bg-n10/50 duration-200">
                                         <td class="py-4 px-6 text-sm">{{ $transaction->created_at->format('d/m/Y') }}</td>
                                         <td class="py-4 px-6">
                                             <div class="flex flex-col">
                                                 <span
                                                     class="text-sm font-medium">{{ $transaction->user->name ?? 'N/A' }}</span>
-                                                <span class="text-[10px] opacity-60">{{ $transaction->ref }}</span>
+                                                <span
+                                                    class="text-[10px] opacity-60">{{ $transaction->ref ?? 'T-' . $transaction->id }}</span>
                                             </div>
                                         </td>
                                         <td class="py-4 px-6">
@@ -110,24 +112,46 @@
                                                 {{ $transaction->product->title ?? 'N/A' }}
                                             </span>
                                         </td>
+                                        {{-- <td class="py-4 px-6 text-center">
+                                            @if ($transaction->type_flux == 'main')
+                                                <span class="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded font-bold">INITIALE</span>
+                                            @else
+                                                <span class="text-[10px] bg-secondary1/10 text-secondary1 px-2 py-0.5 rounded font-bold">COMPLÉMENTAIRE</span>
+                                            @endif
+                                        </td> --}}
                                         <td class="py-4 px-6 text-end font-bold text-n700">
-                                            {{ number_format($transaction->amount, 0, ' ', ' ') }} XAF
+                                            {{ number_format($transaction->amount + ($transaction->fees ?? 0), 0, ' ', ' ') }} XAF
                                         </td>
-                                        <td class="py-4 px-6 text-center">
+                                        {{-- <td class="py-4 px-6 text-center">
                                             <div class="flex gap-1 items-center justify-center">
-                                                <div class="w-5 h-5 rounded-full flex items-center justify-center text-[8px] {{ $transaction->is_compliance_validated ? 'bg-success text-white' : 'bg-gray-200 text-gray-400' }}" title="Compliance">C</div>
-                                                <div class="w-5 h-5 rounded-full flex items-center justify-center text-[8px] {{ $transaction->is_backoffice_validated ? 'bg-primary text-white' : 'bg-gray-200 text-gray-400' }}" title="Backoffice">B</div>
-                                                <div class="w-5 h-5 rounded-full flex items-center justify-center text-[8px] {{ $transaction->is_dg_validated ? 'bg-secondary text-white' : 'bg-gray-200 text-gray-400' }}" title="DG">D</div>
+                                                <div class="w-5 h-5 rounded-full flex items-center justify-center text-[8px] {{ $transaction->is_compliance_validated ? 'bg-success text-white' : 'bg-gray-200 text-gray-400' }}"
+                                                    title="Compliance">C</div>
+                                                <div class="w-5 h-5 rounded-full flex items-center justify-center text-[8px] {{ $transaction->is_backoffice_validated ? 'bg-primary text-white' : 'bg-gray-200 text-gray-400' }}"
+                                                    title="Backoffice">B</div>
+                                                <div class="w-5 h-5 rounded-full flex items-center justify-center text-[8px] {{ $transaction->is_dg_validated ? 'bg-secondary text-white' : 'bg-gray-200 text-gray-400' }}"
+                                                    title="DG">D</div>
                                             </div>
-                                        </td>
+                                        </td> --}}
                                         <td class="py-4 px-6 text-center flex items-center justify-center gap-2">
-                                            @if(!$transaction->is_compliance_validated)
-                                            <form action="{{ route('backoffice.validate-transaction', [$transaction->id, 'main']) }}" method="POST" class="inline">
-                                                @csrf
-                                                <button type="submit" class="p-1.5 bg-success/10 text-success rounded-lg hover:bg-success hover:text-white transition-all shadow-sm" title="Valider Compliance">
-                                                    <i class="las la-check"></i>
-                                                </button>
-                                            </form>
+                                            <!-- View Details Button -->
+                                            <button
+                                                onclick="openTransactionModal({{ $transaction->toJson() }}, '{{ route('backoffice.validate-transaction', [$transaction->id, $transaction->type_flux]) }}')"
+                                                class="p-1.5 bg-marron/10 text-marron rounded-lg hover:bg-marron hover:text-white transition-all shadow-sm"
+                                                title="Voir Détails">
+                                                <i class="las la-eye text-lg"></i>
+                                            </button>
+
+                                            @if (!$transaction->is_compliance_validated)
+                                                <form
+                                                    action="{{ route('backoffice.validate-transaction', [$transaction->id, $transaction->type_flux]) }}"
+                                                    method="POST" class="inline">
+                                                    @csrf
+                                                    <button type="submit"
+                                                        class="p-1.5 bg-success/10 text-success rounded-lg hover:bg-success hover:text-white transition-all shadow-sm"
+                                                        title="Valider Compliance">
+                                                        <i class="las la-check"></i>
+                                                    </button>
+                                                </form>
                                             @endif
                                             <a href="{{ route('compliance.client-history', $transaction->user_id) }}"
                                                 class="text-primary hover:text-secondary1 text-lg"
@@ -136,70 +160,12 @@
                                             </a>
                                         </td>
                                     </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Supplementary Transactions -->
-            <div class="col-span-12">
-                <div class="box bg-white dark:bg-bg3 rounded-2xl border border-n30 shadow-sm overflow-hidden">
-                    <div class="p-6 border-b border-n30 flex justify-between items-center bg-secondary1/5">
-                        <h4 class="h4 flex items-center gap-2">
-                            <i class="las la-coins text-secondary1 font-bold"></i> Flux Récent des Versements Mensuels
-                        </h4>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full whitespace-nowrap">
-                            <thead>
-                                <tr class="bg-n20 dark:bg-bg3 text-n500 uppercase text-[11px] font-bold">
-                                    <th class="py-4 px-6 text-start">Date</th>
-                                    <th class="py-4 px-6 text-start">Client</th>
-                                    <th class="py-4 px-6 text-start">Produit</th>
-                                    <th class="py-4 px-6 text-end">Montant</th>
-                                    <th class="py-4 px-6 text-center">Workflow</th>
-                                    <th class="py-4 px-6 text-center">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-n30">
-                                @foreach ($recentSupps as $supp)
-                                    <tr class="hover:bg-n10/50 duration-200">
-                                        <td class="py-4 px-6 text-sm">{{ $supp->created_at->format('d/m/Y') }}</td>
-                                        <td class="py-4 px-6 text-sm font-medium">{{ $supp->user->name ?? 'N/A' }}</td>
-                                        <td class="py-4 px-6">
-                                            <span
-                                                class="px-2 py-0.5 rounded bg-secondary1/10 text-secondary1 text-[10px] font-bold uppercase">
-                                                {{ $supp->product->title ?? 'N/A' }}
-                                            </span>
-                                        </td>
-                                        <td class="py-4 px-6 text-end font-bold text-secondary1">
-                                            {{ number_format($supp->amount, 0, ' ', ' ') }} XAF
-                                        </td>
-                                        <td class="py-4 px-6 text-center">
-                                            <div class="flex gap-1 items-center justify-center">
-                                                <div class="w-5 h-5 rounded-full flex items-center justify-center text-[8px] {{ $supp->is_compliance_validated ? 'bg-success text-white' : 'bg-gray-200 text-gray-400' }}" title="Compliance">C</div>
-                                                <div class="w-5 h-5 rounded-full flex items-center justify-center text-[8px] {{ $supp->is_backoffice_validated ? 'bg-primary text-white' : 'bg-gray-200 text-gray-400' }}" title="Backoffice">B</div>
-                                                <div class="w-5 h-5 rounded-full flex items-center justify-center text-[8px] {{ $supp->is_dg_validated ? 'bg-secondary text-white' : 'bg-gray-200 text-gray-400' }}" title="DG">D</div>
-                                            </div>
-                                        </td>
-                                        <td class="py-4 px-6 text-center flex items-center justify-center gap-2">
-                                            @if(!$supp->is_compliance_validated)
-                                            <form action="{{ route('backoffice.validate-transaction', [$supp->id, 'supp']) }}" method="POST" class="inline">
-                                                @csrf
-                                                <button type="submit" class="p-1.5 bg-success/10 text-success rounded-lg hover:bg-success hover:text-white transition-all shadow-sm" title="Valider Compliance">
-                                                    <i class="las la-check"></i>
-                                                </button>
-                                            </form>
-                                            @endif
-                                            <a href="{{ route('compliance.client-history', $supp->user_id) }}"
-                                                class="text-secondary1 hover:text-primary text-lg">
-                                                <i class="las la-history"></i>
-                                            </a>
-                                        </td>
+                                @empty
+                                    <tr>
+                                        <td colspan="7" class="py-12 text-center opacity-50 italic">Aucune opération en
+                                            attente de contrôle.</td>
                                     </tr>
-                                @endforeach
+                                @endforelse
                             </tbody>
                         </table>
                     </div>
@@ -207,4 +173,6 @@
             </div>
         </div>
     </main>
+
+    @include('partials.transaction-details-modal')
 @endsection

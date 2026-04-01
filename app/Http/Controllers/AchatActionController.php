@@ -26,6 +26,8 @@ class AchatActionController extends Controller
         $montant_normal = $request->input('montant_normal');
         $product = $request->input('product');
         $periodicite = $request->input('periodicite', 'Ponctuelle'); // Récupération de la périodicité
+        $date_valeur = $request->input('date_valeur');
+        $customer_id = $request->input('customer', Auth::user()->id);
 
         $name_product = Product::where('id', $product)->first();
         $vl = AssetValue::where('product_id', $product)->orderBy('created_at', 'desc')->first();
@@ -38,7 +40,7 @@ class AchatActionController extends Controller
 
         // Vérifier si une transaction existe pour le produit et l'utilisateur actuels
         $existing_transaction = Transaction::where('product_id', $name_product->id)
-            ->where('user_id', Auth::user()->id)
+            ->where('user_id', $customer_id)
             ->first();
 
         if ($existing_transaction) {
@@ -47,14 +49,16 @@ class AchatActionController extends Controller
             $new_transaction->title = "Investissement " . $periodicite . " de " . $name_product->title;
             $new_transaction->ref = "Kori-" . $existing_transaction->ref . "-" . $unique_id;
             $new_transaction->payment_mode = "A définir";
-            $new_transaction->amount = $montantTotal;
+            $new_transaction->amount = $montant_normal;
+            $new_transaction->fees = $fraisGestion;
             $new_transaction->status = "En attente";
-            $new_transaction->user_id = Auth::user()->id;
+            $new_transaction->user_id = $customer_id;
             $new_transaction->vl_buy = $vl ? $vl->vl : $name_product->vl;
             $new_transaction->nb_part = $valeurLiquidative;
             $new_transaction->product_id = $name_product->id;
             $new_transaction->duree = $name_product->duree;
             $new_transaction->transaction_id = $existing_transaction->id;
+            $new_transaction->date_validation = $date_valeur;
 
             $vl_actuel = $vl ? $vl->vl : $name_product->vl;
             Mail::to($name_product->email_contact)->send(new AchatActionMail($valeurLiquidative, $vl_actuel, $fraisGestion, $montant_normal, $name_product, $username, $useremail));
@@ -70,12 +74,14 @@ class AchatActionController extends Controller
             $transaction->ref = "Kori-" . $unique_id;
             $transaction->payment_mode = "A définir";
             $transaction->amount = $montant_normal;
+            $transaction->fees = $fraisGestion;
             $transaction->status = "En attente";
-            $transaction->user_id = Auth::user()->id;
+            $transaction->user_id = $customer_id;
             $transaction->vl_buy = $vl ? $vl->vl : $name_product->vl;
             $transaction->nb_part = $valeurLiquidative;
             $transaction->duree = $name_product->duree;
             $transaction->product_id = $name_product->id;
+            $transaction->date_validation = $date_valeur;
             $transaction->type = 1; // FCP
 
             $vl_actuel = $vl ? $vl->vl : $name_product->vl;
@@ -128,6 +134,9 @@ class AchatActionController extends Controller
         $fraisGestion = $request->input('fraisGestion');
         $montantTotal = $request->input('montantTotal');
         $product = $request->input('product');
+        $date_valeur = $request->input('date_valeur');
+        $date_echeance = $request->input('date_echeance');
+        $customer_id = $request->input('customer', Auth::user()->id);
 
         $name_product = Product::where('id', $product)->first();
         $vl = AssetValue::where('product_id', $product)->orderBy('created_at', 'desc')->first();
@@ -142,7 +151,7 @@ class AchatActionController extends Controller
 
         // Vérifier si une transaction existe pour le produit et l'utilisateur actuels
         $existing_transaction = Transaction::where('product_id', $name_product->id)
-            ->where('user_id', Auth::user()->id)
+            ->where('user_id', $customer_id)
             ->first();
 
         if ($existing_transaction) {
@@ -151,14 +160,23 @@ class AchatActionController extends Controller
             $new_transaction->title = "Souscription Supplémentaire de " . $name_product->title;
             $new_transaction->ref = $existing_transaction->ref . "-" . $unique_id;
             $new_transaction->payment_mode = "A définir";
-            $new_transaction->amount = $montantTotal;
+            
+            if ($name_product->products_category_id == 2) {
+                $new_transaction->amount = $montantTotal;
+                $new_transaction->fees = 0;
+            } else {
+                $new_transaction->amount = $request->input('montant_normal', $montantTotal); 
+                $new_transaction->fees = $fraisGestion;
+            }
             $new_transaction->status = "En attente";
-            $new_transaction->user_id = Auth::user()->id;
+            $new_transaction->user_id = $customer_id;
             $new_transaction->vl_buy = $name_product->vl;
             $new_transaction->nb_part = $valeurLiquidative;
             $new_transaction->product_id = $name_product->id;
             $new_transaction->duree = $name_product->duree;
             $new_transaction->transaction_id = $existing_transaction->id;
+            $new_transaction->date_validation = $date_valeur;
+            $new_transaction->date_echeance = $date_echeance;
             $new_transaction->montant_initiale = $montantTotal;
             $taux_interet = $name_product->vl;
             $title_product = $name_product->title;
@@ -175,13 +193,23 @@ class AchatActionController extends Controller
             $transaction->title = "Souscription de " . $name_product->title;
             $transaction->ref = "Kori-" . $unique_id;
             $transaction->payment_mode = "A définir";
-            $transaction->amount = $montantTotal;
+            
+            if ($name_product->products_category_id == 2) {
+                $transaction->amount = $montantTotal;
+                $transaction->fees = 0;
+            } else {
+                $transaction->amount = $request->input('montant_normal', $montantTotal); 
+                $transaction->fees = $fraisGestion;
+            }
+            
             $transaction->status = "En attente";
-            $transaction->user_id = Auth::user()->id;
+            $transaction->user_id = $customer_id;
             $transaction->vl_buy = $name_product->vl;
             $transaction->duree = $name_product->duree;
             $transaction->nb_part = $valeurLiquidative;
             $transaction->product_id = $name_product->id;
+            $transaction->date_validation = $date_valeur;
+            $transaction->date_echeance = $date_echeance;
             $transaction->montant_initiale = $montantTotal;
             $taux_interet = $name_product->vl;
             $title_product = $name_product->title;

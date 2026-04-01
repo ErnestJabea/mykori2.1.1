@@ -7,6 +7,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
 
 @section('inner-head')
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/magnific-popup@1.2.0/dist/magnific-popup.css">
+    <link rel="stylesheet" href="https://unpkg.com/js-datepicker/dist/datepicker.min.css">
 @endsection
 
 @section('content')
@@ -69,6 +70,19 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                 <div class="content-card-info">
                                     <h4>Gérer les remboursements</h4>
                                     <p>Enregistrer un remboursement pour un contrat spécifique.</p>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="content-card">
+                        <a href="#popup-rachat-fcp" class="open-popup-link">
+                            <div class="content-card-body">
+                                <div class="content-card-icon">
+                                    <i class="fa-solid fa-file-invoice-dollar text-secondary"></i>
+                                </div>
+                                <div class="content-card-info">
+                                    <h4>Gérer les rachats FCP</h4>
+                                    <p>Effectuer un rachat partiel ou total sur un produit FCP.</p>
                                 </div>
                             </div>
                         </a>
@@ -172,6 +186,66 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                         </div>
                     </form>
                 </div>
+
+                <div id="popup-rachat-fcp" class="mfp-hide white-popup-block">
+                    <h3>Effectuer un Rachat FCP</h3>
+                    <hr>
+                    <form action="{{ route('transactions.rachat-fcp') }}" method="POST" id="form-rachat-fcp">
+                        @csrf
+                        <input type="hidden" name="customer_id" value="{{ $customerId }}">
+                        <div class="form-group mb-3">
+                            <label>Sélectionner le produit FCP</label>
+                            <select name="product_id" id="rachat-fcp-product" class="form-control" required>
+                                <option value="">Choisir un produit...</option>
+                                @foreach ($ownedFcpProducts as $product)
+                                    <option value="{{ $product->id }}">{{ $product->title }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>Date d'effet du rachat</label>
+                            <input type="text" name="date_operation" id="rachat-fcp-date" value="{{ date('Y-m-d') }}" class="form-control" readonly required>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>Montant Brut du rachat (XAF)</label>
+                            <input type="number" name="amount_brut" id="rachat-fcp-amount" class="form-control" placeholder="Montant souhaité" required>
+                            <p class="text-[10px] mt-1 italic text-n500" id="rachat-fcp-available-label"></p>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>Frais de rachat (XAF)</label>
+                            <input type="number" name="amount_frais" id="rachat-fcp-frais" class="form-control" value="0">
+                        </div>
+
+                        <!-- APERCU DU CALCUL -->
+                        <div id="rachat-fcp-preview" class="hidden mt-4 p-4 rounded-2xl bg-primary/5 border border-dashed border-primary/20">
+                            <h5 class="text-xs font-bold uppercase mb-3 text-primary"><i class="las la-calculator"></i> Aperçu du calcul</h5>
+                            <div class="flex flex-col gap-2">
+                                <div class="flex justify-between text-xs">
+                                    <span>VL appliquée :</span>
+                                    <span id="preview-fcp-vl" class="font-bold">0 XAF</span>
+                                </div>
+                                <div class="flex justify-between text-xs">
+                                    <span>Parts à liquider :</span>
+                                    <span id="preview-fcp-parts" class="font-bold">0.0000</span>
+                                </div>
+                                <div class="flex justify-between text-xs pt-2 border-t border-dashed border-primary/10">
+                                    <span class="font-bold">NET À VERSER :</span>
+                                    <span id="preview-fcp-net" class="font-bold text-secondary text-sm">0 XAF</span>
+                                </div>
+                                <div class="flex justify-between text-xs pt-2">
+                                    <span class="opacity-70">VALORISATION RESTANTE :</span>
+                                    <span id="preview-fcp-restant" class="font-bold opacity-70">0 XAF</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="text-right mt-6">
+                            <button type="submit" id="btn-confirm-rachat-fcp" class="btn btn-primary bg-primary text-white px-8 py-3 rounded-xl font-bold uppercase tracking-wider">
+                                Confirmer le Rachat FCP
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
     </main>
 @endsection
@@ -179,6 +253,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
 
 @section('script_front_end')
     <script src="https://cdn.jsdelivr.net/npm/magnific-popup@1.2.0/dist/jquery.magnific-popup.min.js"></script>
+    <script src="https://unpkg.com/js-datepicker"></script>
     <script>
         $(document).ready(function() {
             $('.open-popup-link').magnificPopup({
@@ -281,6 +356,98 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                     error: function(xhr) {
                         $btn.prop('disabled', false).text('Valider le Remboursement');
                         let msg = xhr.responseJSON ? xhr.responseJSON.message : 'Erreur réseau';
+                        alert('Erreur : ' + msg);
+                    }
+                });
+            });
+
+            // LOGIQUE RACHAT FCP
+            const rachatFcpForm = $('#form-rachat-fcp');
+            const rachatFcpProduct = $('#rachat-fcp-product');
+            const rachatFcpDate = $('#rachat-fcp-date');
+            const rachatFcpAmount = $('#rachat-fcp-amount');
+            const rachatFcpFrais = $('#rachat-fcp-frais');
+            const rachatFcpPreview = $('#rachat-fcp-preview');
+            const customerId = "{{ $customerId }}";
+
+            // Initialisation du calendrier stylisé
+            const pickerRachat = datepicker('#rachat-fcp-date', {
+                formatter: (input, date, instance) => {
+                    const value = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+                    input.value = value;
+                },
+                startDay: 1,
+                customDays: ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'],
+                customMonths: ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'],
+                overlayButton: "Valider",
+                overlayPlaceholder: "Année (4 chiffres)",
+                onSelect: (instance, date) => {
+                    updateFcpPreview();
+                }
+            });
+
+            function updateFcpPreview() {
+                const prodId = rachatFcpProduct.val();
+                const date = rachatFcpDate.val();
+                const amount = parseFloat(rachatFcpAmount.val()) || 0;
+                const frais = parseFloat(rachatFcpFrais.val()) || 0;
+
+                if (!prodId || !date) {
+                    rachatFcpPreview.addClass('hidden');
+                    return;
+                }
+
+                // Appeler l'API de holdings
+                fetch(`/api/product-holdings/${customerId}/${prodId}/${date}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            rachatFcpPreview.removeClass('hidden');
+                            
+                            const vl = data.vl;
+                            const totalValo = data.valuation;
+                            const partsARetirer = amount / vl;
+                            const netClient = amount - frais;
+                            const restant = totalValo - amount;
+
+                            $('#preview-fcp-vl').text(vl.toLocaleString() + ' XAF');
+                            $('#preview-fcp-parts').text(partsARetirer.toFixed(4));
+                            $('#preview-fcp-net').text(netClient.toLocaleString() + ' XAF');
+                            $('#preview-fcp-restant').text(restant.toLocaleString() + ' XAF');
+                            $('#rachat-fcp-available-label').text('Disponible à cette date : ' + totalValo.toLocaleString() + ' XAF (' + data.parts.toFixed(4) + ' parts)');
+
+                            if (amount > totalValo) {
+                                rachatFcpAmount.addClass('border-red-500');
+                                $('#btn-confirm-rachat-fcp').prop('disabled', true).addClass('opacity-50');
+                            } else {
+                                rachatFcpAmount.removeClass('border-red-500');
+                                $('#btn-confirm-rachat-fcp').prop('disabled', false).removeClass('opacity-50');
+                            }
+                        }
+                    });
+            }
+
+            rachatFcpProduct.on('change', updateFcpPreview);
+            rachatFcpDate.on('change', updateFcpPreview);
+            rachatFcpAmount.on('input', updateFcpPreview);
+            rachatFcpFrais.on('input', updateFcpPreview);
+
+            rachatFcpForm.on('submit', function(e) {
+                e.preventDefault();
+                const btn = $('#btn-confirm-rachat-fcp');
+                btn.prop('disabled', true).text('VALIDATION...');
+
+                $.ajax({
+                    url: $(this).attr('action'),
+                    method: 'POST',
+                    data: $(this).serialize(),
+                    success: function(response) {
+                        alert(response.message);
+                        location.reload();
+                    },
+                    error: function(xhr) {
+                        btn.prop('disabled', false).text('CONFIRMER LE RACHAT FCP');
+                        const msg = xhr.responseJSON ? xhr.responseJSON.message : 'Erreur réseau';
                         alert('Erreur : ' + msg);
                     }
                 });
