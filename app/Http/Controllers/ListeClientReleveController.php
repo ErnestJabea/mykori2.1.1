@@ -152,6 +152,40 @@ public function previewPmg(int $clientId)
             $vN = $productController->calculatePMGValorization($trans, $dateN);
             $vN1 = $productController->calculatePMGValorization($trans, $dateN1);
 
+            // Sorties du mois (Rachats partiels, Paiement intérêts)
+            $mensualOutflows = DB::table('financial_movements')
+                ->where('transaction_id', $trans->id)
+                ->whereIn('type', ['rachat_partiel', 'paiement_interets'])
+                ->whereBetween('date_operation', [$dateN1->copy()->addDay()->toDateString(), $dateN->toDateString()])
+                ->sum('amount') ?? 0;
+
+            // Calcul du gain mensuel de cette transaction
+            $mvtCap = DB::table('financial_movements')
+                ->where('transaction_id', $trans->id)
+                ->where('type', 'capitalisation_interets')
+                ->whereBetween('date_operation', [$dateN1->copy()->addDay()->toDateString(), $dateN->toDateString()])
+                ->first();
+
+            $currentTransGain = 0;
+            if ($mvtCap) {
+                $dateCap = Carbon::parse($mvtCap->date_operation);
+                $joursA = $dateN1->diffInDays($dateCap->copy()->subDay());
+                $joursB = $dateCap->diffInDays($dateN);
+                $gA = ($mvtCap->capital_before * ($trans->vl_buy/100) * $joursA) / 360;
+                $gB = ($mvtCap->capital_after * ($trans->vl_buy/100) * $joursB) / 360;
+                $currentTransGain = ($gA + $gB);
+            } else {
+                $currentTransGain = ($vN + $mensualOutflows) - $vN1;
+            }
+
+            // --- FILTRE D'ACTIVITÉ ---
+            // Si le produit est échu avant le début du mois précédent (N-1) ET que son gain est nul
+            // cela signifie qu'il est inactif ou a été basculé. On l'ignore.
+            $expiryDate = Carbon::parse($trans->date_echeance);
+            if ($expiryDate->lt($dateN1->copy()->startOfMonth()) && round($currentTransGain, 0) <= 0) {
+                continue;
+            }
+
             $prec = DB::table('financial_movements')
                 ->where('transaction_id', $trans->id)
                 ->where('type', 'precompte_interets')
@@ -161,32 +195,8 @@ public function previewPmg(int $clientId)
             $productValoN1 += $vN1;
             $productCapitalTotal += (float)$trans->amount;
             $productPrecompteTotal += (float)$prec;
-
-            // Sorties du mois (Rachats partiels, Paiement intérêts)
-            $mensualOutflows = DB::table('financial_movements')
-                ->where('transaction_id', $trans->id)
-                ->whereIn('type', ['rachat_partiel', 'paiement_interets'])
-                ->whereBetween('date_operation', [$dateN1->copy()->addDay()->toDateString(), $dateN->toDateString()])
-                ->sum('amount') ?? 0;
             $productPertesMensuelles += $mensualOutflows;
-
-            $mvtCap = DB::table('financial_movements')
-                ->where('transaction_id', $trans->id)
-                ->where('type', 'capitalisation_interets')
-                ->whereBetween('date_operation', [$dateN1->copy()->addDay()->toDateString(), $dateN->toDateString()])
-                ->first();
-
-            if ($mvtCap) {
-                $dateCap = Carbon::parse($mvtCap->date_operation);
-                $joursA = $dateN1->diffInDays($dateCap->copy()->subDay());
-                $joursB = $dateCap->diffInDays($dateN);
-                $gA = ($mvtCap->capital_before * ($trans->vl_buy/100) * $joursA) / 360;
-                $gB = ($mvtCap->capital_after * ($trans->vl_buy/100) * $joursB) / 360;
-                $productGainMensuelTotal += ($gA + $gB);
-            } else {
-                // Production brute (Indépendante des paiements)
-                $productGainMensuelTotal += ($vN + $mensualOutflows) - $vN1;
-            }
+            $productGainMensuelTotal += $currentTransGain;
         }
 
         $capNetTotal = $productCapitalTotal - $productPrecompteTotal;
@@ -499,6 +509,40 @@ private function genererPdfPmg(int $clientId): string
             $vN = $productController->calculatePMGValorization($trans, $dateN);
             $vN1 = $productController->calculatePMGValorization($trans, $dateN1);
 
+            // Sorties du mois (Rachats partiels, Paiement intérêts)
+            $mensualOutflows = DB::table('financial_movements')
+                ->where('transaction_id', $trans->id)
+                ->whereIn('type', ['rachat_partiel', 'paiement_interets'])
+                ->whereBetween('date_operation', [$dateN1->copy()->addDay()->toDateString(), $dateN->toDateString()])
+                ->sum('amount') ?? 0;
+
+            // Calcul du gain mensuel de cette transaction
+            $mvtCap = DB::table('financial_movements')
+                ->where('transaction_id', $trans->id)
+                ->where('type', 'capitalisation_interets')
+                ->whereBetween('date_operation', [$dateN1->copy()->addDay()->toDateString(), $dateN->toDateString()])
+                ->first();
+
+            $currentTransGain = 0;
+            if ($mvtCap) {
+                $dateCap = Carbon::parse($mvtCap->date_operation);
+                $joursA = $dateN1->diffInDays($dateCap->copy()->subDay());
+                $joursB = $dateCap->diffInDays($dateN);
+                $gA = ($mvtCap->capital_before * ($trans->vl_buy/100) * $joursA) / 360;
+                $gB = ($mvtCap->capital_after * ($trans->vl_buy/100) * $joursB) / 360;
+                $currentTransGain = ($gA + $gB);
+            } else {
+                $currentTransGain = ($vN + $mensualOutflows) - $vN1;
+            }
+
+            // --- FILTRE D'ACTIVITÉ ---
+            // Si le produit est échu avant le début du mois précédent (N-1) ET que son gain est nul
+            // cela signifie qu'il est inactif ou a été basculé. On l'ignore.
+            $expiryDate = Carbon::parse($trans->date_echeance);
+            if ($expiryDate->lt($dateN1->copy()->startOfMonth()) && round($currentTransGain, 0) <= 0) {
+                continue;
+            }
+
             $prec = DB::table('financial_movements')
                 ->where('transaction_id', $trans->id)
                 ->where('type', 'precompte_interets')
@@ -508,31 +552,8 @@ private function genererPdfPmg(int $clientId): string
             $productValoN1 += $vN1;
             $productCapitalTotal += (float)$trans->amount;
             $productPrecompteTotal += (float)$prec;
-
-            // Sorties du mois (Rachats partiels, Paiement intérêts)
-            $mensualOutflows = DB::table('financial_movements')
-                ->where('transaction_id', $trans->id)
-                ->whereIn('type', ['rachat_partiel', 'paiement_interets'])
-                ->whereBetween('date_operation', [$dateN1->copy()->addDay()->toDateString(), $dateN->toDateString()])
-                ->sum('amount') ?? 0;
             $productPertesMensuelles += $mensualOutflows;
-
-            $mvtCap = DB::table('financial_movements')
-                ->where('transaction_id', $trans->id)
-                ->where('type', 'capitalisation_interets')
-                ->whereBetween('date_operation', [$dateN1->copy()->addDay()->toDateString(), $dateN->toDateString()])
-                ->first();
-
-            if ($mvtCap) {
-                $dateCap = Carbon::parse($mvtCap->date_operation);
-                $joursA = $dateN1->diffInDays($dateCap->copy()->subDay());
-                $joursB = $dateCap->diffInDays($dateN);
-                $gA = ($mvtCap->capital_before * ($trans->vl_buy/100) * $joursA) / 360;
-                $gB = ($mvtCap->capital_after * ($trans->vl_buy/100) * $joursB) / 360;
-                $productGainMensuelTotal += ($gA + $gB);
-            } else {
-                $productGainMensuelTotal += ($vN + $mensualOutflows) - $vN1;
-            }
+            $productGainMensuelTotal += $currentTransGain;
         }
 
         $capNetTotal = $productCapitalTotal - $productPrecompteTotal;
