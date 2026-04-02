@@ -207,6 +207,8 @@ class ProductController extends Controller
                 'capital_investi' => $totalGross,
                 'total_gains_fcp' => $p['total_gain'] ?? 0,
                 'gain_semaine_fcp' => $p['weekly_gain'] ?? 0,
+                'gain_month' => $p['total_gain'] ?? 0,
+                'gain_mensuel' => $p['weekly_gain'] ?? 0,
                 'portfolio_valeur' => $p['current_valuation'] ?? 0,
                 'nb_part' => $p['total_parts'] ?? 0,
                 'pru' => $p['pru'] ?? 0,
@@ -329,6 +331,8 @@ class ProductController extends Controller
                 'capital_investi' => $totalGross,
                 'total_gains_fcp' => $p['total_gain'] ?? 0,
                 'gain_semaine_fcp' => $p['weekly_gain'] ?? 0,
+                'gain_month' => $p['total_gain'] ?? 0,
+                'gain_mensuel' => $p['weekly_gain'] ?? 0,
                 'portfolio_valeur' => $p['current_valuation'] ?? 0, // Nom normalisé
                 'valorisation_portefeuille_fcp' => $p['current_valuation'] ?? 0, // Legacy
                 'nb_part' => $p['total_parts'] ?? 0,
