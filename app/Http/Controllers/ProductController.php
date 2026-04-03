@@ -210,6 +210,7 @@ class ProductController extends Controller
                 'gain_month' => $p['total_gain'] ?? 0,
                 'gain_mensuel' => $p['weekly_gain'] ?? 0,
                 'portfolio_valeur' => $p['current_valuation'] ?? 0,
+                'valorisation_portefeuille_fcp' => $p['current_valuation'] ?? 0,
                 'nb_part' => $p['total_parts'] ?? 0,
                 'pru' => $p['pru'] ?? 0,
                 'vl_achat' => $p['first_vl'] ?? 0,
@@ -300,7 +301,9 @@ class ProductController extends Controller
                 'capital_actuel' => $consolidatedCapital, 
                 'montant_transaction' => $totalCapitalInvested, 
                 'interets_generes' => $totalInterestsGenerated,
+                'gain_month' => $totalInterestsGenerated,
                 'gain_mensuel' => ($consolidatedCapital * ($rate / 12)),
+                'soulte' => $consolidatedCapital,
                 'portfolio_valeur' => $totalCurrentValuation,
                 'total_payouts' => $totalPayoutsSum,
                 'vl_achat' => $allPmgTrans->first()->vl_buy,
@@ -725,6 +728,28 @@ class ProductController extends Controller
     // Valorisation = (Capital à l'instant T - (Somme des intérêts déjà payés/précomptés)) + Intérêts courus du cycle
     return round(($baseCapital - $payouts) + $totalInterest, 0);
 }
+
+    /**
+     * Version simplifiée pour le Client (Calcul linéaire Base 360)
+     * Utilisée pour l'affichage Dashboard pour garantir une réactivité maximale
+     */
+    public function calculatePMGValorizationClient($trans, $refDate)
+    {
+        $targetDate = Carbon::parse($refDate)->min(Carbon::parse($trans->date_echeance));
+        $rate = (float)$trans->vl_buy / 100;
+        
+        if ($targetDate->lt(Carbon::parse($trans->date_validation))) {
+            return 0;
+        }
+
+        $amount = (float)$trans->amount;
+        $startDate = Carbon::parse($trans->date_validation);
+        
+        $days = $startDate->diffInDays($targetDate);
+        $interest = ($amount * $rate * $days) / 360;
+        
+        return round($amount + $interest, 0);
+    }
     //backup de la fonction de valorisation PMG avant refonte complète
     /* public function calculatePMGValorization($trans, $refDate)
     {
