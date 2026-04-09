@@ -160,7 +160,14 @@
                         </div>
                     </div>
 
-                    <div id="portfolios-table-container">
+                    <div id="portfolios-table-container" class="relative min-h-[400px]">
+                        <!-- Loader du tableau -->
+                        <div id="table-loader" class="absolute inset-0 bg-white/60 dark:bg-bg4/60 z-50 flex items-center justify-center rounded-2xl hidden">
+                            <div class="flex flex-col items-center gap-3">
+                                <div class="animate-spin h-10 w-10 border-4 border-primary border-t-transparent rounded-full shadow-lg"></div>
+                                <span class="text-xs font-bold text-primary animate-pulse">Recherche en cours...</span>
+                            </div>
+                        </div>
                         @include('front-end.partials.portfolios-table')
                     </div>
                 </div>
@@ -174,25 +181,34 @@
             let searchTimer;
             const searchInput = $('#portfolio-search');
             const spinner = $('#search-spinner');
+            const tableLoader = $('#table-loader');
             const tableContainer = $('#portfolios-table-container');
 
             function performSearch() {
                 const search = searchInput.val();
                 spinner.removeClass('hidden');
+                tableLoader.removeClass('hidden');
 
                 $.ajax({
                     url: "{{ route('asset-manager.create-customer') }}",
                     method: 'GET',
                     data: { search: search },
                     success: function(response) {
-                        tableContainer.html(response);
-                        spinner.addClass('hidden');
-                        
-                        // Réattacher les événements de pagination AJAX si nécessaire
-                        bindPagination();
+                        // On garde le loader visible un tout petit peu pour éviter le clignotement
+                        setTimeout(function() {
+                            // On remplace le contenu du tableau (le loader est à l'intérieur du container mais avant l'include)
+                            // On doit donc injecter APRES le loader
+                            tableContainer.find('> .overflow-x-hidden, > .portfolios-pagination, > .custom-pagination, > style').remove();
+                            tableContainer.append($(response));
+                            
+                            spinner.addClass('hidden');
+                            tableLoader.addClass('hidden');
+                            bindPagination();
+                        }, 300);
                     },
                     error: function() {
                         spinner.addClass('hidden');
+                        tableLoader.addClass('hidden');
                     }
                 });
             }
@@ -202,16 +218,22 @@
                     e.preventDefault();
                     const url = $(this).attr('href');
                     spinner.removeClass('hidden');
+                    tableLoader.removeClass('hidden');
 
                     $.ajax({
                         url: url,
                         success: function(response) {
-                            tableContainer.html(response);
-                            spinner.addClass('hidden');
-                            bindPagination();
-                            $('html, body').animate({
-                                scrollTop: tableContainer.offset().top - 100
-                            }, 500);
+                            setTimeout(function() {
+                                tableContainer.find('> .overflow-x-hidden, > .portfolios-pagination, > .custom-pagination, > style').remove();
+                                tableContainer.append($(response));
+                                
+                                spinner.addClass('hidden');
+                                tableLoader.addClass('hidden');
+                                bindPagination();
+                                $('html, body').animate({
+                                    scrollTop: tableContainer.offset().top - 100
+                                }, 500);
+                            }, 300);
                         }
                     });
                 });
