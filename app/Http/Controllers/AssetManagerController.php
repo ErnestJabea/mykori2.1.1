@@ -17,12 +17,30 @@ class AssetManagerController extends Controller
     public function createCustomer(Request $request, $portfolio_id = null)
     {
         $portfolioToEdit = $portfolio_id ? CustomerPortfolio::with('user')->find($portfolio_id) : null;
-        $portfolios = CustomerPortfolio::with('user')->orderBy('created_at', 'desc')->get();
+        $search = $request->input('search');
+
+        // On prépare la requête avec les dossiers
+        $query = CustomerPortfolio::with('user')->orderBy('created_at', 'desc');
+
+        // FILTRE DE RECHERCHE
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('reference', 'LIKE', "%{$search}%")
+                  ->orWhereHas('user', function ($qu) use ($search) {
+                      $qu->where('name', 'LIKE', "%{$search}%")
+                        ->orWhere('email', 'LIKE', "%{$search}%");
+                  });
+            });
+        }
+
+        // PAGINATION (10 par page)
+        $portfolios = $query->paginate(10)->appends(['search' => $search]);
         
         return view('front-end.asset-manager.create-customer', [
             'portfolios' => $portfolios,
             'portfolioToEdit' => $portfolioToEdit,
-            'customerToEdit' => $portfolioToEdit ? $portfolioToEdit->user : null
+            'customerToEdit' => $portfolioToEdit ? $portfolioToEdit->user : null,
+            'search' => $search
         ]);
     }
 

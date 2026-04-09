@@ -144,8 +144,18 @@
                 <div class="box bg-n0 dark:bg-bg4 p-6 rounded-2xl shadow-sm border border-n30 dark:border-n500">
                     <div class="bb-dashed mb-6 flex items-center justify-between pb-4 border-b border-dashed border-n40">
                         <h3 class="h3 flex items-center gap-3">
-                            <i class="las la-users text-primary"></i> LISTE DES DOSSIERS RÉCENTS
+                            <i class="las la-users text-primary"></i> LISTE DES DOSSIERS
                         </h3>
+                        <div class="flex items-center gap-2">
+                            <form action="{{ route('asset-manager.create-customer') }}" method="GET" class="relative">
+                                <i class="las la-search absolute left-3 top-1/2 -translate-y-1/2 opacity-50"></i>
+                                <input type="text" name="search" value="{{ $search }}" placeholder="Rechercher (Nom/Ref...)"
+                                    class="bg-n10 dark:bg-bg3 border border-n30 dark:border-n500 rounded-lg py-2 pl-10 pr-4 text-xs focus:outline-none focus:border-primary duration-300">
+                                @if($search)
+                                    <a href="{{ route('asset-manager.create-customer') }}" class="absolute right-3 top-1/2 -translate-y-1/2 text-secondary2 text-xs">Annuler</a>
+                                @endif
+                            </form>
+                        </div>
                     </div>
 
                     <div class="overflow-x-hidden">
@@ -221,6 +231,11 @@
                                 @endforelse
                             </tbody>
                         </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    <div class="mt-6 flex justify-center">
+                        {{ $portfolios->links() }}
                     </div>
                 </div>
             </div>
