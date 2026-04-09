@@ -41,7 +41,7 @@
                         </div>
                     @endif
 
-                    <form action="{{ $customerToEdit ? route('asset-manager.update-customer', $customerToEdit->id) : route('asset-manager.store-customer') }}" 
+                    <form action="{{ $portfolioToEdit ? route('asset-manager.update-customer', $portfolioToEdit->id) : route('asset-manager.store-customer') }}" 
                         method="POST"
                         class="grid grid-cols-12 gap-6" id="create-customer-form">
                         @csrf
@@ -52,9 +52,20 @@
                                 <i class="las la-folder-open absolute left-4 top-1/2 -translate-y-1/2 text-primary opacity-60"></i>
                                 <select name="type" required
                                     class="w-full bg-n10 dark:bg-bg3 border border-n30 dark:border-n500 rounded-xl py-4 pl-12 pr-4 appearance-none focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 duration-300">
-                                    <option value="PMG" {{ (old('type') == 'PMG') ? 'selected' : '' }}>Portefeuille PMG</option>
-                                    <option value="FCP" {{ (old('type') == 'FCP') ? 'selected' : '' }}>Portefeuille FCP</option>
+                                    <option value="PMG" {{ (old('type', $portfolioToEdit->type ?? '') == 'PMG') ? 'selected' : '' }}>Portefeuille PMG</option>
+                                    <option value="FCP" {{ (old('type', $portfolioToEdit->type ?? '') == 'FCP') ? 'selected' : '' }}>Portefeuille FCP</option>
                                 </select>
+                            </div>
+                        </div>
+
+                        <div class="col-span-12 lg:col-span-4">
+                            <label class="text-[11px] font-bold opacity-60 mb-2 block uppercase">Référence Dossier</label>
+                            <div class="relative">
+                                <i class="las la-hashtag absolute left-4 top-1/2 -translate-y-1/2 text-primary opacity-60"></i>
+                                <input type="text" name="reference" value="{{ old('reference', $portfolioToEdit->reference ?? '') }}" required
+                                    class="w-full bg-n10 dark:bg-bg3 border border-n30 dark:border-n500 rounded-xl py-4 pl-12 pr-4 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 duration-300 {{ !$portfolioToEdit ? 'pointer-events-none opacity-50' : '' }}"
+                                    placeholder="Auto-générée"
+                                    {{ !$portfolioToEdit ? 'readonly' : '' }}>
                             </div>
                         </div>
 
@@ -176,9 +187,9 @@
                                         </td>
                                         <td class="px-4 py-4 text-center">
                                             <div class="flex items-center justify-center gap-2">
-                                                <a href="{{ route('asset-manager.create-customer', $portfolio->user_id) }}" 
+                                                <a href="{{ route('asset-manager.create-customer', $portfolio->id) }}" 
                                                     class="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-white duration-300"
-                                                    title="Modifier compte">
+                                                    title="Modifier dossier">
                                                     <i class="las la-edit"></i>
                                                 </a>
                                                 <a href="{{ route('customer-detail', ['customer' => $portfolio->user_id]) }}" 

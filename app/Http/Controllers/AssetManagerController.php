@@ -14,14 +14,15 @@ use Carbon\Carbon;
 
 class AssetManagerController extends Controller
 {
-    public function createCustomer(Request $request, User $customer = null)
+    public function createCustomer(Request $request, $portfolio_id = null)
     {
-        // On liste désormais les dossiers (portefeuilles) au lieu des simples utilisateurs
+        $portfolioToEdit = $portfolio_id ? CustomerPortfolio::with('user')->find($portfolio_id) : null;
         $portfolios = CustomerPortfolio::with('user')->orderBy('created_at', 'desc')->get();
         
         return view('front-end.asset-manager.create-customer', [
             'portfolios' => $portfolios,
-            'customerToEdit' => $customer
+            'portfolioToEdit' => $portfolioToEdit,
+            'customerToEdit' => $portfolioToEdit ? $portfolioToEdit->user : null
         ]);
     }
 
@@ -84,14 +85,18 @@ class AssetManagerController extends Controller
         return redirect()->route('asset-manager.create-customer')->with('success', $msg . ' Le mot de passe par défaut est 12345678.');
     }
 
-    public function updateCustomer(Request $request, User $customer)
+    public function updateCustomer(Request $request, CustomerPortfolio $portfolio)
     {
+        $customer = $portfolio->user;
+
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users,email,' . $customer->id,
             'genre' => 'required|integer|in:0,1,2',
             'localisation' => 'required|string|max:255',
             'bp' => 'nullable|string|max:255',
+            'reference' => 'required|string|max:255|unique:customer_portfolios,reference,' . $portfolio->id,
+            'type' => 'required|in:PMG,FCP',
         ]);
 
         $customer->update([
@@ -102,7 +107,12 @@ class AssetManagerController extends Controller
             'bp' => $request->bp,
         ]);
 
-        return redirect()->route('asset-manager.create-customer')->with('success', 'Informations du client mises à jour avec succès.');
+        $portfolio->update([
+            'reference' => $request->reference,
+            'type' => $request->type
+        ]);
+
+        return redirect()->route('asset-manager.create-customer')->with('success', 'Dossier ' . $portfolio->reference . ' mis à jour avec succès.');
     }
 
     //

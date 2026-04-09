@@ -56,20 +56,63 @@ Route::name('home')->get('/', function () {
 // Route TEMPORAIRE pour la création de la table portfolios
 Route::get('/run-portfolios-migration', function () {
     try {
-        if (!\Illuminate\Support\Facades\Schema::hasTable('customer_portfolios')) {
-            \Illuminate\Support\Facades\Schema::create('customer_portfolios', function (\Illuminate\Database\Schema\Blueprint $table) {
+        if (!Schema::hasTable('customer_portfolios')) {
+            Schema::create('customer_portfolios', function ($table) {
                 $table->id();
-                $table->unsignedBigInteger('user_id'); 
-                $table->string('type'); 
-                $table->string('reference')->unique(); 
+                $table->foreignId('user_id')->constrained();
+                $table->string('type'); // FCP ou PMG
+                $table->string('reference')->unique();
                 $table->string('status')->default('active');
                 $table->timestamps();
-                $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
             });
-            return "SUCCESS: Table 'customer_portfolios' créée avec succès via la route.";
+            $msg = "Table créée. ";
         } else {
-            return "ALREADY_EXISTS: La table existait déjà.";
+            $msg = "Table existante. ";
         }
+
+        $users = \App\Models\User::where('role_id', 2)->get();
+        $count = 0;
+
+        foreach ($users as $u) {
+            // Vérifier si le client a déjà au moins un dossier
+            $exists = \App\Models\CustomerPortfolio::where('user_id', $u->id)->exists();
+            if (!$exists) {
+                // Déterminer le type par défaut via ses transactions
+                $hasFcp = \App\Models\Transaction::where('user_id', $u->id)
+                    ->whereHas('product', function($q){ $q->where('products_category_id', 1); })
+                    ->exists();
+                
+                $type = $hasFcp ? 'FCP' : 'PMG';
+
+                // Générer une référence
+                $lastRef = \App\Models\CustomerPortfolio::where('type', $type)->orderBy('reference', 'desc')->first();
+                if ($lastRef) {
+                    $number = (int) preg_replace('/[^0-9]/', '', $lastRef->reference);
+                    $newRef = $type . str_pad($number + 1, 4, '0', STR_PAD_LEFT);
+                } else {
+                    $newRef = $type . '0001';
+                }
+
+                \App\Models\CustomerPortfolio::create([
+                    'user_id'   => $u->id,
+                    'type'      => $type,
+                    'reference' => $newRef,
+                    'status'    => 'active',
+                ]);
+                $count++;
+            }
+        }
+
+        $usersCount = \App\Models\User::where('role_id', 2)->count();
+        $portfolios = \App\Models\CustomerPortfolio::with('user')->get();
+        
+        echo "DEBUG: $usersCount clients (role_id=2) trouvés. " . $portfolios->count() . " portfolios existent déjà.<br><br>";
+        
+        foreach($portfolios->take(10) as $p) {
+            echo "PORTFOLIO: " . $p->reference . " | USER: " . ($p->user ? $p->user->name : 'MISSING_USER') . " (ID: " . $p->user_id . ")<br>";
+        }
+        
+        return "";
     } catch (\Exception $e) {
         return "ERROR: " . $e->getMessage();
     }
@@ -307,9 +350,9 @@ Route::middleware('auth')->group(function () {
             Route::post('/customer/transaction/edit', [ProductController::class, 'editTransaction'])->name('customer.transaction.edit');
 
             Route::get('/customer/{customer}', [ProductController::class, 'customersDetail'])->name('customer-detail');
-            Route::get('/nouveau-client/{customer?}', [AssetManagerController::class, 'createCustomer'])->name('asset-manager.create-customer');
+            Route::get('/nouveau-client/{portfolio?}', [AssetManagerController::class, 'createCustomer'])->name('asset-manager.create-customer');
             Route::post('/nouveau-client', [AssetManagerController::class, 'storeCustomer'])->name('asset-manager.store-customer');
-            Route::post('/modifier-client/{customer}', [AssetManagerController::class, 'updateCustomer'])->name('asset-manager.update-customer');
+            Route::post('/modifier-client/{portfolio}', [AssetManagerController::class, 'updateCustomer'])->name('asset-manager.update-customer');
             Route::post('/store/transaction-manager', [MovementController::class, 'storeFinancialMovement'])->name('save-transactions-client');
             Route::get('/customer/{customer}/transaction-manager', [MovementController::class, 'indexFinancialMovement'])->name('transactions-client');
 
