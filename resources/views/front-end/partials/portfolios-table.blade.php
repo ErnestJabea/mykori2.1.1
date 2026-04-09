@@ -75,5 +75,45 @@
 
 <!-- Pagination -->
 <div class="mt-6 flex justify-center portfolios-pagination">
-    {{ $portfolios->links() }}
+    @if($portfolios->hasPages())
+        <div class="custom-pagination">
+            {{ $portfolios->links('pagination::bootstrap-4') }}
+        </div>
+    @endif
 </div>
+
+<style>
+    .custom-pagination .pagination {
+        display: flex;
+        gap: 5px;
+        align-items: center;
+    }
+    .custom-pagination .page-item {
+        list-style: none;
+    }
+    .custom-pagination .page-link {
+        display: block;
+        padding: 8px 16px;
+        background: #f1f1f1;
+        border-radius: 8px;
+        color: #333;
+        font-weight: bold;
+        transition: all 0.3s;
+    }
+    .custom-pagination .page-item.active .page-link {
+        background: var(--primary, #007bff); /* Utilise votre couleur primaire */
+        color: #fff;
+    }
+    .custom-pagination .page-link:hover {
+        background: #e1e1e1;
+        text-decoration: none;
+    }
+    .dark .custom-pagination .page-link {
+        background: #2a2a2a;
+        color: #ddd;
+    }
+    .dark .custom-pagination .page-item.active .page-link {
+        background: var(--primary, #007bff);
+        color: #fff;
+    }
+</style>
