@@ -48,14 +48,20 @@ class BackofficeController extends Controller
             ->whereBetween('date_echeance', [$today->toDateString(), $thirtyDaysLater->toDateString()])
             ->get();
 
-        // Récupérer les 10 dernières opérations en attente (mixte)
+        // Récupérer les 20 dernières opérations (Mixte) qui attendent encore au moins une validation
         $pendingTransactions = Transaction::with(['user', 'product'])
-            ->where('status', 'En attente')
+            ->where(function($q) {
+                $q->where('is_compliance_validated', 0)
+                  ->orWhere('is_backoffice_validated', 0);
+            })
             ->get()
             ->map(function($t) { $t->type_flux = 'main'; return $t; });
 
         $pendingSupps = TransactionSupplementaire::with(['user', 'product'])
-            ->where('status', 'En attente')
+            ->where(function($q) {
+                $q->where('is_compliance_validated', 0)
+                  ->orWhere('is_backoffice_validated', 0);
+            })
             ->get()
             ->map(function($t) { $t->type_flux = 'supp'; return $t; });
 
@@ -74,12 +80,18 @@ class BackofficeController extends Controller
     public function transactions(Request $request)
     {
         $main = Transaction::with(['user', 'product'])
-            ->where('status', 'En attente')
+            ->where(function($q) {
+                $q->where('is_compliance_validated', 0)
+                  ->orWhere('is_backoffice_validated', 0);
+            })
             ->get()
             ->map(function($t) { $t->type_flux = 'main'; return $t; });
 
         $supp = TransactionSupplementaire::with(['user', 'product'])
-            ->where('status', 'En attente')
+            ->where(function($q) {
+                $q->where('is_compliance_validated', 0)
+                  ->orWhere('is_backoffice_validated', 0);
+            })
             ->get()
             ->map(function($t) { $t->type_flux = 'supp'; return $t; });
 
