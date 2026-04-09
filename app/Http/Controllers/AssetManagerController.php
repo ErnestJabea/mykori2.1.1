@@ -115,6 +115,25 @@ class AssetManagerController extends Controller
         return redirect()->route('asset-manager.create-customer')->with('success', 'Dossier ' . $portfolio->reference . ' mis à jour avec succès.');
     }
 
+    public function deletePortfolio(CustomerPortfolio $portfolio)
+    {
+        $ref = $portfolio->reference;
+        $user = $portfolio->user;
+        
+        // Suppression du dossier (Note: cela ne supprime pas l'utilisateur lui-même, juste ce compte spécifique)
+        $portfolio->delete();
+
+        // On peut vérifier ici s'il reste d'autres dossiers pour cet utilisateur
+        $remaining = CustomerPortfolio::where('user_id', $user->id)->count();
+
+        $msg = "Le dossier $ref a été supprimé definitivement.";
+        if ($remaining == 0) {
+            $msg .= " Info : Ce client n'a plus aucun dossier rattaché actuellement.";
+        }
+
+        return redirect()->route('asset-manager.create-customer')->with('success', $msg);
+    }
+
     //
     protected $portfolioService;
     protected $productControllerImport;

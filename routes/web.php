@@ -353,6 +353,7 @@ Route::middleware('auth')->group(function () {
             Route::get('/nouveau-client/{portfolio?}', [AssetManagerController::class, 'createCustomer'])->name('asset-manager.create-customer');
             Route::post('/nouveau-client', [AssetManagerController::class, 'storeCustomer'])->name('asset-manager.store-customer');
             Route::post('/modifier-client/{portfolio}', [AssetManagerController::class, 'updateCustomer'])->name('asset-manager.update-customer');
+            Route::delete('/supprimer-dossier/{portfolio}', [AssetManagerController::class, 'deletePortfolio'])->name('asset-manager.delete-portfolio');
             Route::post('/store/transaction-manager', [MovementController::class, 'storeFinancialMovement'])->name('save-transactions-client');
             Route::get('/customer/{customer}/transaction-manager', [MovementController::class, 'indexFinancialMovement'])->name('transactions-client');
 

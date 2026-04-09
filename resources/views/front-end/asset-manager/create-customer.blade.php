@@ -197,6 +197,18 @@
                                                     title="Voir profil">
                                                     <i class="las la-eye"></i>
                                                 </a>
+                                                <form action="{{ route('asset-manager.delete-portfolio', $portfolio->id) }}" 
+                                                    method="POST" 
+                                                    onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer définitivement le dossier {{ $portfolio->reference }} ? Cette action ne pourra pas être annulée.')"
+                                                    class="inline-block">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" 
+                                                        class="w-8 h-8 rounded-lg bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white duration-300"
+                                                        title="Supprimer dossier">
+                                                        <i class="las la-trash-alt"></i>
+                                                    </button>
+                                                </form>
                                             </div>
                                         </td>
                                     </tr>
