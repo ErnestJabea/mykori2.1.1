@@ -119,19 +119,53 @@ class AssetManagerController extends Controller
     {
         $ref = $portfolio->reference;
         $user = $portfolio->user;
-        
-        // Suppression du dossier (Note: cela ne supprime pas l'utilisateur lui-même, juste ce compte spécifique)
-        $portfolio->delete();
+        $type = $portfolio->type;
 
-        // On peut vérifier ici s'il reste d'autres dossiers pour cet utilisateur
-        $remaining = CustomerPortfolio::where('user_id', $user->id)->count();
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            if ($type === 'PMG') {
+                // 1. On récupère les IDs des transactions PMG du client
+                $pmgTxIds = Transaction::where('user_id', $user->id)
+                    ->whereHas('product', function($q){ $q->where('products_category_id', 2); })
+                    ->pluck('id');
+                
+                // 2. On supprime les mouvements financiers liés
+                \App\Models\FinancialMovement::whereIn('transaction_id', $pmgTxIds)->delete();
+                
+                // 3. On supprime les transactions
+                Transaction::whereIn('id', $pmgTxIds)->delete();
+            } else {
+                // 1. Suppression des mouvements FCP spécifiques à l'utilisateur
+                \Illuminate\Support\Facades\DB::table('fcp_movements')->where('user_id', $user->id)->delete();
+                
+                // 2. Suppression des transactions FCP
+                Transaction::where('user_id', $user->id)
+                    ->whereHas('product', function($q){ $q->where('products_category_id', 1); })
+                    ->delete();
+                    
+                TransactionSupplementaire::where('user_id', $user->id)
+                    ->whereHas('product', function($q){ $q->where('products_category_id', 1); })
+                    ->delete();
+            }
 
-        $msg = "Le dossier $ref a été supprimé definitivement.";
-        if ($remaining == 0) {
-            $msg .= " Info : Ce client n'a plus aucun dossier rattaché actuellement.";
+            // 3. Log de l'action dans la table d'audit
+            \App\Models\UserActivityLog::log(
+                "SUPPRESSION_DOSSIER",
+                null,
+                "L'Asset Manager " . \Illuminate\Support\Facades\Auth::user()->name . " a supprimé le dossier $ref ($type) du client " . ($user->name ?? 'Inconnu') . ". Tous les produits et mouvements rattachés ont été effacés."
+            );
+
+            // 4. Suppression du dossier lui-même
+            $portfolio->delete();
+
+            \Illuminate\Support\Facades\DB::commit();
+
+            return redirect()->route('asset-manager.create-customer')->with('success', "Le dossier $ref et tous ses investissements associés ont été supprimés definitivement.");
+            
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\DB::rollback();
+            return redirect()->back()->with('error', "Une erreur est survenue lors de la suppression : " . $e->getMessage());
         }
-
-        return redirect()->route('asset-manager.create-customer')->with('success', $msg);
     }
 
     //
