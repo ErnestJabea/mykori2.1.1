@@ -113,11 +113,22 @@ class AssetManagerController extends Controller
 
         $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users,email,' . $customer->id,
+            'email' => [
+                'required',
+                'string',
+                'email',
+                'max:255',
+                \Illuminate\Validation\Rule::unique('users')->ignore($customer->id),
+            ],
             'genre' => 'required|integer|in:0,1,2',
             'localisation' => 'required|string|max:255',
             'bp' => 'nullable|string|max:255',
-            'reference' => 'required|string|max:255|unique:customer_portfolios,reference,' . $portfolio->id,
+            'reference' => [
+                'required',
+                'string',
+                'max:255',
+                \Illuminate\Validation\Rule::unique('customer_portfolios')->ignore($portfolio->id),
+            ],
             'type' => 'required|in:PMG,FCP',
         ]);
 
