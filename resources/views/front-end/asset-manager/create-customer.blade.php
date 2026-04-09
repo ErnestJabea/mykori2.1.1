@@ -148,10 +148,9 @@
                         </h3>
                         <div class="flex items-center gap-3">
                             <div class="relative group">
-                                <i class="las la-search absolute left-4 top-1/2 -translate-y-1/2 text-lg text-primary/40 group-focus-within:text-primary transition-colors"></i>
                                 <input type="text" id="portfolio-search" name="search" value="{{ $search }}" 
                                     placeholder="Rechercher un client ou une référence..."
-                                    class="bg-n10 dark:bg-bg3 border border-n30 dark:border-n500 rounded-2xl py-2.5 pl-12 pr-10 text-sm focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 shadow-sm hover:border-primary/50 transition-all w-[280px] md:w-[350px]">
+                                    class="bg-n10 dark:bg-bg3 border border-n30 dark:border-n500 rounded-2xl py-2.5 px-6 text-sm focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 shadow-sm hover:border-primary/50 transition-all w-[280px] md:w-[350px]">
                                 
                                 <div id="search-spinner" class="absolute right-4 top-1/2 -translate-y-1/2 hidden">
                                     <div class="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full"></div>
@@ -161,14 +160,16 @@
                     </div>
 
                     <div id="portfolios-table-container" class="relative min-h-[400px]">
-                        <!-- Loader du tableau -->
-                        <div id="table-loader" class="absolute inset-0 bg-white/60 dark:bg-bg4/60 z-50 flex items-center justify-center rounded-2xl hidden">
-                            <div class="flex flex-col items-center gap-3">
-                                <div class="animate-spin h-10 w-10 border-4 border-primary border-t-transparent rounded-full shadow-lg"></div>
-                                <span class="text-xs font-bold text-primary animate-pulse">Recherche en cours...</span>
+                        <!-- Overlay Loader Sombre -->
+                        <div id="table-loader" class="absolute inset-0 bg-black/40 backdrop-blur-[2px] z-50 flex items-center justify-center rounded-2xl hidden transition-all duration-300">
+                            <div class="flex flex-col items-center gap-4">
+                                <div class="animate-spin h-12 w-12 border-[5px] border-white border-t-primary rounded-full shadow-2xl"></div>
+                                <span class="text-sm font-black text-white uppercase tracking-widest shadow-lg">Traitement en cours...</span>
                             </div>
                         </div>
-                        @include('front-end.partials.portfolios-table')
+                        <div id="table-content-area">
+                            @include('front-end.partials.portfolios-table')
+                        </div>
                     </div>
                 </div>
             </div>
@@ -182,33 +183,28 @@
             const searchInput = $('#portfolio-search');
             const spinner = $('#search-spinner');
             const tableLoader = $('#table-loader');
-            const tableContainer = $('#portfolios-table-container');
+            const contentArea = $('#table-content-area');
 
             function performSearch() {
                 const search = searchInput.val();
                 spinner.removeClass('hidden');
-                tableLoader.removeClass('hidden');
+                tableLoader.removeClass('hidden').addClass('flex');
 
                 $.ajax({
                     url: "{{ route('asset-manager.create-customer') }}",
                     method: 'GET',
                     data: { search: search },
                     success: function(response) {
-                        // On garde le loader visible un tout petit peu pour éviter le clignotement
                         setTimeout(function() {
-                            // On remplace le contenu du tableau (le loader est à l'intérieur du container mais avant l'include)
-                            // On doit donc injecter APRES le loader
-                            tableContainer.find('> .overflow-x-hidden, > .portfolios-pagination, > .custom-pagination, > style').remove();
-                            tableContainer.append($(response));
-                            
+                            contentArea.html(response);
                             spinner.addClass('hidden');
-                            tableLoader.addClass('hidden');
+                            tableLoader.addClass('hidden').removeClass('flex');
                             bindPagination();
-                        }, 300);
+                        }, 400);
                     },
                     error: function() {
                         spinner.addClass('hidden');
-                        tableLoader.addClass('hidden');
+                        tableLoader.addClass('hidden').removeClass('flex');
                     }
                 });
             }
@@ -218,22 +214,20 @@
                     e.preventDefault();
                     const url = $(this).attr('href');
                     spinner.removeClass('hidden');
-                    tableLoader.removeClass('hidden');
+                    tableLoader.removeClass('hidden').addClass('flex');
 
                     $.ajax({
                         url: url,
                         success: function(response) {
                             setTimeout(function() {
-                                tableContainer.find('> .overflow-x-hidden, > .portfolios-pagination, > .custom-pagination, > style').remove();
-                                tableContainer.append($(response));
-                                
+                                contentArea.html(response);
                                 spinner.addClass('hidden');
-                                tableLoader.addClass('hidden');
+                                tableLoader.addClass('hidden').removeClass('flex');
                                 bindPagination();
                                 $('html, body').animate({
-                                    scrollTop: tableContainer.offset().top - 100
+                                    scrollTop: $('#portfolios-table-container').offset().top - 100
                                 }, 500);
-                            }, 300);
+                            }, 400);
                         }
                     });
                 });
