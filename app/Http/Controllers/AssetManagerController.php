@@ -36,6 +36,10 @@ class AssetManagerController extends Controller
         // PAGINATION (10 par page)
         $portfolios = $query->paginate(10)->appends(['search' => $search]);
         
+        if ($request->ajax()) {
+            return view('front-end.partials.portfolios-table', compact('portfolios', 'search'));
+        }
+
         return view('front-end.asset-manager.create-customer', [
             'portfolios' => $portfolios,
             'portfolioToEdit' => $portfolioToEdit,

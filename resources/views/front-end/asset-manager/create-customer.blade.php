@@ -83,7 +83,7 @@
                             </div>
                         </div>
 
-                        <div class="col-span-12 lg:col-span-4">
+                        <div class="col-span-12 lg:col-span-12">
                             <label class="text-[11px] font-bold opacity-60 mb-2 block uppercase">Nom complet</label>
                             <div class="relative">
                                 <i class="las la-user absolute left-4 top-1/2 -translate-y-1/2 text-primary opacity-60"></i>
@@ -146,99 +146,83 @@
                         <h3 class="h3 flex items-center gap-3">
                             <i class="las la-users text-primary"></i> LISTE DES DOSSIERS
                         </h3>
-                        <div class="flex items-center gap-2">
-                            <form action="{{ route('asset-manager.create-customer') }}" method="GET" class="relative">
-                                <i class="las la-search absolute left-3 top-1/2 -translate-y-1/2 opacity-50"></i>
-                                <input type="text" name="search" value="{{ $search }}" placeholder="Rechercher (Nom/Ref...)"
-                                    class="bg-n10 dark:bg-bg3 border border-n30 dark:border-n500 rounded-lg py-2 pl-10 pr-4 text-xs focus:outline-none focus:border-primary duration-300">
-                                @if($search)
-                                    <a href="{{ route('asset-manager.create-customer') }}" class="absolute right-3 top-1/2 -translate-y-1/2 text-secondary2 text-xs">Annuler</a>
-                                @endif
-                            </form>
+                        <div class="flex items-center gap-3">
+                            <div class="relative group">
+                                <i class="las la-search absolute left-4 top-1/2 -translate-y-1/2 text-lg text-primary/40 group-focus-within:text-primary transition-colors"></i>
+                                <input type="text" id="portfolio-search" name="search" value="{{ $search }}" 
+                                    placeholder="Rechercher un client ou une référence..."
+                                    class="bg-n10 dark:bg-bg3 border border-n30 dark:border-n500 rounded-2xl py-2.5 pl-12 pr-10 text-sm focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 shadow-sm hover:border-primary/50 transition-all w-[280px] md:w-[350px]">
+                                
+                                <div id="search-spinner" class="absolute right-4 top-1/2 -translate-y-1/2 hidden">
+                                    <div class="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full"></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="overflow-x-hidden">
-                        <table class="w-full text-[13px]">
-                            <thead>
-                                <tr class="bg-n10 dark:bg-bg3 text-left">
-                                    <th class="px-4 py-4 font-bold text-[11px] uppercase opacity-60">Référence</th>
-                                    <th class="px-4 py-4 font-bold text-[11px] uppercase opacity-60">Client</th>
-                                    <th class="px-4 py-4 font-bold text-[11px] uppercase opacity-60">Email</th>
-                                    <th class="px-4 py-4 font-bold text-[11px] uppercase opacity-60">Localisation</th>
-                                    <th class="px-4 py-4 font-bold text-[11px] uppercase opacity-60 text-center">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-n30 dark:divide-n500">
-                                @forelse($portfolios as $portfolio)
-                                    <tr class="hover:bg-n10/50 dark:hover:bg-bg3/50 duration-300">
-                                        <td class="px-4 py-4">
-                                            <span class="px-3 py-1 rounded-full text-[10px] font-bold {{ $portfolio->type == 'PMG' ? 'bg-secondary1/10 text-secondary1' : 'bg-primary/10 text-primary' }}">
-                                                {{ $portfolio->reference }}
-                                            </span>
-                                        </td>
-                                        <td class="px-4 py-4">
-                                            <div class="flex items-center gap-3">
-                                                <div class="min-w-0">
-                                                    <p class="font-bold text-n500 dark:text-n200 truncate" title="{{ $portfolio->user->name ?? 'N/A' }}">
-                                                        {{ $portfolio->user->name ?? 'N/A' }}
-                                                    </p>
-                                                    <p class="text-[10px] md:text-[11px] opacity-60">
-                                                        @if(($portfolio->user->genre ?? '') == 0) Monsieur @elseif(($portfolio->user->genre ?? '') == 1) Madame @else Entreprise @endif
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td class="px-4 py-4">
-                                            <span class="italic opacity-80 break-all">{{ $portfolio->user->email ?? 'N/A' }}</span>
-                                        </td>
-                                        <td class="px-4 py-4">
-                                            <span class="truncate block" title="{{ $portfolio->user->localisation ?? '-' }}">{{ $portfolio->user->localisation ?? '-' }}</span>
-                                        </td>
-                                        <td class="px-4 py-4 text-center">
-                                            <div class="flex items-center justify-center gap-2">
-                                                <a href="{{ route('asset-manager.create-customer', $portfolio->id) }}" 
-                                                    class="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-white duration-300"
-                                                    title="Modifier dossier">
-                                                    <i class="las la-edit"></i>
-                                                </a>
-                                                <a href="{{ route('customer-detail', ['customer' => $portfolio->user_id]) }}" 
-                                                    class="w-8 h-8 rounded-lg bg-secondary1/10 text-secondary1 flex items-center justify-center hover:bg-secondary1 hover:text-white duration-300"
-                                                    title="Voir profil">
-                                                    <i class="las la-eye"></i>
-                                                </a>
-                                                <form action="{{ route('asset-manager.delete-portfolio', $portfolio->id) }}" 
-                                                    method="POST" 
-                                                    onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer définitivement le dossier {{ $portfolio->reference }} ? Cette action ne pourra pas être annulée.')"
-                                                    class="inline-block">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit" 
-                                                        class="w-8 h-8 rounded-lg bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white duration-300"
-                                                        title="Supprimer dossier">
-                                                        <i class="las la-trash-alt"></i>
-                                                    </button>
-                                                </form>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="5" class="px-4 py-10 text-center opacity-60 italic">
-                                            Aucun dossier trouvé.
-                                        </td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- Pagination -->
-                    <div class="mt-6 flex justify-center">
-                        {{ $portfolios->links() }}
+                    <div id="portfolios-table-container">
+                        @include('front-end.partials.portfolios-table')
                     </div>
                 </div>
             </div>
         </div>
     </main>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            let searchTimer;
+            const searchInput = $('#portfolio-search');
+            const spinner = $('#search-spinner');
+            const tableContainer = $('#portfolios-table-container');
+
+            function performSearch() {
+                const search = searchInput.val();
+                spinner.removeClass('hidden');
+
+                $.ajax({
+                    url: "{{ route('asset-manager.create-customer') }}",
+                    method: 'GET',
+                    data: { search: search },
+                    success: function(response) {
+                        tableContainer.html(response);
+                        spinner.addClass('hidden');
+                        
+                        // Réattacher les événements de pagination AJAX si nécessaire
+                        bindPagination();
+                    },
+                    error: function() {
+                        spinner.addClass('hidden');
+                    }
+                });
+            }
+
+            function bindPagination() {
+                $('.portfolios-pagination a').on('click', function(e) {
+                    e.preventDefault();
+                    const url = $(this).attr('href');
+                    spinner.removeClass('hidden');
+
+                    $.ajax({
+                        url: url,
+                        success: function(response) {
+                            tableContainer.html(response);
+                            spinner.addClass('hidden');
+                            bindPagination();
+                            $('html, body').animate({
+                                scrollTop: tableContainer.offset().top - 100
+                            }, 500);
+                        }
+                    });
+                });
+            }
+
+            searchInput.on('keyup', function() {
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(performSearch, 500);
+            });
+
+            bindPagination();
+        });
+    </script>
 @endsection
