@@ -161,10 +161,10 @@
 
                     <div id="portfolios-table-container" class="relative min-h-[400px]">
                         <!-- Overlay Loader Sombre -->
-                        <div id="table-loader" class="absolute inset-0 bg-black/40 backdrop-blur-[2px] z-50 flex items-center justify-center rounded-2xl hidden transition-all duration-300">
+                        <div id="table-loader" class="absolute inset-0 bg-black/40 backdrop-blur-[2px] z-[9999] flex items-center justify-center rounded-2xl opacity-0 pointer-events-none transition-all duration-500">
                             <div class="flex flex-col items-center gap-4">
                                 <div class="animate-spin h-12 w-12 border-[5px] border-white border-t-primary rounded-full shadow-2xl"></div>
-                                <span class="text-sm font-black text-white uppercase tracking-widest shadow-lg">Traitement en cours...</span>
+                                <span class="text-sm font-black text-white uppercase tracking-widest shadow-lg">Chargement...</span>
                             </div>
                         </div>
                         <div id="table-content-area">
@@ -188,7 +188,7 @@
             function performSearch() {
                 const search = searchInput.val();
                 spinner.removeClass('hidden');
-                tableLoader.removeClass('hidden').addClass('flex');
+                tableLoader.removeClass('opacity-0 pointer-events-none').addClass('opacity-100 pointer-events-auto');
 
                 $.ajax({
                     url: "{{ route('asset-manager.create-customer') }}",
@@ -198,23 +198,23 @@
                         setTimeout(function() {
                             contentArea.html(response);
                             spinner.addClass('hidden');
-                            tableLoader.addClass('hidden').removeClass('flex');
+                            tableLoader.addClass('opacity-0 pointer-events-none').removeClass('opacity-100 pointer-events-auto');
                             bindPagination();
-                        }, 400);
+                        }, 300);
                     },
                     error: function() {
                         spinner.addClass('hidden');
-                        tableLoader.addClass('hidden').removeClass('flex');
+                        tableLoader.addClass('opacity-0 pointer-events-none').removeClass('opacity-100 pointer-events-auto');
                     }
                 });
             }
 
             function bindPagination() {
-                $('.portfolios-pagination a').on('click', function(e) {
+                $('.portfolios-pagination a').off('click').on('click', function(e) {
                     e.preventDefault();
                     const url = $(this).attr('href');
                     spinner.removeClass('hidden');
-                    tableLoader.removeClass('hidden').addClass('flex');
+                    tableLoader.removeClass('opacity-0 pointer-events-none').addClass('opacity-100 pointer-events-auto');
 
                     $.ajax({
                         url: url,
@@ -222,12 +222,12 @@
                             setTimeout(function() {
                                 contentArea.html(response);
                                 spinner.addClass('hidden');
-                                tableLoader.addClass('hidden').removeClass('flex');
+                                tableLoader.addClass('opacity-0 pointer-events-none').removeClass('opacity-100 pointer-events-auto');
                                 bindPagination();
                                 $('html, body').animate({
                                     scrollTop: $('#portfolios-table-container').offset().top - 100
                                 }, 500);
-                            }, 400);
+                            }, 300);
                         }
                     });
                 });
