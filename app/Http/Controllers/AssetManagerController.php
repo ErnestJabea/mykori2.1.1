@@ -26,6 +26,7 @@ class AssetManagerController extends Controller
         if ($search) {
             $query->where(function ($q) use ($search) {
                 $q->where('reference', 'LIKE', "%{$search}%")
+                  ->orWhere('type', 'LIKE', "%{$search}%")
                   ->orWhereHas('user', function ($qu) use ($search) {
                       $qu->where('name', 'LIKE', "%{$search}%")
                         ->orWhere('email', 'LIKE', "%{$search}%");
@@ -83,8 +84,17 @@ class AssetManagerController extends Controller
             $isNewUser = false;
         }
 
-        // 2. Génération automatique de la Référence (PMG0001, FCP0001...)
+        // 2. Vérification Anti-Doublon de Dossier de même type
         $type = $request->type;
+        $portfolioExists = CustomerPortfolio::where('user_id', $user->id)->where('type', $type)->exists();
+        
+        if ($portfolioExists) {
+            return redirect()->back()
+                ->withInput()
+                ->with('error', "Ce client ($request->email) possède déjà un dossier de type $type. Si vous voulez le modifier, utilisez le bouton d'édition dans la liste ci-dessous.");
+        }
+
+        // 3. Génération automatique de la Référence
         $lastRef = CustomerPortfolio::where('type', $type)->orderBy('reference', 'desc')->first();
         
         if ($lastRef) {
@@ -94,17 +104,19 @@ class AssetManagerController extends Controller
             $newRef = $type . '0001';
         }
 
-        // 3. Création du Dossier (Portfolio)
+        // 4. Création du Dossier (Portfolio)
         CustomerPortfolio::create([
             'user_id' => $user->id,
             'type' => $type,
             'reference' => $newRef,
-            'status' => 'active',
+            'status' => 'active'
         ]);
 
-        $msg = $isNewUser ? "Client et dossier $newRef créés avec succès." : "Dossier $newRef ajouté au compte existant ({$request->email}).";
+        $msg = $isNewUser 
+            ? "Nouveau client " . $user->name . " créé avec succès (Dossier $newRef)." 
+            : "Client " . $user->name . " reconnu. Un nouveau dossier $type ($newRef) a été rattaché à son compte.";
 
-        return redirect()->route('asset-manager.create-customer')->with('success', $msg . ' Le mot de passe par défaut est 12345678.');
+        return redirect()->route('asset-manager.create-customer')->with('success', $msg);
     }
 
     public function updateCustomer(Request $request, CustomerPortfolio $portfolio)
