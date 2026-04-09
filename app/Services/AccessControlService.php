@@ -26,8 +26,11 @@ class AccessControlService
             'view_asset_manager',
             'view_compliance',
             'view_backoffice',
-            'view_dg'
+            'view_dg',
+            'view_crm',
+            'manage_prospects'
         ], // Admin Frontend : Accès complet pour supervision
+        9 => ['view_crm', 'manage_prospects'], // Commercial / CRM
     ];
 
     public static function can($permission)
@@ -59,6 +62,7 @@ class AccessControlService
             'compliance'    => ['heading' => 'Navigation Compliance',    'permission' => 'view_compliance'],
             'backoffice'    => ['heading' => 'Navigation Backoffice',    'permission' => 'view_backoffice'],
             'dg'            => ['heading' => 'Navigation D.G.',         'permission' => 'view_dg'],
+            'crm'           => ['heading' => 'Gestion Commerciale',     'permission' => 'view_crm'],
             'admin'         => ['heading' => 'Administration',           'permission' => 'view_admin_frontend'],
         ];
 

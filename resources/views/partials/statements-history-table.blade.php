@@ -16,7 +16,7 @@
                     <th class="px-6 py-5 text-center font-extrabold uppercase tracking-widest text-n500 italic">Période
                     </th>
                     <th class="px-6 py-5 text-center font-extrabold uppercase tracking-widest text-n500 italic">
-                        Métriques d'Envoi</th>
+                        Nombre de clients</th>
                     <th class="px-6 py-5 text-center font-extrabold uppercase tracking-widest text-n500 italic">Actions
                         Audit</th>
                 </tr>
@@ -38,9 +38,7 @@
                         </td>
                         <td class="px-6 py-4 text-center">
                             <div class="flex flex-col gap-1 items-center">
-                                <span
-                                    class="text-[9px] font-bold text-n400 uppercase italic leading-tight">{{ $batch->total_count }}
-                                    Cédules</span>
+
                                 <div class="flex gap-3">
                                     <div class="flex items-center gap-1">
                                         <div class="w-1.5 h-1.5 rounded-full bg-success"></div>

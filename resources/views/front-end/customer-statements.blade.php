@@ -23,8 +23,11 @@
                 </h4>
 
                 <div class="flex items-center gap-4">
-                    <form action="{{ route('customer.statements') }}" method="GET" class="relative">
-                        <input type="text" name="search" value="{{ $search ?? '' }}" placeholder="Chercher un client..."
+                    <form action="{{ route('customer.statements') }}" method="GET" class="relative" id="search-form">
+                        @if(isset($sortBy)) <input type="hidden" name="sort_by" value="{{ $sortBy }}"> @endif
+                        @if(isset($order)) <input type="hidden" name="order" value="{{ $order }}"> @endif
+                        
+                        <input type="text" name="search" id="ajax-search" value="{{ $search ?? '' }}" placeholder="Chercher un client..."
                             class="w-64 rounded-full border border-n30 bg-secondary1/5 px-6 py-2 dark:border-n500 dark:bg-bg3 focus:border-primary focus:ring-1 focus:ring-primary outline-none text-sm">
                         <button type="submit"
                             class="absolute right-1 top-1/2 -translate-y-1/2 bg-primary text-white p-1 rounded-full w-8 h-8 flex items-center justify-center hover:bg-primary/90 transition-all">
@@ -32,61 +35,68 @@
                         </button>
                     </form>
                     @if (!empty($search))
-                        <a href="{{ route('customer.statements') }}"
-                            class="text-xs text-primary underline">Réinitialiser</a>
+                        <a href="{{ route('customer.statements') }}" class="text-xs text-primary underline" id="reset-search">Réinitialiser</a>
                     @endif
                 </div>
             </div>
 
-            <div class="overflow-x-auto pb-4">
-                <table class="w-full min-w-[1000px]">
-                    <thead>
-                        <tr class="bg-secondary1/5 dark:bg-bg4">
-                            <th class="px-6 py-5 text-left font-semibold opacity-70">Client</th>
-                            <th class="px-6 py-5 text-right font-semibold opacity-70 italic">Total Investi (Brut)</th>
-                            <th class="px-6 py-5 text-right font-semibold opacity-70">Total Portefeuille (XAF)</th>
-                            <th class="px-6 py-5 text-center font-semibold opacity-70">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach ($customers as $client)
-                            <tr class="border-b border-secondary1/10 dark:border-bg4 hover:bg-primary/5 duration-300">
-                                <td class="px-6 py-4">
-                                    <div class="flex items-center gap-3">
-                                        <div class="text-left">
-                                            <p class="font-semibold text-base">{{ $client->name }}</p>
-                                            <span class="text-xs opacity-70">{{ $client->email }}</span>
-                                        </div>
-                                    </div>
-                                </td>
-
-                                <td class="px-6 py-4 text-right font-medium">
-                                    {{ number_format($client->total_capital, 0, ' ', ' ') }}
-                                </td>
-
-                                <td class="px-6 py-4 text-right">
-                                    <p class="font-bold text-primary">
-                                        {{ number_format($client->portefeuille_total, 0, ' ', ' ') }}
-                                    </p>
-                                </td>
-
-                                <td class="px-6 py-4 text-center">
-                                    <button onclick="openHistoryModal('{{ $client->id }}', '{{ $client->name }}')"
-                                        class="btn-outline border-primary text-primary  px-3 py-1 rounded-md text-sm duration-300"
-                                        style="border-color: #ebb009; color: #ebb009">
-                                        <i class="las la-history"></i> Voir Relevés
-                                    </button>
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-
-            <div class="mt-6">
-                {{ $customers->appends(['search' => $search])->links() }}
+            <div id="customer-table-container">
+                @include('front-end.partials.customer-statements-table')
             </div>
         </div>
+
+        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+        <script>
+        $(document).ready(function() {
+            function fetchCustomers(url) {
+                $('#customer-table-container').css('opacity', '0.5');
+                $.ajax({
+                    url: url,
+                    success: function(data) {
+                        $('#customer-table-container').html(data);
+                        $('#customer-table-container').css('opacity', '1');
+                        window.history.pushState({}, '', url);
+                    },
+                    error: function() {
+                        alert('Erreur lors du chargement des données.');
+                        $('#customer-table-container').css('opacity', '1');
+                    }
+                });
+            }
+
+            $(document).on('click', '.ajax-sort, .ajax-pagination a', function(e) {
+                e.preventDefault();
+                let url = $(this).attr('href');
+                fetchCustomers(url);
+            });
+
+            let timer;
+            $('#ajax-search').on('keyup', function() {
+                clearTimeout(timer);
+                let search = $(this).val();
+                let sort_by = new URLSearchParams(window.location.search).get('sort_by') || 'name';
+                let order = new URLSearchParams(window.location.search).get('order') || 'asc';
+                
+                let url = `{{ route('customer.statements') }}?search=${search}&sort_by=${sort_by}&order=${order}`;
+                
+                timer = setTimeout(function() {
+                    fetchCustomers(url);
+                }, 500);
+            });
+
+            $('#search-form').on('submit', function(e) {
+                e.preventDefault();
+            });
+            
+            $(document).on('click', '#reset-search', function(e) {
+                e.preventDefault();
+                $('#ajax-search').val('');
+                let url = $(this).attr('href');
+                fetchCustomers(url);
+                $(this).remove();
+            });
+        });
+        </script>
 
         <!-- MODAL HISTORIQUE -->
         <div id="historyModal"

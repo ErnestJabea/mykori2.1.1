@@ -192,9 +192,17 @@ class AchatActionCustomerController extends Controller
         }
 
 
-        // $name_product->nb_action = $name_product->nb_action - round($valeurLiquidative, 2);
-
         $name_product->save();
+
+        // Logging l'activité
+        $targetTrans = $new_transaction ?? ($transaction ?? null);
+        if ($targetTrans) {
+            \App\Models\UserActivityLog::log(
+                "Nouvelle Souscription PMG", 
+                $targetTrans, 
+                "Nouvelle souscription PMG enregistrée pour " . $targetTrans->user->name . " (Réf: " . $targetTrans->ref . ")"
+            );
+        }
 
         return response()->json(['message' => 'Données enregistrées avec succès']);
     }

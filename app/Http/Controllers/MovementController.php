@@ -416,7 +416,7 @@ class MovementController extends Controller
 
             \App\Models\UserActivityLog::log(
                 "RACHAT_FCP",
-                $product,
+                null,
                 "Rachat FCP de $amountBrut XAF pour le client ID $userId (VL: $vl)"
             );
 

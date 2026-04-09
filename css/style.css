@@ -2345,7 +2345,7 @@ textarea:focus {
 }
 
 .accent-primary {
-    accent-color: #20b757
+    accent-color: #ebb009;
 }
 
 .accent-secondary1 {
@@ -8479,4 +8479,100 @@ span#modalClientName {
 
 p#modalRef {
     color: #f6ad02;
+}
+
+div#export-modal,
+#modal-edit-transaction,
+#modal-evolution-fcp {
+    background: rgb(0 0 0 / 70%);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+}
+
+.modalshow {
+    display: flex !important;
+}
+
+.modalhide {
+    display: none !important;
+}
+
+div#export-modal .bg-white,
+#modal-edit-transaction .bg-white {
+    width: 70%;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+#export-modal .p-6.border-b.border-n30.flex.justify-between.items-center,
+#modal-edit-transaction .p-6.border-b.border-n30.flex.justify-between.items-center {
+    background: #531d09;
+    margin: 0;
+    color: #fff;
+    padding: 15px;
+    position: sticky;
+    top: 0;
+}
+
+#export-modal p.font-bold.mb-3.text-xs.uppercase.opacity-50,
+#modal-edit-transaction p.font-bold.mb-3.text-xs.uppercase.opacity-50 {
+    padding-bottom: 10px;
+    border-bottom: 1px solid;
+    font-weight: 600;
+    color: #440900;
+}
+
+#export-modal .flex.gap-4,
+#modal-edit-transaction .flex.gap-4 {
+    padding-bottom: 20px;
+}
+
+form#edit-transaction-form {
+    padding: 20px;
+}
+
+form#edit-transaction-form .grid.grid-cols-2.gap-4 {
+    margin-bottom: 20px;
+}
+
+form#edit-transaction-form button {
+    padding: 14px 12px;
+    font-size: 13px;
+}
+
+.stats-wrapper .box-card {
+    margin-right: 18px;
+    margin-bottom: 19px;
+}
+
+.stats-wrapper .box-card:nth-child(4) {
+    margin-right: 0;
+}
+
+.header-bloc-wrapper h4 {
+    background: #440900;
+    color: #fff;
+    margin-top: -24px;
+    margin-left: -24px;
+    margin-right: -24px;
+    border-radius: 7px 7px 0px 0px;
+    padding: 10px;
+}
+
+.header-bloc-wrapper {
+    margin-bottom: 20px;
+}
+
+.inner-margin h4 {
+    margin: 0;
+}
+
+.inner-margin .mt-8.p-4 {
+    background: #ff4242;
+    color: #fff;
+    padding: 4px;
 }

@@ -92,14 +92,12 @@
                             <table class="w-full whitespace-nowrap" id="historyTable">
                                 <thead>
                                     <tr class="bg-n30/60 dark:bg-bg4 text-xs font-semibold uppercase tracking-wide">
-                                        <th class="px-6 py-4 text-left">Date</th>
-                                        <th class="px-6 py-4 text-left">Opération</th>{{-- 
-                                        <th class="px-6 py-4 text-left">Placement</th> --}}
+                                        <th class="px-6 py-4 text-left">Date Opération</th>
+                                        <th class="px-6 py-4 text-left">Date Souscription</th>
+                                        <th class="px-6 py-4 text-left">Détails de l'opération</th>
                                         <th class="px-6 py-4 text-left">Référence</th>
-                                        <th class="px-6 py-4 text-center">Type</th>
-                                        <th class="px-6 py-4 text-right">Montant (Net)</th>
-                                        <th class="px-6 py-4 text-right">Frais</th>
-                                        <th class="px-6 py-4 text-right">Total</th>
+                                        <th class="px-6 py-4 text-center">Sens</th>
+                                        <th class="px-6 py-4 text-right">Montant (XAF)</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-n30 dark:divide-bg4">
@@ -109,40 +107,33 @@
                                             $rowBg = $isEntrant
                                                 ? 'hover:bg-green-50/60 dark:hover:bg-green-900/10'
                                                 : 'hover:bg-red-50/60 dark:hover:bg-red-900/10';
+                                            
+                                            // Identification des frais pour style spécial
+                                            $isFees = str_contains(strtoupper($mvt->libelle), 'FRAIS');
                                         @endphp
-                                        <tr class="duration-200 {{ $rowBg }}">
-                                            {{-- Date --}}
+                                        <tr class="duration-200 {{ $rowBg }} {{ $isFees ? 'bg-n30/10' : '' }}">
+                                            {{-- Date Opération --}}
                                             <td class="px-6 py-3.5">
-                                                <div class="flex items-center gap-3">
-                                                    {{-- <div
-                                                        class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0
-                                                    {{ $isEntrant ? 'bg-green-100 dark:bg-green-900/30 text-green' : 'bg-red-100 dark:bg-red-900/30' }}">
-                                                        <i
-                                                            class="las {{ $isEntrant ? 'la-arrow-down text-green-600 text-green' : 'la-arrow-up text-red-500' }} text-lg"></i>
-                                                    </div> --}}
-                                                    <div>
-                                                        <p class="font-medium text-sm">
-                                                            {{ \Carbon\Carbon::parse($mvt->date)->format('d/m/Y') }}
-                                                        </p>
-                                                    </div>
-                                                </div>
+                                                <p class="font-medium text-sm">
+                                                    {{ \Carbon\Carbon::parse($mvt->date)->format('d/m/Y') }}
+                                                </p>
+                                                <span class="text-[10px] opacity-50">{{ \Carbon\Carbon::parse($mvt->date)->format('H:i') }}</span>
                                             </td>
 
-                                            {{-- Libellé --}}
+                                            {{-- Date Souscription --}}
                                             <td class="px-6 py-3.5">
-                                                <p class="font-medium text-sm">{{ str_replace('Achat', 'Souscription', $mvt->libelle) }}</p>
+                                                <p class="text-sm {{ isset($mvt->date_souscription) ? 'opacity-100' : 'opacity-30' }}">
+                                                    {{ isset($mvt->date_souscription) ? \Carbon\Carbon::parse($mvt->date_souscription)->format('d/m/Y') : '-' }}
+                                                </p>
                                             </td>
 
-                                            {{-- Produit --}}
-                                            {{-- <td class="px-6 py-3.5">
-                                                <span
-                                                    class="inline-block px-2.5 py-1 rounded-full text-xs font-semibold
-                                                {{ str_contains(strtolower($mvt->produit ?? ''), 'fcp')
-                                                    ? 'bg-secondary3/10 text-secondary3'
-                                                    : 'bg-primary/10 text-primary' }}">
-                                                    {{ $mvt->produit ?? 'N/A' }}
-                                                </span>
-                                            </td> --}}
+                                            {{-- Libellé + Produit --}}
+                                            <td class="px-6 py-3.5">
+                                                <p class="font-bold text-sm {{ $isFees ? 'opacity-70' : '' }}">
+                                                    {{ str_replace('Achat', 'Souscription', $mvt->libelle) }}
+                                                </p>
+                                                <span class="text-[10px] font-bold text-primary uppercase">{{ $mvt->produit }}</span>
+                                            </td>
 
                                             {{-- Référence --}}
                                             <td class="px-6 py-3.5">
@@ -164,30 +155,11 @@
                                                 @endif
                                             </td>
 
-                                            {{-- Montant Net --}}
+                                            {{-- Montant --}}
                                             <td class="px-6 py-3.5 text-right">
                                                 <p
-                                                    class="font-bold text-sm {{ $isEntrant ? 'text-green-600' : 'text-red-500' }}">
+                                                    class="font-bold text-base {{ $isEntrant ? 'text-green-600' : 'text-red-500' }}">
                                                     {{ $isEntrant ? '+' : '-' }}{{ number_format(abs($mvt->montant), 0, ' ', ' ') }}
-                                                </p>
-                                            </td>
-
-                                            {{-- Frais --}}
-                                            <td class="px-6 py-3.5 text-right">
-                                                <p class="text-xs {{ ($mvt->fees ?? 0) > 0 ? 'text-red-500' : 'opacity-40' }}">
-                                                    {{ ($mvt->fees ?? 0) > 0 ? '-' . number_format(abs($mvt->fees), 0, ' ', ' ') : '-' }}
-                                                </p>
-                                            </td>
-
-                                            {{-- Total --}}
-                                            @php
-                                                $feeVal = $mvt->fees ?? 0;
-                                                $totalTx = $isEntrant ? ($mvt->montant + $feeVal) : ($mvt->montant - $feeVal);
-                                            @endphp
-                                            <td class="px-6 py-3.5 text-right bg-n10/30">
-                                                <p
-                                                    class="font-bold text-base {{ $isEntrant ? 'text-green-700' : 'text-red-600' }}">
-                                                    {{ $isEntrant ? '+' : '-' }}{{ number_format(abs($totalTx), 0, ' ', ' ') }}
                                                 </p>
                                             </td>
                                         </tr>

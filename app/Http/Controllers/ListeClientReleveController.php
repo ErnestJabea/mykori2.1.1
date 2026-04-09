@@ -22,57 +22,94 @@ class ListeClientReleveController extends Controller
         $this->productController = $productController;
     }
 
-    public function index()
+    public function index($type = 'all')
     {
-        $clients = User::where('role_id', 2)->get();
+        $allClients = User::where('role_id', 2)->get();
         $currentDate = Carbon::now();
-        $periode = "Janvier 2026"; // Exemple de période dynamique
+        $periode = $currentDate->copy()->subMonth()->translatedFormat('F Y');
 
-        foreach ($clients as $client) {
-            $totalValorisation = 0;
+        $filteredClients = collect();
 
-            // Initialisation des indicateurs de type de produit
+        foreach ($allClients as $client) {
+            $totalValorisationFcp = 0;
+            $totalValorisationPmg = 0;
             $client->has_fcp = false;
             $client->has_pmg = false;
 
-            $transactions = Transaction::where('user_id', $client->id)
-                ->where(function($q) use ($currentDate) {
-                    $q->whereNull('date_echeance')
-                      ->orWhere('date_echeance', '>=', $currentDate->format('Y-m-d'));
-                })
+            // 1. Identifier tous les produits impliqués (Transactions principales + supplémentaires)
+            $productIds = DB::table('transactions')
+                ->where('user_id', $client->id)
                 ->where('status', 'Succès')
-                ->get();
-
-            foreach ($transactions as $trans) {
-                // Détection du type de produit pour l'affichage des colonnes
-                if ($trans->product->products_category_id == 1) {
-                    $client->has_fcp = true;
-                    // Calcul valorisation FCP
-                    $fcpData = $this->productController->getFcpPortfolioValue($client->id, $trans->product_id, $currentDate);
-                    $totalValorisation += $fcpData['valorisation'];
-                } elseif ($trans->product->products_category_id == 2) {
-                    $client->has_pmg = true;
-                    // Calcul valorisation PMG
-                    $totalValorisation += $this->productController->calculatePMGValorization($trans, $currentDate);
-                }
-            }
-
-            // Ajout du check pour les transactions supplémentaires FCP
-            if (!$client->has_fcp) {
-                $hasFcpSupp = \App\Models\TransactionSupplementaire::where('user_id', $client->id)
+                ->distinct()->pluck('product_id')
+                ->merge(
+                    DB::table('transaction_supplementaires')
+                    ->where('user_id', $client->id)
                     ->where('status', 'Succès')
-                    ->whereHas('product', function($q) {
-                        $q->where('products_category_id', 1);
-                    })->exists();
-                if ($hasFcpSupp) {
+                    ->distinct()->pluck('product_id')
+                )->unique();
+
+            $processedFcpProducts = [];
+
+            foreach ($productIds as $pid) {
+                $product = \App\Models\Product::find($pid);
+                if (!$product) continue;
+
+                if ($product->products_category_id == 1) {
                     $client->has_fcp = true;
+                    if (!in_array($pid, $processedFcpProducts)) {
+                        $fcpData = $this->productController->getFcpPortfolioValue($client->id, $pid, $currentDate);
+                        $totalValorisationFcp += $fcpData['valorisation'];
+                        $processedFcpProducts[] = $pid;
+                    }
+                } elseif ($product->products_category_id == 2) {
+                    // Pour PMG, on récupère toutes les transactions actives à cette date
+                    $pmgTrans = Transaction::where('user_id', $client->id)
+                        ->where('product_id', $pid)
+                        ->where('status', 'Succès')
+                        ->where(function($q) use ($currentDate) {
+                            $q->whereNull('date_echeance')
+                              ->orWhere('date_echeance', '>=', $currentDate->format('Y-m-d'));
+                        })->get();
+                    
+                    $pmgSupp = \App\Models\TransactionSupplementaire::where('user_id', $client->id)
+                        ->where('product_id', $pid)
+                        ->where('status', 'Succès')
+                        ->where(function($q) use ($currentDate) {
+                            $q->whereNull('date_echeance')
+                              ->orWhere('date_echeance', '>=', $currentDate->format('Y-m-d'));
+                        })->get();
+
+                    $allPmg = $pmgTrans->merge($pmgSupp);
+                    if ($allPmg->isNotEmpty()) {
+                        $client->has_pmg = true;
+                        foreach ($allPmg as $pt) {
+                            $totalValorisationPmg += $this->productController->calculatePMGValorization($pt, $currentDate);
+                        }
+                    }
                 }
             }
 
-            $client->portefeuille_total = $totalValorisation;
+            if ($type === 'fcp') {
+                $client->portefeuille_total = $totalValorisationFcp;
+            } elseif ($type === 'pmg') {
+                $client->portefeuille_total = $totalValorisationPmg;
+            } else {
+                $client->portefeuille_total = $totalValorisationFcp + $totalValorisationPmg;
+            }
+
+            // Filtrage selon le type demandé
+            if ($type === 'fcp' && $client->has_fcp) {
+                $filteredClients->push($client);
+            } elseif ($type === 'pmg' && $client->has_pmg) {
+                $filteredClients->push($client);
+            } elseif ($type === 'all') {
+                $filteredClients->push($client);
+            }
         }
 
-        return view('front-end.liste-client', compact('clients', 'periode'));
+        $clients = $filteredClients;
+
+        return view('front-end.liste-client', compact('clients', 'periode', 'type'));
     }
 
     public function sendStatement($id)
@@ -260,14 +297,46 @@ public function previewFcp(int $clientId)
         $partsN = DB::table('fcp_movements')
             ->where('user_id', $client->id)
             ->where('product_id', $productId)
-            ->where('date_operation', '<=', $dateN->toDateString())
+            ->whereDate('date_operation', '<=', $dateN->toDateString())
             ->sum('nb_parts_change') ?? 0;
 
         $partsN1 = DB::table('fcp_movements')
             ->where('user_id', $client->id)
             ->where('product_id', $productId)
-            ->where('date_operation', '<=', $dateN1->toDateString())
+            ->whereDate('date_operation', '<=', $dateN1->toDateString())
             ->sum('nb_parts_change') ?? 0;
+
+        $partsSouscritesMois = \DB::table('fcp_movements')
+            ->where('user_id', $client->id)
+            ->where('product_id', $productId)
+            ->whereDate('date_operation', '>=', $dateN1->copy()->addDay()->toDateString())
+            ->whereDate('date_operation', '<=', $dateN->toDateString())
+            ->where('nb_parts_change', '>', 0)
+            ->sum('nb_parts_change') ?? 0;
+
+        $partsRacheteesMois = abs(\DB::table('fcp_movements')
+            ->where('user_id', $client->id)
+            ->where('product_id', $productId)
+            ->whereDate('date_operation', '>=', $dateN1->copy()->addDay()->toDateString())
+            ->whereDate('date_operation', '<=', $dateN->toDateString())
+            ->where('nb_parts_change', '<', 0)
+            ->sum('nb_parts_change')) ?? 0;
+
+        $montantSouscritMois = \DB::table('fcp_movements')
+            ->where('user_id', $client->id)
+            ->where('product_id', $productId)
+            ->whereDate('date_operation', '>=', $dateN1->copy()->addDay()->toDateString())
+            ->whereDate('date_operation', '<=', $dateN->toDateString())
+            ->where('nb_parts_change', '>', 0)
+            ->sum('amount_xaf') ?? 0;
+
+        $fraisSouscriptionMois = \DB::table('fcp_movements')
+            ->where('user_id', $client->id)
+            ->where('product_id', $productId)
+            ->whereDate('date_operation', '>=', $dateN1->copy()->addDay()->toDateString())
+            ->whereDate('date_operation', '<=', $dateN->toDateString())
+            ->where('nb_parts_change', '>', 0)
+            ->sum('fees') ?? 0;
 
         $vlN = \App\Models\AssetValue::where('product_id', $productId)->where('date_vl', '<=', $dateN->toDateString())->orderBy('date_vl', 'desc')->value('vl') ?? (float)$product->vl;
         $vlN1 = \App\Models\AssetValue::where('product_id', $productId)->where('date_vl', '<=', $dateN1->toDateString())->orderBy('date_vl', 'desc')->value('vl') ?? (float)$product->vl;
@@ -275,19 +344,19 @@ public function previewFcp(int $clientId)
         $valoN = (float)$partsN * (float)$vlN;
         $valoN1 = (float)$partsN1 * (float)$vlN1;
 
-        // Logic de cumul BRUT (Montant placé sans frais)
+        // Logic de cumul BRUT
         $mainAmount = DB::table('transactions')
             ->where('user_id', $client->id)
             ->where('product_id', $productId)
             ->where('status', 'Succès')
-            ->where('date_validation', '<=', $dateN->toDateString())
+            ->whereDate('date_validation', '<=', $dateN->toDateString())
             ->sum(DB::raw('amount + COALESCE(fees, 0)'));
 
         $suppAmount = DB::table('transaction_supplementaires')
             ->where('user_id', $client->id)
             ->where('product_id', $productId)
             ->where('status', 'Succès')
-            ->where('date_validation', '<=', $dateN->toDateString())
+            ->whereDate('date_validation', '<=', $dateN->toDateString())
             ->sum(DB::raw('amount + COALESCE(fees, 0)'));
 
         $cumulInvesti = (float)$mainAmount + (float)$suppAmount;
@@ -295,19 +364,21 @@ public function previewFcp(int $clientId)
         $totalValoN += $valoN;
         $totalValoN1 += $valoN1;
 
-        $produitsAffiches[] = (object)[
-            'nom' => $product->title,
-            'parts_n' => (float)$partsN,
-            'parts_n1' => (float)$partsN1,
-            'parts_souscrites' => 0, // Optionnel pour la preview rapide
-            'parts_rachetees' => 0,
-            'vl_n' => (float)$vlN,
-            'vl_n1' => (float)$vlN1,
-            'valo_n' => (float)$valoN,
-            'valo_n1' => (float)$valoN1,
-            'cumul_investi' => (float)$cumulInvesti,
-            'plus_value' => (float)($valoN - $cumulInvesti),
-            'gain_mensuel' => (float)($valoN - $valoN1),
+        $produitsAffiches[] = [
+            'nom'               => $product->title,
+            'parts_n'           => (float)$partsN,
+            'parts_n1'          => (float)$partsN1,
+            'parts_souscrites'  => (float)$partsSouscritesMois,
+            'parts_rachetees'    => (float)$partsRacheteesMois,
+            'montant_souscrit'  => (float)$montantSouscritMois,
+            'frais_souscription' => (float)$fraisSouscriptionMois,
+            'vl_n'              => (float)$vlN,
+            'vl_n1'             => (float)$vlN1,
+            'valo_n'            => (float)$valoN,
+            'valo_n1'           => (float)$valoN1,
+            'cumul_investi'     => (float)$cumulInvesti,
+            'plus_value'        => (float)($valoN - $cumulInvesti),
+            'gain_mensuel'      => (float)($valoN - $valoN1),
         ];
     }
 
@@ -368,12 +439,13 @@ public function sendSelected(Request $request)
 
                 $pdfFiles = [];
                 $productLabels = [];
+                $type = $request->type; // 'fcp' ou 'pmg' (ou null pour tout, mais on va forcer un type)
                 
-                if ($has_pmg) {
+                if (($type === 'pmg' || empty($type)) && $has_pmg) {
                     $pdfFiles[] = $this->genererPdfPmg($client->id);
                     $productLabels[] = "PMG";
                 }
-                if ($has_fcp) {
+                if (($type === 'fcp' || empty($type)) && $has_fcp) {
                     $pdfFiles[] = $this->genererPdfFcp($client->id);
                     $productLabels[] = "FCP";
                 }
@@ -660,16 +732,34 @@ private function genererPdfFcp(int $clientId): string
             $partsSouscritesMois = \DB::table('fcp_movements')
                     ->where('user_id', $client->id)
                     ->where('product_id', $productId)
-                    ->whereBetween('date_operation', [$dateN1->copy()->addDay()->toDateString(), $dateN->toDateString()])
+                    ->whereDate('date_operation', '>=', $dateN1->copy()->addDay()->toDateString())
+                    ->whereDate('date_operation', '<=', $dateN->toDateString())
                     ->where('nb_parts_change', '>', 0)
                     ->sum('nb_parts_change') ?? 0;
 
             $partsRacheteesMois = abs(\DB::table('fcp_movements')
                     ->where('user_id', $client->id)
                     ->where('product_id', $productId)
-                    ->whereBetween('date_operation', [$dateN1->copy()->addDay()->toDateString(), $dateN->toDateString()])
+                    ->whereDate('date_operation', '>=', $dateN1->copy()->addDay()->toDateString())
+                    ->whereDate('date_operation', '<=', $dateN->toDateString())
                     ->where('nb_parts_change', '<', 0)
                     ->sum('nb_parts_change')) ?? 0;
+
+            $montantSouscritMois = \DB::table('fcp_movements')
+                    ->where('user_id', $client->id)
+                    ->where('product_id', $productId)
+                    ->whereDate('date_operation', '>=', $dateN1->copy()->addDay()->toDateString())
+                    ->whereDate('date_operation', '<=', $dateN->toDateString())
+                    ->where('nb_parts_change', '>', 0)
+                    ->sum('amount_xaf') ?? 0;
+
+            $fraisSouscriptionMois = \DB::table('fcp_movements')
+                    ->where('user_id', $client->id)
+                    ->where('product_id', $productId)
+                    ->whereDate('date_operation', '>=', $dateN1->copy()->addDay()->toDateString())
+                    ->whereDate('date_operation', '<=', $dateN->toDateString())
+                    ->where('nb_parts_change', '>', 0)
+                    ->sum('fees') ?? 0;
 
             $vlN = \App\Models\AssetValue::where('product_id', $productId)->where('date_vl', '<=', $dateN->toDateString())->orderBy('date_vl', 'desc')->value('vl') ?? $product->vl;
             $vlN1 = \App\Models\AssetValue::where('product_id', $productId)->where('date_vl', '<=', $dateN1->toDateString())->orderBy('date_vl', 'desc')->value('vl') ?? $product->vl;
@@ -698,18 +788,20 @@ private function genererPdfFcp(int $clientId): string
             $totalValoN1 += $valoN1;
 
             $produitsAffiches[] = [
-                'nom' => $product->title,
-                'parts_n' => (float)$partsN,
-                'parts_n1' => (float)$partsN1,
-                'parts_souscrites' => (float)$partsSouscritesMois,
-                'parts_rachetees' => (float)$partsRacheteesMois,
-                'vl_n' => (float)$vlN,
-                'vl_n1' => (float)$vlN1,
-                'valo_n' => (float)$valoN,
-                'valo_n1' => (float)$valoN1,
-                'cumul_investi' => (float)$cumulInvesti,
-                'plus_value' => (float)($valoN - $cumulInvesti),
-                'gain_mensuel' => (float)($valoN - $valoN1),
+                'nom'               => $product->title,
+                'parts_n'           => (float)$partsN,
+                'parts_n1'          => (float)$partsN1,
+                'parts_souscrites'  => (float)$partsSouscritesMois,
+                'parts_rachetees'    => (float)$partsRacheteesMois,
+                'montant_souscrit'  => (float)$montantSouscritMois,
+                'frais_souscription' => (float)$fraisSouscriptionMois,
+                'vl_n'              => (float)$vlN,
+                'vl_n1'             => (float)$vlN1,
+                'valo_n'            => (float)$valoN,
+                'valo_n1'           => (float)$valoN1,
+                'cumul_investi'     => (float)$cumulInvesti,
+                'plus_value'        => (float)($valoN - $cumulInvesti),
+                'gain_mensuel'      => (float)($valoN - $valoN1),
             ];
     }
 

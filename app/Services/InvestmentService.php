@@ -149,7 +149,9 @@ class InvestmentService
         }
 
         // On s'assure que les parts sont bien basées sur le montant NET (déjà déduit des frais dans le controller)
-        $nbParts = (float)$transaction->amount / $vl;
+        // L'utilisateur demande 2 décimales sans arrondir (tronquer à la 2ème décimale)
+        $nbPartsRaw = (float)$transaction->amount / $vl;
+        $nbParts = floor($nbPartsRaw * 100) / 100;
         $fees = (float)($transaction->fees ?? 0);
 
         return DB::table('fcp_movements')->insert([
@@ -538,6 +540,9 @@ class InvestmentService
         foreach ($transactions as $trans) {
             $exists = DB::table('fcp_movements')
                 ->where('transaction_id', $trans->id)
+                ->where('user_id', $trans->user_id)
+                ->where('product_id', $trans->product_id)
+                ->where('type', 'souscription')
                 ->exists();
 
             if (!$exists) {
@@ -555,6 +560,9 @@ class InvestmentService
         foreach ($supps as $trans) {
              $exists = DB::table('fcp_movements')
                 ->where('transaction_id', $trans->id)
+                ->where('user_id', $trans->user_id)
+                ->where('product_id', $trans->product_id)
+                ->where('type', 'versement_libre')
                 ->exists();
 
             if (!$exists) {

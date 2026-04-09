@@ -92,27 +92,27 @@
                                     </div>
                                     <div class="inner-header">
                                         <div class="content-label-info">
-                                            <div class="label-">Investissement initial :</div>
+                                            <div class="label-">Investissement initial (Brut) :</div>
                                             <div class="response-">XAF
                                                 {{ number_format($my_product['montant_transaction'], 0, ' ', ' ') }}
                                             </div>
                                         </div>
                                         <div class="content-label-info">
-                                            <div class="label-">Nombre de part :</div>
+                                            <div class="label-">Nombre de parts :</div>
                                             <div class="response-">
-                                                {{ round($my_product['nb_part'], 2) }}</div>
+                                                {{ number_format($my_product['nb_part'], 6, ',', ' ') }}</div>
                                         </div>
                                         <div class="content-label-info">
                                             <div class="label-">VL souscription :</div>
                                             <div class="response-">
-                                                XAF {{ number_format(floor($my_product['vl_achat']), 0, ' ', ' ') }}
+                                                XAF {{ number_format($my_product['vl_achat'], 2, ',', ' ') }}
                                             </div>
                                         </div>
                                         <div class="content-label-info">
                                             <div class="label-">VL actuelle :</div>
                                             <div class="response-">
                                                 XAF
-                                                {{ number_format(floor((float) $my_product['vl_actuel']), 0, ' ', ' ') }}
+                                                {{ number_format((float) $my_product['vl_actuel'], 2, ',', ' ') }}
                                             </div>
                                         </div>
                                         <div class="content-label-info">
@@ -126,9 +126,8 @@
                                                 {{ number_format($my_product['gain_semaine_fcp'], 0, ' ', ' ') }}</div>
                                         </div>
                                         <div class="content-label-info">
-                                            <div class="label-"> Portofolio :</div>
                                             <div class="response-">XAF
-                                                {{ number_format($my_product['montant_transaction'] + floor($my_product['total_gains_fcp']), 0, ' ', ' ') }}
+                                                {{ number_format($my_product['portfolio_valeur'], 0, ' ', ' ') }}
                                             </div>
                                         </div>
 

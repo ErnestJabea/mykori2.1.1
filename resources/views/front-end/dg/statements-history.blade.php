@@ -29,17 +29,7 @@
                 <!-- Shared Table Component -->
                 @include('partials.statements-history-table')
 
-                <!-- Strategic Distribution Insights -->
-                <div class="p-8 bg-primary/5 rounded-3xl border border-primary/10 border-dashed">
-                    <h5 class="flex items-center gap-3 text-n800 font-bold mb-4 uppercase text-xs italic">
-                        <i class="las la-info-circle text-primary text-xl"></i> Note de Pilotage (DG)
-                    </h5>
-                    <p class="text-[11px] text-n600 italic leading-relaxed">
-                        Cette interface offre une visibilité totale sur l'exécution des envois manuels effectués par le
-                        gestionnaire d'actifs. Chaque batch génère un rapport CSV détaillé (contenant les statuts de
-                        delivery) accessible en un clic pour vos audits et votre suivi qualité client.
-                    </p>
-                </div>
+
 
             </div>
         </div>

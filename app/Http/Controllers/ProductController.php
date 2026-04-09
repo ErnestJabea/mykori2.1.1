@@ -808,114 +808,324 @@ class ProductController extends Controller
         return round($baseCapital + $totalInterest, 0);
     }
  */
+
     /**
      * Prépare les données consolidées pour la vue Customer
+     * Supporte le tri et le filtrage par catégorie (FCP/PMG)
      */
     public function customers(Request $request)
     {
         $search = $request->input('search');
+        $sortBy = $request->input('sort_by', 'name');
+        $order = $request->input('order', 'asc');
+        $categoryFilter = $request->input('category', 'all'); // 'all', '1' (FCP), '2' (PMG)
         $currentDate = Carbon::now();
 
         // 1. Base query pour les clients (Role 2)
-        $query = User::where('role_id', '2')
+        $usersQuery = User::where('role_id', '2')
             ->with(['transactions' => function($q) {
                 $q->where('status', 'Succès');
             }, 'transactionssupplementaires' => function($q) {
                 $q->where('status', 'Succès');
-            }]);
+            }, 'transactions.product', 'transactionssupplementaires.product']);
 
-        // 2. Recherche
+        // 2. Recherche par nom ou email
         if (!empty($search)) {
-            $query->where(function($q) use ($search) {
+            $usersQuery->where(function($q) use ($search) {
                 $q->where('name', 'LIKE', "%{$search}%")
                   ->orWhere('email', 'LIKE', "%{$search}%");
             });
         }
 
-        // 3. Calcul des statistiques globales AVANT pagination (sur tous les résultats filtrés)
-        $allMatchedCustomers = $query->get();
+        // 3. Récupération de tous les clients correspondants pour calcul et tri
+        $allMatchedUsers = $usersQuery->get();
+
+        $processedUsers = collect();
         $globalTotalAum = 0;
         $globalTotalInvesti = 0;
+        $globalTotalInterets = 0;
         $activeClientsCount = 0;
         $inactiveClientsCount = 0;
 
-        foreach ($allMatchedCustomers as $cust) {
-            $customerTotalInvesti = 0;
-            $allTrans = $cust->transactions->concat($cust->transactionssupplementaires);
+        foreach ($allMatchedUsers as $user) {
+            $userTotalInvesti = 0;
+            $userTotalValorisation = 0;
+            $activeContractsCount = 0;
+            $hasFcp = false;
+            $hasPmg = false;
+
             $processedFcpProducts = [];
-            
+            $allTrans = $user->transactions->concat($user->transactionssupplementaires);
+
             foreach ($allTrans as $trans) {
                 if ($trans->status != 'Succès') continue;
+                
                 $dateEcheance = Carbon::parse($trans->date_echeance);
-                if ($dateEcheance->gte($currentDate)) {
-                    $principalInitial = (float)($trans->amount);
-                    $fees = (float)($trans->fees ?? 0);
-                    $globalTotalInvesti += ($principalInitial + $fees);
-                    $customerTotalInvesti += ($principalInitial + $fees);
+                $isPmg = ($trans->product->products_category_id == 2);
+                $isFcp = ($trans->product->products_category_id == 1);
 
-                    if ($trans->product->products_category_id == 2) {
-                        $globalTotalAum += $this->calculatePMGValorization($trans, $currentDate);
-                    } else {
-                        if (!in_array($trans->product_id, $processedFcpProducts)) {
-                            $fcpData = $this->getFcpPortfolioValue($cust->id, $trans->product_id, $currentDate);
-                            $globalTotalAum += $fcpData['valorisation'];
-                            $processedFcpProducts[] = $trans->product_id;
-                        }
-                    }
-                }
-            }
+                if ($isPmg) $hasPmg = true;
+                if ($isFcp) $hasFcp = true;
 
-            if ($customerTotalInvesti > 0) {
-                $activeClientsCount++;
-            } else {
-                $inactiveClientsCount++;
-            }
-        }
+                // Apply category filter to the user's individual totals
+                if ($categoryFilter == '1' && !$isFcp) continue;
+                if ($categoryFilter == '2' && !$isPmg) continue;
 
-        $globalTotalInterets = max(0, $globalTotalAum - $globalTotalInvesti);
-
-        // 4. Pagination
-        $customers = $query->orderBy('name', 'asc')->paginate(10);
-
-        // 5. Calcul des stats pour les clients de la PAGE COURANTE
-        foreach ($customers as $customer) {
-            $totalInvestiActive = 0;
-            $totalValorisationActive = 0;
-            $activeContractsCount = 0;
-
-            $processedFcpProducts = [];
-
-            $allTrans = $customer->transactions->concat($customer->transactionssupplementaires);
-
-            foreach ($allTrans as $trans) {
-                $dateEcheance = Carbon::parse($trans->date_echeance);
-
+                // Calcul si contrat encore valide
                 if ($dateEcheance->gte($currentDate)) {
                     $activeContractsCount++;
                     $principalInitial = (float)($trans->amount);
                     $fees = (float)($trans->fees ?? 0);
-                    $totalInvestiActive += ($principalInitial + $fees);
+                    $userTotalInvesti += ($principalInitial + $fees);
 
-                    if ($trans->product->products_category_id == 2) {
-                        $totalValorisationActive += $this->calculatePMGValorization($trans, $currentDate);
+                    if ($isPmg) {
+                        $userTotalValorisation += $this->calculatePMGValorization($trans, $currentDate);
                     } else {
                         if (!in_array($trans->product_id, $processedFcpProducts)) {
-                            $fcpData = $this->getFcpPortfolioValue($customer->id, $trans->product_id, $currentDate);
-                            $totalValorisationActive += $fcpData['valorisation'];
+                            $fcpData = $this->getFcpPortfolioValue($user->id, $trans->product_id, $currentDate);
+                            $userTotalValorisation += $fcpData['valorisation'];
                             $processedFcpProducts[] = $trans->product_id;
                         }
                     }
                 }
             }
 
-            $customer->total_capital = $totalInvestiActive;
-            $customer->portefeuille_total = $totalValorisationActive;
-            $customer->total_interets = max(0, $totalValorisationActive - $totalInvestiActive);
-            $customer->product_count = $activeContractsCount;
+            // Attachement des données calculées au modèle
+            $user->total_capital = $userTotalInvesti;
+            $user->portefeuille_total = $userTotalValorisation;
+            $user->total_interets = max(0, $userTotalValorisation - $userTotalInvesti);
+            $user->product_count = $activeContractsCount;
+            $user->has_fcp = $hasFcp;
+            $user->has_pmg = $hasPmg;
+
+            // Filtration par catégorie
+            $keep = true;
+            if ($categoryFilter == '1' && !$hasFcp) $keep = false;
+            if ($categoryFilter == '2' && !$hasPmg) $keep = false;
+
+            if ($keep) {
+                $processedUsers->push($user);
+                $globalTotalInvesti += $userTotalInvesti;
+                $globalTotalAum += $userTotalValorisation;
+                $globalTotalInterets += $user->total_interets; // Somme des intérêts positifs individuels
+                if ($userTotalInvesti > 0) {
+                    $activeClientsCount++;
+                } else {
+                    $inactiveClientsCount++;
+                }
+            }
         }
 
-        return view('front-end.customer', compact('customers', 'globalTotalAum', 'globalTotalInvesti', 'globalTotalInterets', 'search', 'activeClientsCount', 'inactiveClientsCount'));
+        // $globalTotalInterets est déjà accumulé dans la boucle ci-dessus
+
+        // 4. Tri de la collection
+        if ($order == 'desc') {
+            $processedUsers = $processedUsers->sortByDesc($sortBy);
+        } else {
+            $processedUsers = $processedUsers->sortBy($sortBy);
+        }
+
+        // 5. Pagination manuelle
+        $page = $request->input('page', 1);
+        $perPage = 10;
+        $pagedData = $processedUsers->slice(($page - 1) * $perPage, $perPage)->values();
+        
+        $customers = new \Illuminate\Pagination\LengthAwarePaginator(
+            $pagedData,
+            $processedUsers->count(),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
+
+        if ($request->ajax()) {
+            return view('front-end.partials.customer-table', compact(
+                'customers', 
+                'globalTotalAum', 
+                'globalTotalInvesti', 
+                'globalTotalInterets', 
+                'search', 
+                'activeClientsCount', 
+                'inactiveClientsCount',
+                'categoryFilter',
+                'sortBy',
+                'order'
+            ));
+        }
+
+        return view('front-end.customer', compact(
+            'customers', 
+            'globalTotalAum', 
+            'globalTotalInvesti', 
+            'globalTotalInterets', 
+            'search', 
+            'activeClientsCount', 
+            'inactiveClientsCount',
+            'categoryFilter',
+            'sortBy',
+            'order'
+        ));
     }
+
+    /**
+     * Exportation des clients en CSV (Asset Manager)
+     * Reprend la même logique de calcul que customers()
+     */
+    public function exportCustomers(Request $request)
+    {
+        $search = $request->input('search');
+        $sortBy = $request->input('sort_by', 'name');
+        $order = $request->input('order', 'asc');
+        $categoryFilter = $request->input('category', 'all');
+        $exportStatus = $request->input('export_status', 'active');
+        $selectedFields = $request->input('fields', ['name', 'email']);
+        $currentDate = Carbon::now();
+
+        $usersQuery = User::where('role_id', '2');
+        if (!empty($search)) {
+            $usersQuery->where(function($q) use ($search) {
+                $q->where('name', 'LIKE', "%{$search}%")
+                  ->orWhere('email', 'LIKE', "%{$search}%");
+            });
+        }
+        $allMatchedUsers = $usersQuery->get();
+
+        $processedUsers = collect();
+        $globalTotalInteretsExport = 0;
+
+        foreach ($allMatchedUsers as $user) {
+            $totalInvestedActive = 0;
+            $totalInvestedInactive = 0;
+            $totalValorisation = 0;
+            $activeCount = 0;
+            $inactiveCount = 0;
+            $hasFcp = false;
+            $hasPmg = false;
+            $firstPlacementDate = null;
+            $processedFcpProducts = [];
+
+            $allTrans = $user->transactions()->where('status', 'Succès')->orderBy('date_validation', 'asc')->get()
+                ->concat($user->transactionssupplementaires()->where('status', 'Succès')->orderBy('date_validation', 'asc')->get())
+                ->sortBy('date_validation');
+
+            if ($allTrans->isNotEmpty()) {
+                $firstPlacementDate = $allTrans->first()->date_validation;
+            }
+
+            foreach ($allTrans as $trans) {
+                $dateEcheance = Carbon::parse($trans->date_echeance);
+                $isPmg = ($trans->product->products_category_id == 2);
+                $isFcp = ($trans->product->products_category_id == 1);
+                
+                if ($isPmg) $hasPmg = true;
+                if ($isFcp) $hasFcp = true;
+
+                // Category filter check
+                if ($categoryFilter == '1' && !$isFcp) continue;
+                if ($categoryFilter == '2' && !$isPmg) continue;
+
+                $amount = ((float)$trans->amount + (float)($trans->fees ?? 0));
+
+                if ($dateEcheance->gte($currentDate)) {
+                    $activeCount++;
+                    $totalInvestedActive += $amount;
+                    if ($isPmg) {
+                        $totalValorisation += $this->calculatePMGValorization($trans, $currentDate);
+                    } else {
+                        if (!in_array($trans->product_id, $processedFcpProducts)) {
+                            $fcpData = $this->getFcpPortfolioValue($user->id, $trans->product_id, $currentDate);
+                            $totalValorisation += $fcpData['valorisation'];
+                            $processedFcpProducts[] = $trans->product_id;
+                        }
+                    }
+                } else {
+                    $inactiveCount++;
+                    $totalInvestedInactive += $amount;
+                }
+            }
+
+            // Client type determination
+            $clientType = 'Aucun';
+            if ($hasFcp && $hasPmg) $clientType = 'FCP & PMG';
+            elseif ($hasFcp) $clientType = 'FCP';
+            elseif ($hasPmg) $clientType = 'PMG';
+
+            // Filter by export status
+            if ($exportStatus == 'active' && $activeCount == 0) continue;
+            if ($exportStatus == 'inactive' && $activeCount > 0) continue;
+
+            $user->total_capital_active = $totalInvestedActive;
+            $user->total_capital_inactive = $totalInvestedInactive;
+            $user->portefeuille_total = $totalValorisation;
+            $user->total_interets = max(0, $totalValorisation - $totalInvestedActive);
+            $user->inactive_count = $inactiveCount;
+            $user->first_placement = $firstPlacementDate ? Carbon::parse($firstPlacementDate)->format('d/m/Y') : '-';
+            $user->client_type_label = $clientType;
+
+            $processedUsers->push($user);
+            $globalTotalInteretsExport += $user->total_interets;
+        }
+
+        // Sorting
+        $processedUsers = ($order == 'desc') ? $processedUsers->sortByDesc($sortBy) : $processedUsers->sortBy($sortBy);
+
+        $fileName = 'export_clients_' . $exportStatus . '_' . date('Y-m-d_H-i') . '.csv';
+        $headers = [
+            "Content-type"        => "text/csv; charset=UTF-8",
+            "Content-Disposition" => "attachment; filename=$fileName",
+            "Pragma"              => "no-cache",
+            "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
+        ];
+
+        $callback = function() use ($processedUsers, $selectedFields) {
+            $file = fopen('php://output', 'w');
+            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF)); // BOM for Excel UTF-8
+            
+            // Generate headers based on selection
+            $headerRows = [];
+            if (in_array('name', $selectedFields)) $headerRows[] = 'Nom';
+            if (in_array('email', $selectedFields)) $headerRows[] = 'Email';
+            if (in_array('first_placement', $selectedFields)) $headerRows[] = '1er Placement';
+            if (in_array('placements_count', $selectedFields)) {
+                 $headerRows[] = 'Placements Actifs';
+                 $headerRows[] = 'Placements Inactifs';
+            }
+            if (in_array('total_invested', $selectedFields)) {
+                $headerRows[] = 'Total Investi Actif';
+                $headerRows[] = 'Total Investi Inactif';
+            }
+            if (in_array('client_type', $selectedFields)) $headerRows[] = 'Type de Client';
+            if (in_array('portfolio_valo', $selectedFields)) $headerRows[] = 'Valorisation Globale';
+            if (in_array('total_gains', $selectedFields)) $headerRows[] = 'Total Intérêts';
+
+            fputcsv($file, $headerRows);
+
+            foreach ($processedUsers as $u) {
+                $row = [];
+                if (in_array('name', $selectedFields)) $row[] = $u->name;
+                if (in_array('email', $selectedFields)) $row[] = $u->email;
+                if (in_array('first_placement', $selectedFields)) $row[] = $u->first_placement;
+                if (in_array('placements_count', $selectedFields)) {
+                    $row[] = $u->active_count;
+                    $row[] = $u->inactive_count;
+                }
+                if (in_array('total_invested', $selectedFields)) {
+                    $row[] = number_format($u->total_capital_active, 0, '.', '');
+                    $row[] = number_format($u->total_capital_inactive, 0, '.', '');
+                }
+                if (in_array('client_type', $selectedFields)) $row[] = $u->client_type_label;
+                if (in_array('portfolio_valo', $selectedFields)) $row[] = number_format($u->portefeuille_total, 0, '.', '');
+                if (in_array('total_gains', $selectedFields)) $row[] = number_format($u->total_interets, 0, '.', '');
+
+                fputcsv($file, $row);
+            }
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+
     function generateUniqueCode($user)
     {
         return strtoupper(substr(md5($user->id . $user->name . $user->created_at), 0, 10));
@@ -930,21 +1140,93 @@ class ProductController extends Controller
 
 
 
-    /** 
-     * Détail Client : Valorisation précise et statistiques
+    /**
+     * Modification d'une transaction existante
      */
+    public function editTransaction(Request $request)
+    {
+        $id = $request->input('trans_id');
+        $isSupp = $request->input('is_supp') == 'true';
+        $item = $isSupp ? TransactionSupplementaire::findOrFail($id) : Transaction::findOrFail($id);
+
+        $oldAmount = $item->amount;
+        $oldVl = $item->vl_buy;
+        $oldEcheance = $item->date_echeance;
+
+        $item->amount = $request->input('amount');
+        $item->vl_buy = $request->input('vl_buy');
+        $item->date_validation = $request->input('date_validation');
+        $item->date_echeance = $request->input('date_echeance');
+        
+        // Recalculer les frais si nécessaire (basé sur le même taux qu'à l'origine)
+        $product = Product::find($item->product_id);
+        $feeRate = (float)($product->free ?? 0);
+        $item->fees = ($item->amount * $feeRate) / 100;
+        
+        $item->save();
+
+        // LOG ACTION
+        \App\Models\UserActivityLog::log(
+            "MODIFICATION_TRANSACTION",
+            $item->user,
+            "Modification de la transaction #{$item->ref} (" . ($isSupp ? 'Suppl.' : 'Initiale') . "). " .
+            "Ancien Montant: $oldAmount -> Nouveau: {$item->amount} | " .
+            "Ancienne VL: $oldVl -> Nouvelle: {$item->vl_buy} | " .
+            "Échéance: $oldEcheance -> {$item->date_echeance}"
+        );
+
+        return response()->json(['status' => 'success', 'message' => 'Transaction mise à jour avec succès.']);
+    }
     public function customersDetail($customer_id)
     {
         $customer = User::findOrFail($customer_id);
         $currentDate = Carbon::now();
 
-        // Récupération des produits avec gains (via la fonction que nous avons déjà harmonisée)
+        // 1. Récupération des produits consolides avec gains
         $allProducts = $this->getProductsWithGainsUser($customer_id);
 
-        // Initialisation des compteurs pour les boîtes de statistiques
+        // 2. Historique brut de TOUTES les transactions (Souscriptions & Versements Libres)
+        $officialTrans = Transaction::where('user_id', $customer_id)
+            ->where('status', 'Succès')
+            ->with('product')
+            ->get()
+            ->map(function($t) { 
+                $t->is_supp = false; 
+                return $t; 
+            });
+
+        $supplementalTrans = TransactionSupplementaire::where('user_id', $customer_id)
+            ->where('status', 'Succès')
+            ->with('product')
+            ->get()
+            ->map(function($t) { 
+                $t->is_supp = true; 
+                return $t; 
+            });
+
+        $allTransactionsHistory = $officialTrans->concat($supplementalTrans)
+            ->sortByDesc(function($t) {
+                return $t->date_validation ?? $t->created_at;
+            });
+
+        // 3. Historique des Operations Financieres (PMG)
+        $financialMovements = DB::table('financial_movements')
+            ->join('transactions', 'financial_movements.transaction_id', '=', 'transactions.id')
+            ->where('transactions.user_id', $customer_id)
+            ->select('financial_movements.*', 'transactions.ref as trans_ref')
+            ->orderBy('date_operation', 'desc')
+            ->get();
+
+        // 4. Historique des Operations FCP (Mouvements de parts)
+        $fcpMovements = DB::table('fcp_movements')
+            ->where('user_id', $customer_id)
+            ->orderBy('date_operation', 'desc')
+            ->get();
+
         $totalInvestiActive = 0;
         $portefeuillePMG = 0;
         $portefeuilleFCP = 0;
+        $totalPlusValueFCP = 0;
 
         foreach ($allProducts as $item) {
             // On ne cumule que le capital des produits actifs
@@ -954,6 +1236,7 @@ class ProductController extends Controller
                 $portefeuillePMG += $item['portfolio_valeur'];
             } else { // FCP
                 $portefeuilleFCP += $item['portfolio_valeur'];
+                $totalPlusValueFCP += (float)($item['total_gains_fcp'] ?? 0);
             }
         }
 
@@ -1006,12 +1289,16 @@ class ProductController extends Controller
             'portefeuille_total' => $portefeuilleTotal,
             'portefeuille_pmg' => $portefeuillePMG,
             'portefeuille_fcp' => $portefeuilleFCP,
+            'total_plus_value_fcp' => $totalPlusValueFCP,
             'total_interets' => $totalInterets,
             'total_investi' => $totalInvestiActive,
             'products' => $products,
             'categories' => $categories,
             'availableMonths' => $availableMonths,
-            'ownedPmgProductIds' => $ownedPmgProductIds
+            'ownedPmgProductIds' => $ownedPmgProductIds,
+            'allTransactionsHistory' => $allTransactionsHistory,
+            'financialMovements' => $financialMovements,
+            'fcpMovements' => $fcpMovements,
         ]);
     }
     
@@ -1714,78 +2001,110 @@ class ProductController extends Controller
             ->orderBy('date_validation', 'desc')
             ->get();
 
+        $mergedMovements = collect();
+
+        // 2. Mouvements financiers PMG (financial_movements)
         $txIds = $transactions->pluck('id')->merge($supplementalTx->pluck('id'));
         
-        $financialMovements = DB::table('financial_movements')
+        DB::table('financial_movements')
             ->whereIn('transaction_id', $txIds)
-            ->orderBy('date_operation', 'desc')
+            ->orderBy('created_at', 'desc')
             ->get()
-            ->map(function ($m) use ($transactions, $supplementalTx) {
+            ->each(function ($m) use ($transactions, $supplementalTx, &$mergedMovements) {
                 $tx = $transactions->firstWhere('id', $m->transaction_id) 
                       ?? $supplementalTx->firstWhere('id', $m->transaction_id);
                 $productTitle = $tx
                     ? optional(Product::find($tx->product_id))->title
                     : 'PMG';
-                return (object)[
-                    'date'    => $m->date_operation,
-                    'libelle' => strtoupper(str_replace('_', ' ', $m->type)),
-                    'ref'     => $tx->ref ?? '-',
-                    'produit' => $productTitle,
-                    'montant' => (float)$m->amount,
-                    'sens'    => in_array($m->type, ['rachat_partiel', 'rachat_total', 'precompte_interets', 'paiement_interets', 'remboursement']) ? 'sortant' : 'entrant',
-                ];
+                $mergedMovements->push((object)[
+                    'date'               => $m->created_at ?? $m->date_operation,
+                    'date_souscription'  => $m->date_operation,
+                    'libelle'            => strtoupper(str_replace('_', ' ', $m->type)),
+                    'ref'                => $tx->ref ?? '-',
+                    'produit'            => $productTitle,
+                    'montant'            => (float)$m->amount,
+                    'sens'               => in_array($m->type, ['rachat_partiel', 'rachat_total', 'precompte_interets', 'paiement_interets', 'remboursement']) ? 'sortant' : 'entrant',
+                ]);
             });
 
-        $fcpMovements = DB::table('fcp_movements')
+        // 3. Mouvements FCP (fcp_movements)
+        DB::table('fcp_movements')
             ->where('user_id', $userId)
-            ->orderBy('date_operation', 'desc')
+            ->whereNull('transaction_id')
+            ->orderBy('created_at', 'desc')
             ->get()
-            ->map(function ($m) {
+            ->each(function ($m) use (&$mergedMovements) {
                 $productTitle = optional(Product::find($m->product_id))->title ?? 'FCP';
                 $isIncoming   = $m->nb_parts_change >= 0;
-                return (object)[
-                    'date'    => $m->date_operation,
-                    'libelle' => strtoupper($m->type) . ' FCP',
-                    'ref'     => $m->reference ?? $m->transaction_id ?? '-',
-                    'produit' => $productTitle,
-                    'montant' => (float)($m->amount_xaf ?? 0),
-                    'sens'    => $isIncoming ? 'entrant' : 'sortant',
-                ];
+                $mergedMovements->push((object)[
+                    'date'               => $m->created_at ?? $m->date_operation,
+                    'date_souscription'  => $m->date_operation,
+                    'libelle'            => strtoupper($m->type) . ' FCP',
+                    'ref'                => $m->reference ?? '-',
+                    'produit'            => $productTitle,
+                    'montant'            => (float)($m->amount_xaf ?? $m->montant ?? 0),
+                    'sens'               => $isIncoming ? 'entrant' : 'sortant',
+                ]);
             });
 
-        $officialTx = $transactions->filter(function($tx) {
-            return optional(Product::find($tx->product_id))->products_category_id != 1;
-        })->map(function ($tx) {
+        // 4. Transactions initiales
+        foreach ($transactions as $tx) {
             $productTitle = optional(Product::find($tx->product_id))->title ?? 'Produit';
-            return (object)[
-                'date'    => $tx->date_validation ?? $tx->created_at,
-                'libelle' => $tx->title ?? 'SOUSCRIPTION',
-                'ref'     => $tx->ref,
-                'produit' => $productTitle,
-                'montant' => (float)$tx->amount,
-                'sens'    => 'entrant',
-            ];
-        });
+            
+            // Ligne principale (Brut)
+            $mergedMovements->push((object)[
+                'date'               => $tx->created_at,
+                'date_souscription'  => $tx->date_validation ?? $tx->created_at,
+                'libelle'            => $tx->title ?? 'SOUSCRIPTION',
+                'ref'                => $tx->ref,
+                'produit'            => $productTitle,
+                'montant'            => (float)$tx->amount + (float)$tx->fees,
+                'sens'               => 'entrant',
+            ]);
 
-        $suppMovements = $supplementalTx->map(function ($tx) {
+            // Ligne Frais
+            if ((float)$tx->fees > 0) {
+                $mergedMovements->push((object)[
+                    'date'               => $tx->created_at,
+                    'date_souscription'  => $tx->date_validation ?? $tx->created_at,
+                    'libelle'            => 'FRAIS DE SOUSCRIPTION',
+                    'ref'                => $tx->ref,
+                    'produit'            => $productTitle,
+                    'montant'            => (float)$tx->fees,
+                    'sens'               => 'sortant',
+                ]);
+            }
+        }
+
+        foreach ($supplementalTx as $tx) {
             $productTitle = optional(Product::find($tx->product_id))->title ?? 'Produit';
-            return (object)[
-                'date'    => $tx->date_validation ?? $tx->created_at,
-                'libelle' => $tx->title ?? 'VERSEMENT LIBRE',
-                'ref'     => $tx->ref,
-                'produit' => $productTitle,
-                'montant' => (float)$tx->amount,
-                'sens'    => 'entrant',
-            ];
-        });
+            
+             // Ligne principale (Brut)
+             $mergedMovements->push((object)[
+                'date'               => $tx->created_at,
+                'date_souscription'  => $tx->date_validation ?? $tx->created_at,
+                'libelle'            => $tx->title ?? 'VERSEMENT LIBRE',
+                'ref'                => $tx->ref,
+                'produit'            => $productTitle,
+                'montant'            => (float)$tx->amount + (float)$tx->fees,
+                'sens'               => 'entrant',
+            ]);
 
-        $allMovements = collect()
-            ->merge($officialTx)
-            ->merge($suppMovements)
-            ->merge($financialMovements)
-            ->merge($fcpMovements)
-            ->sortByDesc('date')
-            ->values();
+            // Ligne Frais
+            if ((float)$tx->fees > 0) {
+                $mergedMovements->push((object)[
+                    'date'               => $tx->created_at,
+                    'date_souscription'  => $tx->date_validation ?? $tx->created_at,
+                    'libelle'            => 'FRAIS DE SOUSCRIPTION',
+                    'ref'                => $tx->ref,
+                    'produit'            => $productTitle,
+                    'montant'            => (float)$tx->fees,
+                    'sens'               => 'sortant',
+                ]);
+            }
+        }
+
+        $allMovements = $mergedMovements->sortByDesc('date')->values();
 
         $pdf = Pdf::loadView('front-end.releves.historique-transactions-pdf', [
             'user'         => $user,
@@ -1830,14 +2149,29 @@ class ProductController extends Controller
             ->orderBy('date_vl', 'asc')
             ->get();
 
-        // 3. Reconstruire la chronologie des valorisations
+        // 3. Reconstruire la chronologie des valorisations avec calcul du capital investi cumulé
         $history = $assetValues->map(function ($vl) use ($movements) {
-            $partsToDate = $movements->where('date_operation', '<=', $vl->date_vl)->sum('nb_parts_change');
+            // Cumul des investissements jusqu'à cette date précise du calendrier VL
+            $cumulativeInvested = (float) $movements->where('date_operation', '<=', $vl->date_vl)
+                ->whereIn('type', ['souscription', 'versement_libre'])
+                ->sum('amount_xaf');
+            
+            // Cumul des rachats jusqu'à cette date
+            $cumulativeRedemptions = (float) $movements->where('date_operation', '<=', $vl->date_vl)
+                ->whereIn('type', ['rachat', 'rachat_partiel', 'rachat_total', 'rachat'])
+                ->sum('amount_xaf');
+
+            $netInvested = $cumulativeInvested - abs($cumulativeRedemptions);
+            
+            $partsToDate = (float) $movements->where('date_operation', '<=', $vl->date_vl)->sum('nb_parts_change');
+            $valuation = round($partsToDate * (float)$vl->vl, 0);
+            
             return [
                 'date' => \Carbon\Carbon::parse($vl->date_vl)->format('d/m/Y'),
                 'vl' => (float)$vl->vl,
-                'parts' => (float)$partsToDate,
-                'valuation' => round((float)$partsToDate * (float)$vl->vl, 0)
+                'parts' => $partsToDate,
+                'valuation' => $valuation,
+                'plus_value' => $valuation - $netInvested
             ];
         });
 

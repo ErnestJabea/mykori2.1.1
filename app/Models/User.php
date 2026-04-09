@@ -9,6 +9,7 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use App\Models\Transaction;
 use App\Models\TransactionSupplementaire;
+use App\Models\CrmProspect;
 
 class User extends \TCG\Voyager\Models\User
 {
@@ -26,6 +27,7 @@ class User extends \TCG\Voyager\Models\User
         'localisation',
         'bp',
         'genre',
+        'commercial_id',
     ];
 
     /**
@@ -54,5 +56,20 @@ class User extends \TCG\Voyager\Models\User
     public function transactionssupplementaires()
     {
         return $this->hasMany(TransactionSupplementaire::class, 'user_id');
+    }
+
+    public function clients()
+    {
+        return $this->hasMany(User::class, 'commercial_id');
+    }
+
+    public function leads()
+    {
+        return $this->hasMany(CrmProspect::class, 'commercial_id');
+    }
+
+    public function portfolios()
+    {
+        return $this->hasMany(CustomerPortfolio::class, 'user_id');
     }
 }

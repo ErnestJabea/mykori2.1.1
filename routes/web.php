@@ -53,6 +53,28 @@ Route::name('home')->get('/', function () {
     return view('front-end.home');
 });
 
+// Route TEMPORAIRE pour la création de la table portfolios
+Route::get('/run-portfolios-migration', function () {
+    try {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('customer_portfolios')) {
+            \Illuminate\Support\Facades\Schema::create('customer_portfolios', function (\Illuminate\Database\Schema\Blueprint $table) {
+                $table->id();
+                $table->unsignedBigInteger('user_id'); 
+                $table->string('type'); 
+                $table->string('reference')->unique(); 
+                $table->string('status')->default('active');
+                $table->timestamps();
+                $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
+            });
+            return "SUCCESS: Table 'customer_portfolios' créée avec succès via la route.";
+        } else {
+            return "ALREADY_EXISTS: La table existait déjà.";
+        }
+    } catch (\Exception $e) {
+        return "ERROR: " . $e->getMessage();
+    }
+});
+
 Route::name('login')->get('/login', function () {
     return view('front-end.home');
 });
@@ -281,14 +303,17 @@ Route::middleware('auth')->group(function () {
             Route::get('/', [ProductController::class, 'indexAssetManager'])->name('asset-manager');
 
             Route::get('/customer', [ProductController::class, 'customers'])->name('customer');
+            Route::get('/customer/export', [ProductController::class, 'exportCustomers'])->name('customer.export');
+            Route::post('/customer/transaction/edit', [ProductController::class, 'editTransaction'])->name('customer.transaction.edit');
 
             Route::get('/customer/{customer}', [ProductController::class, 'customersDetail'])->name('customer-detail');
-            Route::get('/nouveau-client', [AssetManagerController::class, 'createCustomer'])->name('asset-manager.create-customer');
+            Route::get('/nouveau-client/{customer?}', [AssetManagerController::class, 'createCustomer'])->name('asset-manager.create-customer');
             Route::post('/nouveau-client', [AssetManagerController::class, 'storeCustomer'])->name('asset-manager.store-customer');
+            Route::post('/modifier-client/{customer}', [AssetManagerController::class, 'updateCustomer'])->name('asset-manager.update-customer');
             Route::post('/store/transaction-manager', [MovementController::class, 'storeFinancialMovement'])->name('save-transactions-client');
             Route::get('/customer/{customer}/transaction-manager', [MovementController::class, 'indexFinancialMovement'])->name('transactions-client');
 
-            Route::get('/customer/releve-client/test-1/2', [ListeClientReleveController::class, 'index'])->name('releve-client');
+            Route::get('/customer/releve-client/liste/{type?}', [ListeClientReleveController::class, 'index'])->name('releve-client');
 
 
             Route::get('/test-calculs', function() {
@@ -413,101 +438,139 @@ Route::middleware('auth')->group(function () {
         // 1. Transactions officielles avec status Succès
         $transactions = App\Models\Transaction::where('user_id', $userId)
             ->where('status', 'Succès')
-            ->orderBy('date_validation', 'desc')
+            ->orderBy('created_at', 'desc')
             ->get();
+
+        $mergedMovements = collect();
 
         // 2. Mouvements financiers PMG (financial_movements)
         $txIds = $transactions->pluck('id');
         $financialMovements = DB::table('financial_movements')
             ->whereIn('transaction_id', $txIds)
-            ->orderBy('date_operation', 'desc')
+            ->orderBy('created_at', 'desc')
             ->get()
-            ->map(function ($m) use ($transactions) {
+            ->each(function ($m) use ($transactions, &$mergedMovements) {
                 $tx = $transactions->firstWhere('id', $m->transaction_id);
-                // Si non trouvé dans transactions, chercher dans supplémetaires
                 if(!$tx) {
                     $tx = App\Models\TransactionSupplementaire::find($m->transaction_id);
                 }
                 $productTitle = $tx
                     ? optional(App\Models\Product::find($tx->product_id))->title
                     : 'PMG';
-                return (object)[
-                    'date'        => $m->date_operation,
-                    'libelle'     => strtoupper(str_replace('_', ' ', $m->type)),
-                    'ref'         => $tx->ref ?? '-',
-                    'produit'     => $productTitle,
-                    'montant'     => (float)$m->amount,
-                    'fees'        => 0, // Les mouvements financiers sont déjà nets
-                    'sens'        => in_array($m->type, ['rachat_partiel', 'rachat_total', 'precompte_interets', 'paiement_interets', 'remboursement']) ? 'sortant' : 'entrant',
-                    'source'      => 'pmg',
-                    'id'          => $m->id,
-                ];
+                
+                $mergedMovements->push((object)[
+                    'date'               => $m->created_at ?? $m->date_operation,
+                    'date_souscription'  => $m->date_operation,
+                    'libelle'            => strtoupper(str_replace('_', ' ', $m->type)),
+                    'ref'                => $tx->ref ?? '-',
+                    'produit'            => $productTitle,
+                    'montant'            => (float)$m->amount,
+                    'fees'               => 0,
+                    'sens'               => in_array($m->type, ['rachat_partiel', 'rachat_total', 'precompte_interets', 'paiement_interets', 'remboursement']) ? 'sortant' : 'entrant',
+                    'source'             => 'pmg',
+                    'id'                 => $m->id,
+                ]);
             });
 
-        // 3. Mouvements FCP (fcp_movements)
-        $fcpMovements = DB::table('fcp_movements')
+        // 3. Mouvements FCP (fcp_movements) - On exclut les souscriptions/versements déjà listés en transactions
+        DB::table('fcp_movements')
             ->where('user_id', $userId)
-            ->orderBy('date_operation', 'desc')
+            ->whereNull('transaction_id') // On ne prend que les mouvements manuels ou rachats sans TX liée
+            ->orderBy('created_at', 'desc')
             ->get()
-            ->map(function ($m) {
+            ->each(function ($m) use (&$mergedMovements) {
                 $productTitle = optional(App\Models\Product::find($m->product_id))->title ?? 'FCP';
                 $isIncoming   = $m->nb_parts_change >= 0;
                 $label        = $isIncoming ? 'SOUSCRIPTION FCP' : 'RACHAT FCP';
-                return (object)[
-                    'date'    => $m->date_operation,
-                    'libelle' => $label,
-                    'ref'     => $m->reference ?? '-',
-                    'produit' => $productTitle,
-                    'montant' => (float)$m->montant,
-                    'fees'    => 0, // Déjà net dans les mouvements
-                    'sens'    => $isIncoming ? 'entrant' : 'sortant',
-                    'source'  => 'fcp',
-                    'id'      => $m->id,
-                ];
+                
+                $mergedMovements->push((object)[
+                    'date'               => $m->created_at ?? $m->date_operation,
+                    'date_souscription'  => $m->date_operation,
+                    'libelle'            => $label,
+                    'ref'                => $m->reference ?? '-',
+                    'produit'            => $productTitle,
+                    'montant'            => (float)($m->amount_xaf ?? $m->montant ?? 0),
+                    'fees'               => 0,
+                    'sens'               => $isIncoming ? 'entrant' : 'sortant',
+                    'source'             => 'fcp',
+                    'id'                 => $m->id,
+                ]);
             });
 
         // 4. Transactions initiales
-        $officialTx = $transactions->map(function ($tx) {
+        foreach ($transactions as $tx) {
             $productTitle = optional(App\Models\Product::find($tx->product_id))->title ?? 'Produit';
-            return (object)[
-                'date'    => $tx->date_validation ?? $tx->created_at,
-                'libelle' => $tx->title ?? 'SOUSCRIPTION',
-                'ref'     => $tx->ref,
-                'produit' => $productTitle,
-                'montant' => (float)$tx->amount,
-                'fees'    => (float)$tx->fees,
-                'sens'    => 'entrant',
-                'source'  => 'tx',
-                'id'      => $tx->id,
-            ];
-        });
+            
+            // Ligne principale (Montant Brut)
+            $mergedMovements->push((object)[
+                'date'               => $tx->created_at,
+                'date_souscription'  => $tx->date_validation ?? $tx->created_at,
+                'libelle'            => $tx->title ?? 'SOUSCRIPTION',
+                'ref'                => $tx->ref,
+                'produit'            => $productTitle,
+                'montant'            => (float)$tx->amount + (float)$tx->fees,
+                'fees'               => 0, // Inclus dans le brut
+                'sens'               => 'entrant',
+                'source'             => 'tx',
+                'id'                 => $tx->id,
+            ]);
 
-        $supplementalTx = App\Models\TransactionSupplementaire::where('user_id', $userId)
+            // Ligne des frais
+            if ((float)$tx->fees > 0) {
+                $mergedMovements->push((object)[
+                    'date'               => $tx->created_at,
+                    'date_souscription'  => $tx->date_validation ?? $tx->created_at,
+                    'libelle'            => 'FRAIS DE SOUSCRIPTION',
+                    'ref'                => $tx->ref,
+                    'produit'            => $productTitle,
+                    'montant'            => (float)$tx->fees,
+                    'fees'               => (float)$tx->fees,
+                    'sens'               => 'sortant',
+                    'source'             => 'tx_fees',
+                    'id'                 => $tx->id,
+                ]);
+            }
+        }
+
+        App\Models\TransactionSupplementaire::where('user_id', $userId)
             ->where('status', 'Succès')
             ->get()
-            ->map(function ($tx) {
+            ->each(function ($tx) use (&$mergedMovements) {
                 $productTitle = optional(App\Models\Product::find($tx->product_id))->title ?? 'Produit';
-                return (object)[
-                    'date'    => $tx->date_validation ?? $tx->created_at,
-                    'libelle' => $tx->title ?? 'VERSEMENT LIBRE',
-                    'ref'     => $tx->ref,
-                    'produit' => $productTitle,
-                    'montant' => (float)$tx->amount,
-                    'fees'    => (float)$tx->fees,
-                    'sens'    => 'entrant',
-                    'source'  => 'tx_supp',
-                    'id'      => $tx->id,
-                ];
+                
+                // Ligne principale (Montant Brut)
+                $mergedMovements->push((object)[
+                    'date'               => $tx->created_at,
+                    'date_souscription'  => $tx->date_validation ?? $tx->created_at,
+                    'libelle'            => $tx->title ?? 'VERSEMENT LIBRE',
+                    'ref'                => $tx->ref,
+                    'produit'            => $productTitle,
+                    'montant'            => (float)$tx->amount + (float)$tx->fees,
+                    'fees'               => 0,
+                    'sens'               => 'entrant',
+                    'source'             => 'tx_supp',
+                    'id'                 => $tx->id,
+                ]);
+
+                // Ligne des frais
+                if ((float)$tx->fees > 0) {
+                    $mergedMovements->push((object)[
+                        'date'               => $tx->created_at,
+                        'date_souscription'  => $tx->date_validation ?? $tx->created_at,
+                        'libelle'            => 'FRAIS DE SOUSCRIPTION',
+                        'ref'                => $tx->ref,
+                        'produit'            => $productTitle,
+                        'montant'            => (float)$tx->fees,
+                        'fees'               => (float)$tx->fees,
+                        'sens'               => 'sortant',
+                        'source'             => 'tx_supp_fees',
+                        'id'                 => $tx->id,
+                    ]);
+                }
             });
 
-        // 5. Fusionner et trier par date décroissante
-        $allMovements = collect()
-            ->merge($officialTx)
-            ->merge($supplementalTx)
-            ->merge($financialMovements)
-            ->merge($fcpMovements)
-            ->sortByDesc('date')
-            ->values();
+        // 5. Trier par date (created_at) décroissante
+        $allMovements = $mergedMovements->sortByDesc('date')->values();
 
         return view('front-end.my-history', compact('allMovements', 'transactions'));
     })->name('my-history');
@@ -633,8 +696,21 @@ Route::prefix('admin-front')->middleware(['auth'])->group(function () {
     Route::delete('/menus/{menu}', [\App\Http\Controllers\AdminFrontendController::class, 'deleteMenu'])->name('admin.front.menus.delete');
 });
 
-/*
-Route::fallback(function () {
-    return view('errors.404');
+// --- Gestion Commerciale (CRM) ---
+Route::prefix('crm')->middleware(['auth'])->group(function () {
+    Route::get('/dashboard', [\App\Http\Controllers\CrmController::class, 'index'])->name('crm.dashboard');
+    Route::get('/prospects', [\App\Http\Controllers\CrmController::class, 'prospects'])->name('crm.prospects');
+    Route::post('/prospects', [\App\Http\Controllers\CrmController::class, 'storeProspect'])->name('crm.prospects.store');
+    Route::patch('/prospects/{id}/status', [\App\Http\Controllers\CrmController::class, 'updateStatus'])->name('crm.prospects.update-status');
+    Route::get('/clients', [\App\Http\Controllers\CrmController::class, 'clients'])->name('crm.clients');
 });
- */
+
+
+// Routes de prévisualisation des pages d'erreur (à supprimer en production)
+Route::get('/preview/404', function () { return view('errors.404'); });
+Route::get('/preview/500', function () { return view('errors.500'); });
+Route::get('/preview/419', function () { return view('errors.419'); });
+
+Route::fallback(function () {
+    return response()->view('errors.404', [], 404);
+});

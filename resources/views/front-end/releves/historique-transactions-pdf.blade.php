@@ -200,11 +200,12 @@
     <table>
         <thead>
             <tr>
-                <th>Date</th>
+                <th>Date Op.</th>
+                <th>Date Sous.</th>
                 <th>Opération</th>
                 <th>Produit</th>
                 <th>Référence</th>
-                <th class="center">Type</th>
+                <th class="center">Sens</th>
                 <th class="right">Montant (XAF)</th>
             </tr>
         </thead>
@@ -212,14 +213,18 @@
             @forelse ($allMovements as $mvt)
                 @php
                     $isEntrant = $mvt->sens === 'entrant';
+                    $isFees = str_contains(strtoupper($mvt->libelle), 'FRAIS');
                 @endphp
-                <tr>
+                <tr {!! $isFees ? 'style="background-color: #fafafa;"' : '' !!}>
                     <td>{{ \Carbon\Carbon::parse($mvt->date)->format('d/m/Y') }}</td>
-                    <td>{{ $mvt->libelle }}</td>
+                    <td style="opacity: 0.7;">{{ isset($mvt->date_souscription) ? \Carbon\Carbon::parse($mvt->date_souscription)->format('d/m/Y') : '-' }}</td>
+                    <td style="{{ $isFees ? 'font-style: italic; opacity: 0.8;' : 'font-weight: bold;' }}">
+                        {{ str_replace('Achat', 'Souscription', $mvt->libelle) }}
+                    </td>
                     <td>
                         <span class="product-badge">{{ $mvt->produit ?? 'N/A' }}</span>
                     </td>
-                    <td style="font-family: monospace; font-size:9.5px; opacity: .8;">
+                    <td style="font-family: monospace; font-size:8.5px; opacity: .8;">
                         {{ $mvt->ref ?? '-' }}
                     </td>
                     <td class="center">
@@ -229,7 +234,7 @@
                             <span class="badge-sortant">↑ Sortant</span>
                         @endif
                     </td>
-                    <td class="right {{ $isEntrant ? 'amount-entrant' : 'amount-sortant' }}">
+                    <td class="right {{ $isEntrant ? 'amount-entrant' : 'amount-sortant' }}" style="font-size: 11px;">
                         {{ $isEntrant ? '+' : '-' }}{{ number_format(abs($mvt->montant), 0, ' ', ' ') }}
                     </td>
                 </tr>

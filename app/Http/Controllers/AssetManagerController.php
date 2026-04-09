@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\Transaction;
 use App\Models\TransactionSupplementaire;
+use App\Models\CustomerPortfolio;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Product;
@@ -13,32 +14,95 @@ use Carbon\Carbon;
 
 class AssetManagerController extends Controller
 {
-    public function createCustomer()
+    public function createCustomer(Request $request, User $customer = null)
     {
-        return view('front-end.asset-manager.create-customer');
+        // On liste désormais les dossiers (portefeuilles) au lieu des simples utilisateurs
+        $portfolios = CustomerPortfolio::with('user')->orderBy('created_at', 'desc')->get();
+        
+        return view('front-end.asset-manager.create-customer', [
+            'portfolios' => $portfolios,
+            'customerToEdit' => $customer
+        ]);
     }
 
     public function storeCustomer(Request $request)
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
+            'email' => 'required|string|email|max:255', // Plus de contrainte unique sur l'email car un user peut avoir 2 dossiers
+            'type' => 'required|in:PMG,FCP',
             'genre' => 'required|integer|in:0,1,2',
             'localisation' => 'required|string|max:255',
             'bp' => 'nullable|string|max:255',
         ]);
 
-        User::create([
+        // 1. Recherche ou Création de l'Utilisateur Maître
+        $user = User::where('email', $request->email)->first();
+        if (!$user) {
+            $user = User::create([
+                'name' => $request->name,
+                'email' => $request->email,
+                'password' => \Illuminate\Support\Facades\Hash::make('12345678'),
+                'genre' => $request->genre,
+                'localisation' => $request->localisation,
+                'bp' => $request->bp,
+                'role_id' => 2, // Client
+            ]);
+            $isNewUser = true;
+        } else {
+            // Optionnel: Mettre à jour les infos si l'utilisateur existait déjà
+            $user->update([
+                'name' => $request->name,
+                'genre' => $request->genre,
+                'localisation' => $request->localisation,
+                'bp' => $request->bp,
+            ]);
+            $isNewUser = false;
+        }
+
+        // 2. Génération automatique de la Référence (PMG0001, FCP0001...)
+        $type = $request->type;
+        $lastRef = CustomerPortfolio::where('type', $type)->orderBy('reference', 'desc')->first();
+        
+        if ($lastRef) {
+            $number = (int) preg_replace('/[^0-9]/', '', $lastRef->reference);
+            $newRef = $type . str_pad($number + 1, 4, '0', STR_PAD_LEFT);
+        } else {
+            $newRef = $type . '0001';
+        }
+
+        // 3. Création du Dossier (Portfolio)
+        CustomerPortfolio::create([
+            'user_id' => $user->id,
+            'type' => $type,
+            'reference' => $newRef,
+            'status' => 'active',
+        ]);
+
+        $msg = $isNewUser ? "Client et dossier $newRef créés avec succès." : "Dossier $newRef ajouté au compte existant ({$request->email}).";
+
+        return redirect()->route('asset-manager.create-customer')->with('success', $msg . ' Le mot de passe par défaut est 12345678.');
+    }
+
+    public function updateCustomer(Request $request, User $customer)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users,email,' . $customer->id,
+            'genre' => 'required|integer|in:0,1,2',
+            'localisation' => 'required|string|max:255',
+            'bp' => 'nullable|string|max:255',
+        ]);
+
+        $customer->update([
             'name' => $request->name,
             'email' => $request->email,
-            'password' => \Illuminate\Support\Facades\Hash::make('12345678'),
             'genre' => $request->genre,
             'localisation' => $request->localisation,
             'bp' => $request->bp,
-            'role_id' => 2, // Client
         ]);
 
-        return redirect()->route('customer')->with('success', 'Client créé avec succès. Le mot de passe par défaut est 12345678.');
+        return redirect()->route('asset-manager.create-customer')->with('success', 'Informations du client mises à jour avec succès.');
     }
 
     //
@@ -100,11 +164,13 @@ class AssetManagerController extends Controller
         $portefeuille_fcp = 0;
         $portefeuille_pmg = 0;
         $total_interets = 0;
+        $total_plus_value_fcp = 0;
 
         foreach ($productsWithGains as $p) {
             if ($p['type_product'] == 1) { // FCP
                 $portefeuille_fcp += (float)$p['portfolio_valeur'];
                 $total_interets += (float)($p['total_gains_fcp'] ?? 0);
+                $total_plus_value_fcp += (float)($p['total_gains_fcp'] ?? 0);
             } else { // PMG
                 $portefeuille_pmg += (float)$p['portfolio_valeur'];
                 $total_interets += (float)($p['interets_generes'] ?? 0);
@@ -139,6 +205,10 @@ class AssetManagerController extends Controller
             ['path' => $request->url(), 'query' => $request->query()]
         );
 
+        if ($request->ajax()) {
+            return view('front-end.partials.customer-months-table', compact('customer', 'availableMonths'));
+        }
+
         return view('front-end.customer-detail', compact(
             'customer', 
             'productsWithGains', 
@@ -147,6 +217,7 @@ class AssetManagerController extends Controller
             'portefeuille_pmg',
             'portefeuille_fcp',
             'total_interets',
+            'total_plus_value_fcp',
             'products',
             'categories',
             'availableMonths'
@@ -156,7 +227,12 @@ class AssetManagerController extends Controller
     public function customersStatementsMenu(Request $request)
     {
         $search = $request->input('search');
-        $query = User::where('role_id', '2')->orderBy('name', 'asc');
+        $sortBy = $request->input('sort_by', 'name');
+        $order = $request->input('order', 'asc');
+        $currentDate = Carbon::now();
+
+        // 1. Base query
+        $query = User::where('role_id', '2');
 
         if ($search) {
             $query->where(function ($q) use ($search) {
@@ -165,16 +241,44 @@ class AssetManagerController extends Controller
             });
         }
 
-        $customers = $query->paginate(20);
+        // 2. Fetch all for calculation and sorting
+        $allMatchedUsers = $query->get();
+        $processedUsers = collect();
 
-        foreach ($customers as $customer) {
-            $stats = $this->productControllerImport->getUserStats($customer->id);
-            $customer->total_capital = $stats['total_invested'];
-            $customer->total_interets = $stats['total_gains'];
-            $customer->portefeuille_total = $stats['total_portfolio'];
+        foreach ($allMatchedUsers as $user) {
+            $stats = $this->productControllerImport->getUserStats($user->id);
+            $user->total_capital = $stats['total_invested'];
+            $user->total_interets = $stats['total_gains'];
+            $user->portefeuille_total = $stats['total_portfolio'];
+            
+            $processedUsers->push($user);
         }
 
-        return view('front-end.customer-statements', compact('customers', 'search'));
+        // 3. Sorting
+        if ($order == 'desc') {
+            $processedUsers = $processedUsers->sortByDesc($sortBy);
+        } else {
+            $processedUsers = $processedUsers->sortBy($sortBy);
+        }
+
+        // 4. Manual Pagination
+        $page = $request->input('page', 1);
+        $perPage = 10;
+        $pagedData = $processedUsers->slice(($page - 1) * $perPage, $perPage)->values();
+        
+        $customers = new \Illuminate\Pagination\LengthAwarePaginator(
+            $pagedData,
+            $processedUsers->count(),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
+
+        if ($request->ajax()) {
+            return view('front-end.partials.customer-statements-table', compact('customers', 'search', 'sortBy', 'order'));
+        }
+
+        return view('front-end.customer-statements', compact('customers', 'search', 'sortBy', 'order'));
     }
 
     public function countUserProducts($userId)
@@ -245,8 +349,8 @@ class AssetManagerController extends Controller
 
                     if ($latestAssetValue) {
                         $vl_actuel = $latestAssetValue->vl;
-                        $totalGain += $this->productControllerImport->calculateFCPGain(floor($vl_actuel), $transaction);
-                        $recentGain[] = $this->productControllerImport->calculateFCPGain(floor($vl_actuel), $transaction);
+                        $totalGain += $this->productControllerImport->calculateFCPGain($vl_actuel, $transaction);
+                        $recentGain[] = $this->productControllerImport->calculateFCPGain($vl_actuel, $transaction);
                         $recentGains[] = [
                             'gain' => $recentGain,
                             'product_id' => $product->id,
@@ -262,15 +366,15 @@ class AssetManagerController extends Controller
 
                     if ($assetValues->count() >= 1) {
                         $vl_actuel = $assetValues->first()->vl;
-                        $vl_antepenultimate = $assetValues->count() == 2 ? floor($assetValues->last()->vl) : floor($transaction->vl_buy);
+                        $vl_antepenultimate = $assetValues->count() == 2 ? $assetValues->last()->vl : $transaction->vl_buy;
 
                         //dd("Valeur liquidative actuelle = ".$vl_actuel,"Valeur liquidative précédente = ".$vl_antepenultimate, "Nombre de parts = ".$transaction->nb_part,"Différence Vl précédente Vl actuelle = ".$vl_actuel - $vl_antepenultimate, "Gain de la semaine (nb part * (vl_prec - vl_actuelle)) = ".$transaction->nb_part * ($vl_actuel - $vl_antepenultimate));
                         // Calcul de la valorisation du portefeuille
-                        $valorisationPortefeuille = $this->productControllerImport->calculateFCPGain(floor($vl_actuel), $transaction);
+                        $valorisationPortefeuille = $this->productControllerImport->calculateFCPGain($vl_actuel, $transaction);
 
                         // Calcul du gain entre l'avant-dernière et la dernière VL
 
-                        $gain = $transaction->nb_part * (floor($vl_actuel) - floor($vl_antepenultimate));
+                        $gain = $transaction->nb_part * ($vl_actuel - $vl_antepenultimate);
                         $gainWeekFcp += $gain;
                         $gainWeekTab[] = $gainWeekFcp;
 
@@ -280,7 +384,7 @@ class AssetManagerController extends Controller
                         $cumulGains += $valorisationPortefeuille - ($transaction->nb_part * $transaction->vl_buy);
 
                         // Ajouter le gain cumulé au total
-                        $totalGainFcp += $this->productControllerImport->calculateFCPGain(floor($vl_actuel), $transaction);
+                        $totalGainFcp += $this->productControllerImport->calculateFCPGain($vl_actuel, $transaction);
                     }
 
 
