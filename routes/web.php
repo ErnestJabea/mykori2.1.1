@@ -43,6 +43,10 @@ Route::get('/repair-production-data', function() {
     return DB::transaction(function () {
         // --- 1. Correction pour Mme NINA LAMERO (ID 74) ---
         $ninaId = 74;
+        // Correction du capital brut (frais de 19 800 -> 20 000 pour atteindre 3 000 000 brut total)
+        DB::table('transactions')->where('id', 100)->update(['fees' => 20000]);
+
+        // Mouvement du 04/02/2026
         DB::table('fcp_movements')->where('user_id', $ninaId)->whereDate('date_operation', '2026-02-04')
             ->update([
                 'vl_applied' => 10979.81,
