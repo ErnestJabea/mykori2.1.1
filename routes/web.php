@@ -1,5 +1,49 @@
 <?php
 
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Route;
+
+Route::get('/repair-production-data', function() {
+    return DB::transaction(function () {
+        // --- 1. Correction pour Mme NINA LAMERO (ID 74) ---
+        $ninaId = 74;
+        // Mouvement du 04/02/2026
+        DB::table('fcp_movements')->where('user_id', $ninaId)->whereDate('date_operation', '2026-02-04')
+            ->update([
+                'vl_applied' => 10979.81,
+                'nb_parts_change' => 1980000 / 10979.81,
+                'comment' => "Correction : Alignement carnet d'ordre"
+            ]);
+        // Mouvement du 06/03/2026
+        DB::table('fcp_movements')->where('user_id', $ninaId)->whereDate('date_operation', '2026-03-06')
+            ->update([
+                'vl_applied' => 11293.51,
+                'nb_parts_change' => 990000 / 11293.51,
+                'comment' => "Correction : Alignement carnet d'ordre"
+            ]);
+
+        // --- 2. Correction pour Mme ESSAGA (ID 71) ---
+        $essagaId = 71;
+        $movements = DB::table('fcp_movements')->where('user_id', $essagaId)->get();
+        foreach($movements as $m) {
+             $preciseParts = (float)$m->amount_xaf / (float)$m->vl_applied;
+             DB::table('fcp_movements')->where('id', $m->id)->update(['nb_parts_change' => $preciseParts]);
+        }
+
+        // --- 3. Recalcul des totaux (Running Balance) pour les deux ---
+        foreach([$ninaId, $essagaId] as $id) {
+            $total = 0;
+            $items = DB::table('fcp_movements')->where('user_id', $id)->orderBy('date_operation', 'asc')->orderBy('id', 'asc')->get();
+            foreach($items as $item) {
+                $total += (float)$item->nb_parts_change;
+                DB::table('fcp_movements')->where('id', $item->id)->update(['nb_parts_total' => $total]);
+            }
+        }
+
+        return "Correction terminée avec succès pour Nina (ID 74) et Essaga (ID 71). PENSEZ A SUPPRIMER CETTE ROUTE.";
+    });
+});
+
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductDetailGainController;
 use App\Http\Controllers\TransactionViewController;
