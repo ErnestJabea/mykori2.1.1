@@ -1,20 +1,54 @@
 <?php
 
+use App\Http\Controllers\AchatActionController;
+use App\Http\Controllers\AchatActionCustomerController;
+use App\Http\Controllers\AdminFrontendController;
+use App\Http\Controllers\AssetManagerController;
+use App\Http\Controllers\BackofficeController;
+use App\Http\Controllers\ChangePasswordController;
+use App\Http\Controllers\ComplianceController;
+use App\Http\Controllers\DirectorGeneralController;
+use App\Http\Controllers\ListeClientReleveController;
+use App\Http\Controllers\MovementController;
+use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ProductDetailGainController;
+use App\Http\Controllers\TransactionViewController;
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\VerificationOtpController;
+use App\Models\AssetValue;
+use App\Models\FinancialMovement;
+use App\Models\Product;
+use App\Models\ProductsCategory;
+use App\Models\Transaction;
+use App\Models\TransactionSupplementaire;
+use App\Models\User;
+use App\Services\InvestmentService;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Str;
+use TCG\Voyager\Facades\Voyager;
+
+/*
+|--------------------------------------------------------------------------
+| Web Routes
+|--------------------------------------------------------------------------
+*/
 
 Route::get('/repair-production-data', function() {
     return DB::transaction(function () {
         // --- 1. Correction pour Mme NINA LAMERO (ID 74) ---
         $ninaId = 74;
-        // Mouvement du 04/02/2026
         DB::table('fcp_movements')->where('user_id', $ninaId)->whereDate('date_operation', '2026-02-04')
             ->update([
                 'vl_applied' => 10979.81,
                 'nb_parts_change' => 1980000 / 10979.81,
                 'comment' => "Correction : Alignement carnet d'ordre"
             ]);
-        // Mouvement du 06/03/2026
         DB::table('fcp_movements')->where('user_id', $ninaId)->whereDate('date_operation', '2026-03-06')
             ->update([
                 'vl_applied' => 11293.51,
@@ -30,7 +64,7 @@ Route::get('/repair-production-data', function() {
              DB::table('fcp_movements')->where('id', $m->id)->update(['nb_parts_change' => $preciseParts]);
         }
 
-        // --- 3. Recalcul des totaux (Running Balance) pour les deux ---
+        // --- 3. Recalcul des totaux (Running Balance) ---
         foreach([$ninaId, $essagaId] as $id) {
             $total = 0;
             $items = DB::table('fcp_movements')->where('user_id', $id)->orderBy('date_operation', 'asc')->orderBy('id', 'asc')->get();
@@ -43,38 +77,6 @@ Route::get('/repair-production-data', function() {
         return "Correction terminée avec succès pour Nina (ID 74) et Essaga (ID 71). PENSEZ A SUPPRIMER CETTE ROUTE.";
     });
 });
-
-use App\Http\Controllers\ProductController;
-use App\Http\Controllers\ProductDetailGainController;
-use App\Http\Controllers\TransactionViewController;
-use App\Http\Controllers\AssetManagerController;
-use App\Http\Controllers\UserController;
-use App\Http\Controllers\VerificationOtpController;
-use App\Http\Controllers\AchatActionController;
-use App\Http\Controllers\AchatActionCustomerController;
-use App\Http\Controllers\ChangePasswordController;
-use App\Http\Controllers\ListeClientReleveController;
-use App\Http\Controllers\MovementController;
-use App\Http\Controllers\ComplianceController;
-use App\Http\Controllers\BackofficeController;
-use App\Http\Controllers\DirectorGeneralController;
-use App\Http\Controllers\AdminFrontendController;
-use App\Services\InvestmentService;
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Log;
-use TCG\Voyager\Facades\Voyager;
-use App\Models\User;
-use App\Models\Transaction;
-use App\Models\Product;
-use Barryvdh\DomPDF\Facade\Pdf;
-use App\Models\TransactionSupplementaire;
-use App\Models\ProductsCategory;
-use App\Models\AssetValue;
-use Carbon\Carbon;
-use Illuminate\Support\Str;
-use App\Models\FinancialMovement;
 
 /*
 |--------------------------------------------------------------------------
