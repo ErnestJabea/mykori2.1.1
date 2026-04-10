@@ -313,8 +313,7 @@
 
                         // Mettez à jour les valeurs des spans
                         $('#valeur-liquidative').text('Nombre de parts : ' + montantAchat
-                            .toLocaleString(
-                                'fr-FR'));
+                            .toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
                         $('#frais-de-gestion').text('Frais de souscription : XAF ' + frais
                             .toLocaleString(
                                 'fr-FR'));

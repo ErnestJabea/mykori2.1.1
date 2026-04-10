@@ -137,7 +137,7 @@ class InvestmentService
         // On récupère la VL en vigueur strictement avant ou à la date d'opération
         // (Pour s'assurer du calcul correct au moment T)
         $historicalVl = \App\Models\AssetValue::where('product_id', $transaction->product_id)
-            ->where('date_vl', '<', $dateOp) // On cherche AVANT la date pour un point d'entrée net
+            ->where('date_vl', '<=', $dateOp) // On utilise la VL du jour si dispo, sinon la précédente
             ->orderBy('date_vl', 'desc')
             ->first();
 
@@ -148,10 +148,9 @@ class InvestmentService
             $vl = (float)($product->vl ?? 100);
         }
 
-        // On s'assure que les parts sont bien basées sur le montant NET (déjà déduit des frais dans le controller)
-        // L'utilisateur demande 2 décimales sans arrondir (tronquer à la 2ème décimale)
-        $nbPartsRaw = (float)$transaction->amount / $vl;
-        $nbParts = floor($nbPartsRaw * 100) / 100;
+        // On s'assure que les parts sont bien basées sur le montant NET (déjà déduit des frais)
+        // On conserve la précision maximale (float) pour le stockage interne
+        $nbParts = (float)$transaction->amount / $vl;
         $fees = (float)($transaction->fees ?? 0);
 
         return DB::table('fcp_movements')->insert([
@@ -160,7 +159,8 @@ class InvestmentService
             'user_id'        => $transaction->user_id,
             'product_id'     => $transaction->product_id,
             'type'           => $type,
-            'amount_xaf'     => (float)$transaction->amount + (float)($transaction->fees ?? 0), // Montant BRUT (Net + Frais)
+            'amount_xaf'     => (float)$transaction->amount, // Montant NET (Ce qui est réellement investi)
+            'fees'           => (float)($transaction->fees ?? 0), // Frais prélevés lors de la souscription
             'vl_applied'     => $vl,
             'nb_parts_change' => $nbParts,
             'nb_parts_total' => $this->getCurrentParts($transaction->user_id, $transaction->product_id) + $nbParts,

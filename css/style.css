@@ -8576,3 +8576,11 @@ form#edit-transaction-form button {
     color: #fff;
     padding: 4px;
 }
+
+.card.card-wrapper {
+    width: 100%;
+}
+
+.card.card-wrapper table {
+    width: 100%;
+}

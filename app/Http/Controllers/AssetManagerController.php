@@ -232,31 +232,87 @@ class AssetManagerController extends Controller
     }
 
 
-    public function customers()
+    public function customers(Request $request)
     {
-        $customers = User::where('role_id', '2')->orderBy('created_at', 'desc')->get();
+        $search = $request->input('search');
+        $categoryFilter = $request->input('category', 'all'); // 'all', '1' (FCP), '2' (PMG)
+        $sortBy = $request->input('sort_by', 'name');
+        $order = $request->input('order', 'asc');
 
-        // Ajouter le nombre de produits pour chaque utilisateur
-        foreach ($customers as $customer) {
-            // Compter le nombre de produits distincts dans la table transactions
-            $countFromTransactions = Transaction::where('user_id', $customer->id)
-                ->distinct('product_id')
-                ->count('product_id');
+        $query = User::where('role_id', '2');
 
-            // Compter le nombre de produits distincts dans la table transaction_supplementaire
-            $countFromSupplementaryTransactions = TransactionSupplementaire::where('user_id', $customer->id)
-                ->distinct('product_id')
-                ->count('product_id');
-
-            // Calculer le total des produits distincts pour cet utilisateur
-            $totalProductCount = $countFromTransactions + $countFromSupplementaryTransactions;
-
-            // Ajouter le nombre total de produits au modèle User
-            $customer->product_count = $totalProductCount;
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'LIKE', "%{$search}%")
+                  ->orWhere('email', 'LIKE', "%{$search}%");
+            });
         }
 
+        // Filtrage par Portefeuilles (Nouveau système)
+        if ($categoryFilter == '1') { // FCP
+            $query->whereHas('portfolios', function($q) { $q->where('type', 'FCP'); });
+        } elseif ($categoryFilter == '2') { // PMG
+            $query->whereHas('portfolios', function($q) { $q->where('type', 'PMG'); });
+        }
 
-        return view('front-end.customer')->with('customers', $customers);
+        $allUsers = $query->get();
+        $processedUsers = collect();
+        
+        $globalTotalInvesti = 0;
+        $globalTotalInterets = 0;
+        $activeClientsCount = 0;
+        $inactiveClientsCount = 0;
+
+        foreach ($allUsers as $user) {
+            $stats = $this->productControllerImport->getUserStats($user->id);
+            $user->total_capital = $stats['total_invested'] ?? 0;
+            $user->total_interets = $stats['total_gains'] ?? 0;
+            $user->portefeuille_total = $stats['total_portfolio'] ?? 0;
+            $user->product_count = $this->countUserProducts($user->id);
+            
+            if ($user->product_count > 0) {
+                $activeClientsCount++;
+                $globalTotalInvesti += $user->total_capital;
+                $globalTotalInterets += $user->total_interets;
+            } else {
+                $inactiveClientsCount++;
+            }
+
+            // On ajoute systématiquement l'utilisateur à la liste finale
+            $processedUsers->push($user);
+        }
+
+        // Tri
+        if ($order == 'desc') {
+            $processedUsers = $processedUsers->sortByDesc($sortBy);
+        } else {
+            $processedUsers = $processedUsers->sortBy($sortBy);
+        }
+
+        // Pagination
+        $page = $request->input('page', 1);
+        $perPage = 10;
+        $pagedData = $processedUsers->slice(($page - 1) * $perPage, $perPage)->values();
+        
+        $customers = new \Illuminate\Pagination\LengthAwarePaginator(
+            $pagedData,
+            $processedUsers->count(),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
+
+        if ($request->ajax()) {
+            return view('front-end.partials.customer-table', compact(
+                'customers', 'search', 'categoryFilter', 'sortBy', 'order',
+                'globalTotalInvesti', 'globalTotalInterets', 'activeClientsCount', 'inactiveClientsCount'
+            ));
+        }
+
+        return view('front-end.customer', compact(
+            'customers', 'search', 'categoryFilter', 'sortBy', 'order',
+            'globalTotalInvesti', 'globalTotalInterets', 'activeClientsCount', 'inactiveClientsCount'
+        ));
     }
 
 

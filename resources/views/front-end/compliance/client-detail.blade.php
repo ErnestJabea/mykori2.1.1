@@ -192,7 +192,7 @@
                                             <td class="py-4 px-6 text-center text-xs">
                                                 {{ number_format($f->vl_applied, 2, ',', ' ') }}</td>
                                             <td class="py-4 px-6 text-end font-bold text-n700">
-                                                {{ $f->nb_parts_change > 0 ? '+' : '' }}{{ number_format($f->nb_parts_change, 4, ',', ' ') }}
+                                                {{ ($f->nb_parts_change > 0 ? '+' : '') . number_format($f->nb_parts_change, 2, ',', ' ') }}
                                             </td>
                                             <td class="py-4 px-6 text-end font-extrabold text-primary">
                                                 {{ number_format($f->amount_xaf, 0, ' ', ' ') }}</td>
