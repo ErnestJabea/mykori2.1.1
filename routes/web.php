@@ -1,93 +1,5 @@
 <?php
 
-Route::get('/diag-fomethe', function() {
-
-    $transactions = DB::table('transactions as t')
-        ->join('products as p', 't.product_id', '=', 'p.id')
-        ->join('users as u', 't.user_id', '=', 'u.id')
-        ->where('p.products_category_id', 1)
-        ->where('t.status', 'Succès')
-        ->select('t.id', 'u.name', 't.amount', 't.fees', 't.date_validation')
-        ->get();
-
-    $discrepancies = [];
-
-    foreach ($transactions as $t) {
-        $gross = (float)$t->amount + (float)$t->fees;
-        
-        $isOff = ($gross > 0 && ($gross % 1000 != 0));
-        $isZero = ((float)$t->fees == 0);
-
-        if ($isOff || $isZero) {
-            $discrepancies[] = [
-                'id' => $t->id,
-                'client' => $t->name,
-                'date' => $t->date_validation,
-                'amount' => $t->amount,
-                'fees' => $t->fees,
-                'gross' => $gross,
-                'status' => $isZero ? 'ZERO_FEES' : 'OFF_ROUND'
-            ];
-        }
-    }
-    return $discrepancies;
-});
-
-Route::get('/diag-fcp-fees', function() {
-    $transactions = DB::table('transactions as t')
-        ->join('products as p', 't.product_id', '=', 'p.id')
-        ->join('users as u', 't.user_id', '=', 'u.id')
-        ->where('p.products_category_id', 1)
-        ->where('t.status', 'Succès')
-        ->select('t.id', 'u.name', 't.amount', 't.fees', 't.date_validation')
-        ->get();
-
-    $discrepancies = [];
-
-    foreach ($transactions as $t) {
-        $gross = (float)$t->amount + (float)$t->fees;
-        
-        $isOff = ($gross > 0 && ($gross % 1000 != 0));
-        $isZero = ((float)$t->fees == 0);
-
-        if ($isOff || $isZero) {
-            $discrepancies[] = [
-                'id' => $t->id,
-                'client' => $t->name,
-                'date' => $t->date_validation,
-                'amount' => $t->amount,
-                'fees' => $t->fees,
-                'gross' => $gross,
-                'status' => $isZero ? 'ZERO_FEES' : 'OFF_ROUND'
-            ];
-        }
-    }
-    return $discrepancies;
-});
-
-Route::get('/nina-final-check', function() {
-    $userId = 74;
-    $date = '2026-03-31';
-
-    $movements = DB::table('fcp_movements')
-        ->where('user_id', $userId)
-        ->orderBy('date_operation', 'asc')
-        ->get();
-
-    $transactions = DB::table('transactions')
-        ->where('user_id', $userId)
-        ->get(['id', 'amount', 'fees', 'date_validation']);
-
-    $service = new \App\Services\InvestmentService();
-    $valuation = $service->getConsolidatedFcpPortfolio($userId, $date);
-
-    return response()->json([
-        'movements' => $movements,
-        'transactions' => $transactions,
-        'valuation_31_03' => $valuation
-    ]);
-});
-
 use App\Http\Controllers\AchatActionController;
 use App\Http\Controllers\AchatActionCustomerController;
 use App\Http\Controllers\AdminFrontendController;
@@ -125,6 +37,25 @@ use TCG\Voyager\Facades\Voyager;
 |--------------------------------------------------------------------------
 */
 
+Route::get('/valuation-kori-final', function() {
+    $userId = 66;
+    $date = '2026-03-31';
+    
+    $service = new \App\Services\InvestmentService();
+    $valuation = $service->getConsolidatedFcpPortfolio($userId, $date);
+    
+    $movements = \DB::table('fcp_movements')
+        ->where('user_id', $userId)
+        ->where('date_operation', '<=', $date)
+        ->get();
+
+    return [
+        'client' => 'KORI ASSET MANAGEMENT',
+        'date_arrete' => $date,
+        'summary' => $valuation,
+        'movements_history' => $movements
+    ];
+});
 
 Route::get('/clear-fcp-data', function() {
     return DB::transaction(function () {

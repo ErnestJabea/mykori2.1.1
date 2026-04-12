@@ -5,6 +5,20 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
 ])
 
 @section('content')
+    <style>
+        .kori-fcp-table th, 
+        .kori-fcp-table td {
+            white-space: nowrap !important;
+            padding-left: 15px !important;
+            padding-right: 15px !important;
+        }
+
+        /* Optionnel : permettre le défilement horizontal si le tableau est trop large */
+        .kori-table-wrapper {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+    </style>
     <main class="main-content has-sidebar">
         <div class="grid grid-cols-12 gap-4 xxl:gap-6 items-center">
             <div class="col-span-12 md:col-span-4 lg:col-span-5">
@@ -90,8 +104,11 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
 
                             <!-- Dynamic Field: VL or Taux -->
                             <div class="col-span-1 form-control" id="vl_taux_container">
-                                <label id="label_vl_taux" class="mb-2 block text-sm font-semibold opacity-80">Valeur /
-                                    Taux</label>
+                                <label id="label_vl_taux"
+                                    class="mb-2 block text-sm font-semibold opacity-80 flex items-center justify-between">
+                                    <span>Valeur / Taux</span>
+                                    <span id="vl-date-info" class="text-[10px] text-primary italic font-normal"></span>
+                                </label>
                                 <input type="text" id="vl_taux_input" name="vl_taux"
                                     class="w-full rounded-xl border border-n30 bg-gray-100 dark:bg-bg4 px-4 py-3 outline-none transition-all"
                                     readonly>
@@ -213,92 +230,77 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
         <div class="content-separator" style="height:30px"></div>
 
         <div class="flex flex-wrap">
-            <div class="content-bloc-list-produit ">
-                <div class="box ">
+            <div class="content-bloc-list-produit">
+                <div class="box">
                     <h3 class="mb-4">MES PRODUITS PMG ACTIFS</h3>
-                    <div class="content-inner-wrapper flex flex-wrap">
-                        @foreach ($productsWithGains as $my_product)
-                            @if ($my_product['type_product'] == 2)
-                                <div class="item-product">
-                                    <div class="content-link-title">
-                                        <a href="#!" class="flex flex-space-between-center">
-                                            <span>Souscription : {{ $my_product['product_name'] }}</span>
-                                        </a>
-                                    </div>
-                                    <div class="inner-header">
-                                        <div class="content-label-info">
-                                            <div class="label-">Investissement initial (Brut) :</div>
-                                            <div class="response-">XAF
-                                                {{ number_format($my_product['capital_investi'], 0, ' ', ' ') }}
-                                            </div>
-                                        </div>
-                                        <div class="content-label-info">
-                                            <div class="label-">Taux d'intérêt :</div>
-                                            <div class="response-">{{ $my_product['vl_achat'] }}%</div>
-                                        </div>
-                                        <div class="content-label-info">
-                                            <div class="label-">Durée :</div>
-                                            <div class="response-">{{ $my_product['days_months']['months'] }} mois</div>
-                                        </div>
-                                        <div class="content-label-info">
-                                            <div class="label-">Intérêt mensuel :</div>
-                                            <div class="response-">XAF
+                    <div class="kori-table-wrapper mt-4">
+                        <table class="kori-fcp-table">
+                            <thead>
+                                <tr>
+                                    <th>Produit</th>
+                                    <th>Date Valeur</th>
+                                    <th>Échéance</th>
+                                    <th class="text-right">Capital (Brut)</th>
+                                    <th class="text-center">Taux / Durée</th>
+                                    <th class="text-right">Intérêt Mensuel</th>
+                                    <th class="text-right">Gains Cumulés</th>
+                                    <th class="text-right">Valeur Actuelle</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($productsWithGains as $my_product)
+                                    @if ($my_product['type_product'] == 2)
+                                        <tr>
+                                            <td>
+                                                <span class="font-bold text-n900">{{ $my_product['product_name'] }}</span>
+                                            </td>
+                                            <td>
+                                                <span class="font-semibold text-n600">
+                                                    {{ \Carbon\Carbon::parse($my_product['souscription'])->format('d/m/Y') }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="font-semibold text-n600">
+                                                    {{ \Carbon\Carbon::parse($my_product['date_echeance'])->format('d/m/Y') }}
+                                                </span>
+                                            </td>
+                                            <td class="text-right">
+                                                <span class="brut-val">
+                                                    {{ number_format($my_product['capital_investi'], 0, ' ', ' ') }}
+                                                </span>
+                                            </td>
+                                            <td class="text-center">
+                                                <div class="flex flex-col">
+                                                    <span class="gold-text">{{ $my_product['vl_achat'] }}%</span>
+                                                    <span
+                                                        class="text-[10px] opacity-60">{{ $my_product['days_months']['months'] }}
+                                                        mois</span>
+                                                </div>
+                                            </td>
+                                            <td class="text-right font-medium text-marron">
                                                 {{ number_format($my_product['gain_mensuel'], 0, ' ', ' ') }}
-                                            </div>
-                                        </div>
-                                        <div class="content-label-info">
-                                            <div class="label-">Gains cumulés :</div>
-                                            <div class="response-">XAF
-                                                {{ number_format($my_product['interets_generes'], 0, ' ', ' ') }}
-                                            </div>
-                                        </div>
-                                        <div class="content-label-info">
-                                            <div class="label-">Portefeuille :</div>
-                                            <div class="response-">XAF
-                                                {{ number_format($my_product['portfolio_valeur'], 0, ' ', ' ') }}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="content-label-info">
-                                        <div class="label-">Date de valeur:</div>
-                                        <div class="response-">
-                                            {{ \Carbon\Carbon::parse($my_product['souscription'])->format('d/m/Y') }}</div>
-                                    </div>
-                                    <div class="content-label-info">
-                                        <div class="label-">Date d'échéance:</div>
-                                        <div class="response-">
-                                            {{ \Carbon\Carbon::parse($my_product['date_echeance'])->format('d/m/Y') }}
-                                        </div>
-                                    </div>
-                                </div>
-                                {{-- <div class="item-product mb-4 p-4 border rounded bg-white dark:bg-bg4">
-                        <div class="inner-header">
-                            <div class="flex justify-between mb-2">
-                                <span class="label-">Capital Investi :</span>
-                                <span class="response font-bold">XAF {{ number_format($my_product['capital_investi'], 0,
-                                    '
-                                    ', ' ') }}</span>
-                            </div>
-                            <div class="flex justify-between mb-2">
-                                <span class="label-">Taux Annuel :</span>
-                                <span class="response">{{ $my_product['vl_achat'] }}%</span>
-                            </div>
-                            <div class="flex justify-between mb-2">
-                                <span class="label-">Intérêts Courus :</span>
-                                <span class="response text-primary">+ XAF {{
-                                    number_format($my_product['interets_generes'],
-                                    0, ' ', ' ') }}</span>
-                            </div>
-                            <div class="flex justify-between font-bold pt-2 border-t border-dashed">
-                                <span class="label-">VALEUR ACTUELLE :</span>
-                                <span class="response">XAF {{ number_format($my_product['portfolio_valeur'], 0, ' ', '
-                                    ')
-                                    }}</span>
-                            </div>
+                                            </td>
+                                            <td class="text-right">
+                                                @php
+                                                    $gainPmg = $my_product['interets_generes'] ?? 0;
+                                                    $pmgClass = $gainPmg > 0 ? 'gain-badge-positive' : ($gainPmg < 0 ? 'gain-badge-negative' : 'gain-badge-neutral');
+                                                @endphp
+                                                <span class="gain-badge {{ $pmgClass }}">
+                                                    {{ $gainPmg > 0 ? '+' : '' }} {{ number_format($gainPmg, 0, ' ', ' ') }}
+                                                </span>
+                                            </td>
+                                            <td class="text-right text-marron">
+                                                XAF {{ number_format($my_product['portfolio_valeur'], 0, ' ', ' ') }}
+                                            </td>
+                                        </tr>
+                                    @endif
+                                @endforeach
+                            </tbody>
+                        </table>
+                        <div class="kori-table-info">
+                            <i class="las la-info-circle text-sm"></i>
+                            Valorisation PMG calculée en temps réel selon les intérêts courus prorata temporis.
                         </div>
-                    </div> --}}
-                            @endif
-                        @endforeach
                     </div>
                 </div>
             </div>
@@ -306,73 +308,80 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
             <div class="content-bloc-list-produit">
                 <div class="box">
                     <h3>MES PRODUITS FCP ACTIFS</h3>
-                    @foreach ($productsWithGains as $my_product)
-                        @if ($my_product['type_product'] == 1)
-                            <div class="item-product">
-                                <div class="content-link-title">
-                                    <a href="{{ route('product-detail-gain', ['slug' => $my_product['slug'] ?? 'fcp']) }}"
-                                        class="flex flex-space-between-center">
-                                        <span>Souscription : {{ $my_product['product_name'] }}</span>
-                                        <span><i class="las la-arrow-right"></i></span>
-                                    </a>
-                                </div>
-                                <div class="inner-header">
-                                    <div class="content-label-info">
-                                        <div class="label-">Date de souscription :</div>
-                                        <div class="response-">
-                                            {{ \Carbon\Carbon::parse($my_product['souscription'])->format('d/m/Y') }}
-                                        </div>
-                                    </div>
-                                    <div class="content-label-info">
-                                        <div class="label-">Capital Total Investi (Brut) :</div>
-                                        <div class="response-">XAF
-                                            {{ number_format($my_product['capital_investi'], 0, ' ', ' ') }}
-                                        </div>
-                                    </div>
-                                    <div class="content-label-info">
-                                        <div class="label-">VL à la souscription :</div>
-                                        <div class="response-">XAF
-                                            {{ number_format($my_product['vl_achat'], 2, ',', ' ') }}
-                                        </div>
-                                    </div>
-                                    <div class="content-label-info">
-                                        <div class="label-">Nombre de parts :</div>
-                                        <div class="response- text-primary font-bold">
-                                            {{ number_format($my_product['nb_part'], 6, ',', ' ') }}
-                                        </div>
-                                    </div>
-                                    <div class="content-label-info">
-                                        <div class="label-">VL Actuelle :</div>
-                                        <div class="response-">XAF
-                                            {{ number_format($my_product['vl_actuel'], 2, ',', ' ') }}
-                                            <span class="text-[10px] opacity-70 italic text-n600"> (du
-                                                {{ \Carbon\Carbon::parse($my_product['date_vl_actuel'] ?? now())->format('d/m/Y') }})</span>
-                                        </div>
-                                    </div>
-                                    <div class="content-label-info font-bold"
-                                        style="border-top: 1px dashed #ccc; padding-top: 5px;">
-                                        <div class="label-">VALEUR PORTFOLIO :</div>
-                                        <div class="response-">XAF
-                                            {{ number_format($my_product['portfolio_valeur'], 0, ' ', ' ') }}
-                                        </div>
-                                    </div>
-                                    <div class="content-label-info font-bold text-green-600">
-                                        <div class="label-">PLUS-VALUE :</div>
-                                        <div class="response-"> XAF
-                                            {{ number_format($my_product['total_gains_fcp'] ?? 0, 0, ' ', ' ') }}
-                                        </div>
-                                    </div>
-                                    <div class="mt-4 flex justify-end">
-                                        <button type="button"
-                                            onclick="showFcpEvolution({{ $my_product['product_id'] }}, '{{ $my_product['product_name'] }}')"
-                                            class="text-[10px] font-bold text-secondary uppercase italic border border-secondary/30 px-3 py-1 rounded-lg hover:bg-secondary/10 transition-all">
-                                            <i class="las la-chart-line"></i> Voir Évolution
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        @endif
-                    @endforeach
+                    <div class="kori-table-wrapper mt-4">
+                        <table class="kori-fcp-table">
+                            <thead>
+                                <tr>
+                                    <th>Produit</th>
+                                    <th>Date Souscr.</th>
+                                    <th class="text-right">Capital (Brut/Net)</th>
+                                    <th class="text-right">VL Achat</th>
+                                    <th class="text-right">Nb Parts</th>
+                                    <th class="text-right">Valeur Portfolio</th>
+                                    <th class="text-right">Plus-Value</th>
+                                    <th class="text-center">Évol.</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($productsWithGains as $my_product)
+                                    @if ($my_product['type_product'] == 1)
+                                        <tr>
+                                            <td>
+                                                <div class="flex flex-col">
+                                                    <span
+                                                        class="font-bold text-n900">{{ $my_product['product_name'] }}</span>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span
+                                                    class="font-semibold text-n600">{{ \Carbon\Carbon::parse($my_product['souscription'])->format('d/m/Y') }}</span>
+                                            </td>
+                                            <td class="text-right">
+                                                <div class="flex flex-col">
+                                                    <span
+                                                        class="brut-val">{{ number_format($my_product['capital_investi'], 0, ' ', ' ') }}</span>
+                                                    <span
+                                                        class="net-val">{{ number_format($my_product['capital_investi_net'] ?? 0, 0, ' ', ' ') }}
+                                                        net</span>
+                                                </div>
+                                            </td>
+                                            <td class="text-right font-medium">
+                                                {{ number_format($my_product['vl_achat'], 2, ',', ' ') }}
+                                            </td>
+                                            <td class="text-right">
+                                                <span
+                                                    class="gold-text">{{ number_format($my_product['nb_part'], 6, ',', ' ') }}</span>
+                                            </td>
+                                            <td class="text-right text-marron">
+                                                XAF {{ number_format($my_product['portfolio_valeur'], 0, ' ', ' ') }}
+                                            </td>
+                                            <td class="text-right">
+                                                @php
+                                                    $gainFcp = $my_product['total_gains_fcp'] ?? 0;
+                                                    $fcpClass = $gainFcp > 0 ? 'gain-badge-positive' : ($gainFcp < 0 ? 'gain-badge-negative' : 'gain-badge-neutral');
+                                                @endphp
+                                                <span class="gain-badge {{ $fcpClass }}">
+                                                    {{ $gainFcp > 0 ? '+' : '' }} {{ number_format($gainFcp, 0, ' ', ' ') }}
+                                                </span>
+                                            </td>
+                                            <td class="text-center">
+                                                <button type="button"
+                                                    onclick="showFcpEvolution({{ $my_product['product_id'] }}, '{{ $my_product['product_name'] }}')"
+                                                    class="btn-evo-small mx-auto">
+                                                    <i class="las la-chart-area text-lg"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    @endif
+                                @endforeach
+                            </tbody>
+                        </table>
+                        <div class="kori-table-info">
+                            <i class="las la-info-circle text-sm"></i>
+                            Calculs basés sur la VL de {{ number_format($my_product['vl_actuel'] ?? 0, 2, ',', ' ') }} au
+                            {{ \Carbon\Carbon::parse($my_product['date_vl_actuel'] ?? now())->format('d/m/Y') }}
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -470,16 +479,38 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                 Mouvements FCP (PARTS)</div>
                             <div class="max-h-[300px] overflow-y-auto">
                                 <table class="w-full text-left">
+                                    <thead class="bg-n10 text-[9px] uppercase font-bold text-n500 border-b border-n30">
+                                        <tr>
+                                            <th class="px-3 py-2">Date Opé.</th>
+                                            <th class="px-3 py-2">Date Souscr.</th>
+                                            <th class="px-3 py-2">Opération</th>
+                                            <th class="px-3 py-2 text-right">Brut (Invest)</th>
+                                            <th class="px-3 py-2 text-right">Net (Invest.)</th>
+                                            <th class="px-3 py-2 text-right">VL</th>
+                                            <th class="px-3 py-2 text-right">Parts</th>
+                                        </tr>
+                                    </thead>
                                     <tbody class="divide-y divide-n30">
                                         @foreach ($fcpMovements as $fcm)
-                                            <tr class="text-[11px] hover:bg-n10 transition-all">
-                                                <td class="px-4 py-3 font-bold">
+                                            <tr class="text-[10px] hover:bg-n10 transition-all">
+                                                <td class="px-3 py-3 opacity-60">
+                                                    {{ \Carbon\Carbon::parse($fcm->created_at)->format('d/m/Y') }}</td>
+                                                <td class="px-3 py-3 font-bold text-n800">
                                                     {{ \Carbon\Carbon::parse($fcm->date_operation)->format('d/m/Y') }}</td>
-                                                <td class="px-4 py-3 opacity-60 uppercase">
+                                                <td class="px-3 py-3 opacity-60 uppercase text-[9px]">
                                                     {{ str_replace('_', ' ', $fcm->type) }}</td>
+                                                <td class="px-3 py-3 text-right font-medium text-n600">
+                                                    {{ $fcm->amount_xaf > 0 ? number_format($fcm->amount_xaf + ($fcm->fees ?? 0), 0, ' ', ' ') : '-' }}
+                                                </td>
+                                                <td class="px-3 py-3 text-right font-bold text-n700">
+                                                    {{ $fcm->amount_xaf > 0 ? number_format($fcm->amount_xaf, 0, ' ', ' ') : '-' }}
+                                                </td>
+                                                <td class="px-3 py-3 text-right font-medium text-n600">
+                                                    {{ number_format($fcm->vl_applied, 2, ',', ' ') }}
+                                                </td>
                                                 <td
-                                                    class="px-4 py-3 text-right font-bold {{ $fcm->nb_parts_change < 0 ? 'text-red-500' : 'text-primary' }}">
-                                                    {{ ($fcm->nb_parts_change >= 0 ? '+' : '') . number_format($fcm->nb_parts_change, 2, ',', ' ') }}
+                                                    class="px-3 py-3 text-right font-bold {{ $fcm->nb_parts_change < 0 ? 'text-red-500' : 'text-primary' }}">
+                                                    {{ ($fcm->nb_parts_change >= 0 ? '+' : '') . number_format($fcm->nb_parts_change, 4, ',', ' ') }}
                                                 </td>
                                             </tr>
                                         @endforeach
@@ -557,8 +588,11 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                         </div>
                         <div>
                             <label
-                                class="block text-[10px] font-bold uppercase text-n500 mb-2 font-Inter tracking-widest italic"
-                                id="edit-label-vl">VL / Taux d'intérêt</label>
+                                class="block text-[10px] font-bold uppercase text-n500 mb-2 font-Inter tracking-widest italic flex items-center justify-between"
+                                id="edit-label-vl">
+                                <span>VL / Taux d'intérêt</span>
+                                <span id="edit-vl-date-info" class="text-[9px] text-primary font-bold normal-case"></span>
+                            </label>
                             <input type="number" step="0.000001" name="vl_buy" id="edit-vl"
                                 class="w-full h-[50px] p-4 rounded-xl border border-n30 focus:border-primary outline-none text-sm font-bold bg-n10/50">
                         </div>
@@ -685,49 +719,78 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
         }
 
         function showFcpEvolution(productId, productName) {
-            const modal = document.getElementById('modal-evolution-fcp');
-            document.getElementById('evo-product-name').textContent = productName;
-            modal.classList.remove('modalhide');
-            modal.classList.add('modalshow');
+            const modal = $('#modal-evolution-fcp');
+            $('#evo-product-name').text(productName);
+
+            // Reset modal state
+            $('#evo-loader').removeClass('hidden');
+            $('#evo-content').addClass('hidden');
+            $('#evo-table-body').html('');
+
+            // Show modal
+            modal.removeClass('modalhide').addClass('modalshow').css('display', 'flex');
+
             $.ajax({
                 url: `/api/fcp-evolution/${productId}/{{ $customer->id }}`,
                 success: function(r) {
-                    document.getElementById('evo-loader').classList.add('hidden');
-                    document.getElementById('evo-content').classList.remove('hidden');
+                    $('#evo-loader').addClass('hidden');
+                    $('#evo-content').removeClass('hidden');
                     let html = '';
-                    r.history.reverse().forEach(row => {
-                        const plusValueClass = row.plus_value >= 0 ? 'text-green-600' : 'text-red-500';
-                        const prefix = row.plus_value >= 0 ? '+' : '';
-                        html += `<tr class="text-[11px] hover:bg-n10 transition-all italic">
-                            <td class="px-5 py-4 font-bold border-b border-n30">${row.date}</td>
-                            <td class="px-5 py-4 border-b border-n30">${row.vl.toLocaleString('fr-FR')} XAF</td>
-                            <td class="px-5 py-4 font-bold text-primary border-b border-n30">${Number(row.parts).toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 6})}</td>
-                            <td class="px-5 py-4 font-bold text-n900 border-b border-n30">${row.valuation.toLocaleString('fr-FR')} XAF</td>
-                            <td class="px-5 py-4 text-right font-bold ${plusValueClass} border-b border-n30">${prefix}${row.plus_value.toLocaleString('fr-FR')} XAF</td>
-                        </tr>`;
-                    });
-                    document.getElementById('evo-table-body').innerHTML = html ||
-                        '<tr><td colspan="5" class="py-10 text-center text-n400 italic font-bold">Aucune donnée historique trouvée pour ce produit.</td></tr>';
+                    if (r.history && r.history.length > 0) {
+                        // On clone pour ne pas modifier l'original si besoin, puis on inverse pour avoir le plus récent en haut
+                        const history = [...r.history].reverse();
+                        history.forEach(row => {
+                            const plusValueClass = row.plus_value > 0 ? 'text-green-600' : (row
+                                .plus_value < 0 ? 'text-red-500' : 'text-n500');
+                            const prefix = row.plus_value > 0 ? '+' : '';
+                            html += `<tr class="text-[11px] hover:bg-n10 transition-all italic">
+                                <td class="px-5 py-4 font-bold border-b border-n30">${row.date}</td>
+                                <td class="px-5 py-4 border-b border-n30">${Number(row.vl).toLocaleString('fr-FR')} XAF</td>
+                                <td class="px-5 py-4 font-bold text-primary border-b border-n30">${Number(row.parts).toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 6})}</td>
+                                <td class="px-5 py-4 font-bold text-n900 border-b border-n30">${Number(row.valuation).toLocaleString('fr-FR')} XAF</td>
+                                <td class="px-5 py-4 text-right font-bold ${plusValueClass} border-b border-n30">${prefix}${Number(row.plus_value).toLocaleString('fr-FR')} XAF</td>
+                            </tr>`;
+                        });
+                    }
+                    $('#evo-table-body').html(html ||
+                        '<tr><td colspan="5" class="py-10 text-center text-n400 italic font-bold">Aucune donnée historique trouvée pour ce produit.</td></tr>'
+                        );
+                },
+                error: function() {
+                    $('#evo-loader').addClass('hidden');
+                    $('#evo-content').removeClass('hidden');
+                    $('#evo-table-body').html(
+                        '<tr><td colspan="5" class="py-10 text-center text-red-500 italic font-bold">Erreur lors de la récupération des données.</td></tr>'
+                        );
                 }
             });
         }
 
         function closeEvoModal() {
-            document.getElementById('modal-evolution-fcp').classList.add('modalhide');
+            $('#modal-evolution-fcp').addClass('modalhide').removeClass('modalshow').hide();
         }
 
         function fetchVlForEdit(productId, date) {
             const catId = $('#edit-cat-id').val();
             $('#edit-vl').addClass('opacity-50').prop('readonly', true);
+            $('#edit-vl-date-info').text("Chargement...");
+
             $.ajax({
                 url: `/api/product-vl/${productId}/${date}`,
                 success: function(r) {
                     $('#edit-vl').val(r.vl).removeClass('opacity-50');
+                    if (r.date_vl) {
+                        const d = new Date(r.date_vl);
+                        $('#edit-vl-date-info').text(`(VL du ${d.toLocaleDateString('fr-FR')})`);
+                    } else {
+                        $('#edit-vl-date-info').text("");
+                    }
                     if (catId == 1) $('#edit-vl').prop('readonly', true);
                     else $('#edit-vl').prop('readonly', false);
                 },
                 error: function() {
                     $('#edit-vl').removeClass('opacity-50');
+                    $('#edit-vl-date-info').text("");
                     if (catId == 1) $('#edit-vl').prop('readonly', true);
                     else $('#edit-vl').prop('readonly', false);
                 }
@@ -736,14 +799,23 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
 
         function fetchVlAtDate(productId, date) {
             $('#vl_taux_input').val("Chargement...");
+            $('#vl-date-info').text("...");
+
             $.ajax({
                 url: `/api/product-vl/${productId}/${date}`,
                 success: function(r) {
                     $('#vl_taux_input').val(r.vl);
+                    if (r.date_vl && $('#type_produit').val() == 1) {
+                        const d = new Date(r.date_vl);
+                        $('#vl-date-info').text(`Appliquée : VL du ${d.toLocaleDateString('fr-FR')}`);
+                    } else {
+                        $('#vl-date-info').text("");
+                    }
                     if (typeof updateSummary === 'function') updateSummary();
                 },
                 error: function() {
                     $('#vl_taux_input').val("");
+                    $('#vl-date-info').text("");
                 }
             });
         }
@@ -1050,8 +1122,6 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                 "Erreur lors de l'enregistrement.";
                             resp.className =
                                 "alert alert-danger show mb-4 p-4 rounded-xl bg-red-50 text-red-600 border border-red-100";
-                            resp.classList.remove('hidden');
-                            btn.disabled = false;
                             btn.textContent = "ENREGISTRER LA SOUSCRIPTION";
                         }
                     });
@@ -1059,4 +1129,156 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
             }
         });
     </script>
+
+    <style>
+        /* ── KORI FCP TABLE (PREMIUM STRATEGIC) ────────────────────── */
+        .kori-table-wrapper {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+            margin: 30px 0;
+            width: 100%;
+        }
+
+        .kori-fcp-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            background: white;
+            table-layout: auto;
+        }
+
+        .kori-fcp-table thead th {
+            background: #2a0e05 !important;
+            color: #ffffff !important;
+            text-align: left;
+            padding: 20px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-size: 10px;
+            border-bottom: 4px solid #ebb009;
+        }
+
+        .kori-fcp-table tbody tr {
+            border-bottom: 1px solid #f1f5f9;
+            transition: all 0.2s ease;
+        }
+
+        .kori-fcp-table tbody tr:hover {
+            background: #fdf3f0;
+        }
+
+        .kori-fcp-table td {
+            padding: 20px;
+            vertical-align: middle;
+            color: #334155;
+            line-height: 1.5;
+        }
+
+        .kori-fcp-table .text-right {
+            text-align: right;
+        }
+
+        .kori-fcp-table .text-center {
+            text-align: center;
+        }
+
+        .gold-text {
+            color: #c4890a;
+            font-weight: 800;
+        }
+
+        .text-marron {
+            color: #531d09;
+            font-weight: 800;
+            font-size: 15px;
+        }
+
+        /* Gain & Loss Badges */
+        .gain-badge {
+            padding: 6px 14px;
+            border-radius: 10px;
+            font-weight: 800;
+            font-size: 11px;
+            display: inline-block;
+            white-space: nowrap;
+        }
+        .gain-badge-positive {
+            background: #dcfce7;
+            color: #15803d;
+            border: 1px solid #bbf7d0;
+        }
+        .gain-badge-negative {
+            background: #fee2e2;
+            color: #b91c1c;
+            border: 1px solid #fecaca;
+        }
+        .gain-badge-neutral {
+            background: #f1f5f9;
+            color: #64748b;
+            border: 1px solid #e2e8f0;
+        }
+
+        .brut-val {
+            font-size: 15px;
+            font-weight: 700;
+            color: #0f172a;
+            display: block;
+        }
+
+        .net-val {
+            font-size: 11px;
+            color: #64748b;
+            font-weight: 500;
+            display: block;
+        }
+
+        /* Action Button */
+        .btn-evo-small {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            color: #531d09;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-evo-small:hover {
+            background: #ebb009;
+            color: #ffffff;
+            border-color: #ebb009;
+            box-shadow: 0 4px 12px rgba(235, 176, 9, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .kori-table-info {
+            background: #f8fafc;
+            padding: 15px 20px;
+            border-top: 1px solid #e2e8f0;
+            font-size: 12px;
+            color: #64748b;
+            font-style: italic;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        @media (max-width: 1200px) {
+            .kori-table-wrapper {
+                overflow-x: auto;
+            }
+
+            .kori-fcp-table {
+                min-width: 1100px;
+            }
+        }
+    </style>
 @endsection

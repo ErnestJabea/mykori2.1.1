@@ -245,7 +245,7 @@ class AdminFrontendController extends Controller
                 'route' => 'admin.front.dashboard',
                 'icon' => 'las la-server',
                 'section' => 'admin',
-                'order' => 1,
+                'order' => 4,
                 'roles_json' => $adminRoles,
                 'is_active' => true
             ],
@@ -254,7 +254,7 @@ class AdminFrontendController extends Controller
                 'route' => 'admin.front.users',
                 'icon' => 'las la-users-cog',
                 'section' => 'admin',
-                'order' => 2,
+                'order' => 4,
                 'roles_json' => $adminRoles,
                 'is_active' => true
             ],
@@ -263,7 +263,7 @@ class AdminFrontendController extends Controller
                 'route' => 'admin.front.logs',
                 'icon' => 'las la-history',
                 'section' => 'admin',
-                'order' => 3,
+                'order' => 4,
                 'roles_json' => $adminRoles,
                 'is_active' => true
             ],

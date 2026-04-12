@@ -104,125 +104,8 @@ class ProductController extends Controller
 
     public function getProductsWithGainsUserClient($userId)
     {
-        $currentDate = Carbon::now();
-        $productIds = Transaction::where('user_id', $userId)
-            ->where('status', 'Succès')
-            ->distinct()
-            ->pluck('product_id')
-            ->toArray();
-
-        $pmgResult = [];
-
-        foreach ($productIds as $productId) {
-            $product = Product::find($productId);
-            if (!$product || $product->products_category_id != 2) continue;
-
-            $transactions = Transaction::where('user_id', $userId)
-                ->where('status', 'Succès')
-                ->where('product_id', $product->id)
-                ->get();
-
-            $additionalTransactions = TransactionSupplementaire::where('user_id', $userId)
-                ->where('status', 'Succès')
-                ->where('product_id', $product->id)
-                ->get();
-
-            $allPmgTrans = $transactions->merge($additionalTransactions);
-
-            foreach ($allPmgTrans as $transaction) {
-                // Pour les transactions supplémentaires, la date d'échéance et de validation 
-                // peuvent venir de la transaction parente si non définies sur la ligne.
-                $dateEcheanceRaw = $transaction->date_echeance ?? ($transaction->transaction ? $transaction->transaction->date_echeance : null);
-                
-                if (!$dateEcheanceRaw) continue;
-
-                $dateEcheance = Carbon::parse($dateEcheanceRaw);
-                if ($dateEcheance->lt($currentDate)) continue;
-
-                $amount = (float)$transaction->amount;
-                // $soulte was historically montant_initiale, which holds garbage/interest values!
-                // We must use $amount for the initial investment.
-                
-                $totalPaidOut = DB::table('financial_movements')
-                    ->where('transaction_id', $transaction->id)
-                    ->whereIn('type', ['rachat_partiel', 'precompte_interets'])
-                    ->sum('amount');
-                    
-                // Find effective base capital for compound interest calculation
-                $lastMovement = DB::table('financial_movements')
-                    ->where('transaction_id', $transaction->id)
-                    ->whereIn('type', ['capitalisation_interets', 'rachat_partiel'])
-                    ->where('date_operation', '<=', $currentDate->toDateString())
-                    ->orderBy('date_operation', 'desc')
-                    ->first();
-                $baseCapital = $lastMovement ? (float)$lastMovement->capital_after : $amount;
-
-                // Utilisation de la version Client simplifiée (Linéaire)
-                $totalValo = $this->calculatePMGValorizationClient($transaction, $currentDate);
-
-                $pmgResult[] = [
-                    'id' => $product->id,
-                    'product_id' => $product->id,
-                    'product_name' => $product->title,
-                    'type_product' => 2,
-                    'capital_investi' => $amount + (float)($transaction->fees ?? 0), // Capital BRUT (Montant + Frais)
-                    'capital_actuel' => $baseCapital, // Capital après capitalisation
-                    'montant_transaction' => $amount, // Vrai capital pour les calculs de portfolio
-                    'interets_generes' => (float)($totalValo - $totalPaidOut) - $amount,
-                    'gain_month' => (float)$totalValo - $baseCapital, // Intérêts générés DEPUIS la dernière capitalisation
-                    'soulte' => $baseCapital, // Capital capitalisé
-                    'portfolio_valeur' => (float)$totalValo,
-                    'total_payouts' => (float)$totalPaidOut,
-                    'vl_actuel' => $transaction->vl_buy,
-                    'vl_achat' => $transaction->vl_buy,
-                    'date_echeance' => $dateEcheanceRaw,
-                    'souscription' => $transaction->date_validation ?? $transaction->created_at->toDateString(),
-                    'slug' => $product->slug,
-                    'days_months' => $this->calculateMonthsAndDaysBetweenDates($transaction->date_validation ?? $transaction->created_at->toDateString(), $dateEcheanceRaw),
-                    'gain_mensuel' => ($baseCapital * (($transaction->vl_buy / 100) / 12)), // Intérêt basé sur capital composé
-                ];
-            }
-        }
-
-        // Transformer le format FCP pour la compatibilité avec les vues existantes
-        // (Identique à getProductsWithGainsUser)
-        $service = new \App\Services\InvestmentService();
-        $fcpPortfolio = $service->getConsolidatedFcpPortfolio($userId);
-        
-        $fcpResult = array_map(function($p) use ($userId) {
-            // Pour l'affichage BRUT (Net + Fees) cohérent avec la demande
-            $prodId = $p['product_id'];
-            $mainGross = DB::table('transactions')
-                ->where('user_id', $userId)->where('product_id', $prodId)->where('status', 'Succès')->sum(DB::raw('amount + COALESCE(fees, 0)'));
-            $suppGross = DB::table('transaction_supplementaires')
-                ->where('user_id', $userId)->where('product_id', $prodId)->where('status', 'Succès')->sum(DB::raw('amount + COALESCE(fees, 0)'));
-            $totalGross = (float)$mainGross + (float)$suppGross;
-
-            return [
-                'id' => $p['product_id'],
-                'product_id' => $p['product_id'],
-                'product_name' => $p['name'],
-                'type_product' => 1,
-                'montant_transaction' => $totalGross,
-                'capital_investi' => $totalGross,
-                'total_gains_fcp' => $p['total_gain'] ?? 0,
-                'gain_semaine_fcp' => $p['weekly_gain'] ?? 0,
-                'gain_month' => $p['total_gain'] ?? 0,
-                'gain_mensuel' => $p['weekly_gain'] ?? 0,
-                'portfolio_valeur' => $p['current_valuation'] ?? 0,
-                'valorisation_portefeuille_fcp' => $p['current_valuation'] ?? 0,
-                'nb_part' => $p['total_parts'] ?? 0,
-                'pru' => $p['pru'] ?? 0,
-                'vl_achat' => $p['first_vl'] ?? 0,
-                'vl_actuel' => $p['current_vl'] ?? 0,
-                'date_vl_actuel' => $p['current_vl_date'] ?? null,
-                'slug' => $p['slug'] ?? '',
-                'date_echeance' => Carbon::now()->addYears(10)->toDateString(),
-                'souscription' => $p['first_subscription_date'] ?? Carbon::now()->toDateString()
-            ];
-        }, $fcpPortfolio);
-
-        return array_merge($fcpResult, $pmgResult);
+        // On renvoie exactement la même chose que l'Asset Manager pour garantir la parité
+        return $this->getProductsWithGainsUser($userId);
     }
 
 
@@ -320,9 +203,9 @@ class ProductController extends Controller
             // Pour l'affichage BRUT (Net + Fees) cohérent avec la demande
             $prodId = $p['product_id'];
             $mainGross = DB::table('transactions')
-                ->where('user_id', $user_id)->where('product_id', $prodId)->where('status', 'Succès')->sum(DB::raw('amount + COALESCE(fees, 0)'));
+                ->where('user_id', $user_id)->where('product_id', $prodId)->where('status', 'Succès')->sum('amount');
             $suppGross = DB::table('transaction_supplementaires')
-                ->where('user_id', $user_id)->where('product_id', $prodId)->where('status', 'Succès')->sum(DB::raw('amount + COALESCE(fees, 0)'));
+                ->where('user_id', $user_id)->where('product_id', $prodId)->where('status', 'Succès')->sum('amount');
             $totalGross = (float)$mainGross + (float)$suppGross;
 
             return [
@@ -332,6 +215,7 @@ class ProductController extends Controller
                 'type_product' => 1,
                 'montant_transaction' => $totalGross,
                 'capital_investi' => $totalGross,
+                'capital_investi_net' => $p['invested_net'] ?? $totalGross,
                 'total_gains_fcp' => $p['total_gain'] ?? 0,
                 'gain_semaine_fcp' => $p['weekly_gain'] ?? 0,
                 'gain_month' => $p['total_gain'] ?? 0,
@@ -618,9 +502,8 @@ class ProductController extends Controller
                 $dateEcheance = Carbon::parse($trans->date_echeance);
                 if ($dateEcheance->gte($currentDate)) {
                     $principalInitial = (float)($trans->amount);
-                    $fees = (float)($trans->fees ?? 0);
-                    $globalTotalInvested += ($principalInitial + $fees);
-                    $customerTotalInvesti += ($principalInitial + $fees);
+                    $globalTotalInvested += $principalInitial;
+                    $customerTotalInvesti += $principalInitial;
 
                     if ($trans->product->products_category_id == 2) {
                         $valo = (float)$this->calculatePMGValorization($trans, $currentDate);
@@ -1142,6 +1025,7 @@ class ProductController extends Controller
 
     /**
      * Modification d'une transaction existante
+     * Sécurisé : Si la transaction était validée, elle repasse en attente et perd ses mouvements
      */
     public function editTransaction(Request $request)
     {
@@ -1152,30 +1036,60 @@ class ProductController extends Controller
         $oldAmount = $item->amount;
         $oldVl = $item->vl_buy;
         $oldEcheance = $item->date_echeance;
+        $wasValidated = $item->is_compliance_validated == 1;
 
+        // Mise à jour des valeurs de base
         $item->amount = $request->input('amount');
         $item->vl_buy = $request->input('vl_buy');
         $item->date_validation = $request->input('date_validation');
-        $item->date_echeance = $request->input('date_echeance');
+        $item->date_echeance = $item->date_echeance != null ? $request->input('date_echeance') : null;
         
-        // Recalculer les frais si nécessaire (basé sur le même taux qu'à l'origine)
+        // Recalculer les frais (basé sur le même taux qu'à l'origine)
         $product = Product::find($item->product_id);
         $feeRate = (float)($product->free ?? 0);
         $item->fees = ($item->amount * $feeRate) / 100;
+
+        // Recalculer le nombre de parts pour les FCP (Catégorie 1)
+        if ($product->products_category_id == 1) {
+            $amountNet = (float)$item->amount - (float)$item->fees;
+            $vl = (float)$item->vl_buy;
+            if ($vl > 0) {
+                $item->nb_part = $amountNet / $vl;
+            }
+        }
+
+        // SÉCURITÉ : Si l'Asset Manager modifie, on reset les validations
+        $item->status = 'En attente';
+        $item->is_compliance_validated = 0;
+        $item->is_backoffice_validated = 0;
+        $item->is_dg_validated = 0;
+        $item->compliance_validated_at = null;
+        $item->backoffice_validated_at = null;
+        $item->dg_validated_at = null;
         
         $item->save();
+
+        // SÉCURITÉ : On supprime les mouvements financiers pour qu'ils ne comptent plus dans le portefeuille
+        // Ils seront recréés lors de la prochaine validation Compliance (via syncFcpMovements ou process direct)
+        if ($product->products_category_id == 1) {
+            DB::table('fcp_movements')->where('transaction_id', $item->id)->delete();
+        } else {
+            DB::table('financial_movements')->where('transaction_id', $item->id)->delete();
+        }
 
         // LOG ACTION
         \App\Models\UserActivityLog::log(
             "MODIFICATION_TRANSACTION",
             $item->user,
-            "Modification de la transaction #{$item->ref} (" . ($isSupp ? 'Suppl.' : 'Initiale') . "). " .
-            "Ancien Montant: $oldAmount -> Nouveau: {$item->amount} | " .
-            "Ancienne VL: $oldVl -> Nouvelle: {$item->vl_buy} | " .
-            "Échéance: $oldEcheance -> {$item->date_echeance}"
+            "Modification par Asset Manager de la transaction #{$item->ref}. Statut réinitialisé. " .
+            "Ancien: $oldAmount -> Nv: {$item->amount} | " .
+            ($wasValidated ? "ATTENTION: Transaction précédemment validée, nécessite une nouvelle validation Compliance." : "")
         );
 
-        return response()->json(['status' => 'success', 'message' => 'Transaction mise à jour avec succès.']);
+        return response()->json([
+            'status' => 'success', 
+            'message' => 'Transaction mise à jour. Elle doit être à nouveau validée par la Compliance pour apparaître dans le portefeuille.'
+        ]);
     }
     public function customersDetail($customer_id)
     {
@@ -1897,18 +1811,23 @@ class ProductController extends Controller
                     ->sum('nb_parts_change') ?? 0;
 
                 // 3. Mouvements précis du mois courant
-                $partsSouscritesMois = DB::table('fcp_movements')
+                $sumsMois = DB::table('fcp_movements')
                         ->where('user_id', $client->id)
                         ->where('product_id', $productId)
                         ->whereBetween('date_operation', [$dateN1->copy()->addDay()->toDateString(), $dateN->toDateString()])
-                        ->where('nb_parts_change', '>', 0)
-                        ->sum('nb_parts_change') ?? 0;
+                        ->where('nb_parts_change', '>', 1e-9) // Utilisation d'un petit seuil pour le positif
+                        ->selectRaw('SUM(amount_xaf) as net, SUM(fees) as total_fees, SUM(nb_parts_change) as parts')
+                        ->first();
+
+                $partsSouscritesMois = (float)($sumsMois->parts ?? 0);
+                $montantSouscritMois = (float)($sumsMois->net ?? 0) + (float)($sumsMois->total_fees ?? 0);
+                $fraisSouscriptionMois = (float)($sumsMois->total_fees ?? 0);
 
                 $partsRacheteesMois = abs(DB::table('fcp_movements')
                         ->where('user_id', $client->id)
                         ->where('product_id', $productId)
                         ->whereBetween('date_operation', [$dateN1->copy()->addDay()->toDateString(), $dateN->toDateString()])
-                        ->where('nb_parts_change', '<', 0)
+                        ->where('nb_parts_change', '<', -1e-9)
                         ->sum('nb_parts_change')) ?? 0;
 
                 // 4. VL
@@ -1922,13 +1841,16 @@ class ProductController extends Controller
                     ->orderBy('date_vl', 'desc')
                     ->value('vl') ?? (float)$product->vl;
 
-                // 5. Montant investi (Cumul historique des apports)
-                $cumulInvesti = DB::table('fcp_movements')
+                // 5. Montant investi (Cumul historique des apports BRUT)
+                $sumsHistorique = DB::table('fcp_movements')
                     ->where('user_id', $client->id)
                     ->where('product_id', $productId)
                     ->where('date_operation', '<=', $dateN->toDateString())
                     ->where('nb_parts_change', '>', 0)
-                    ->sum('amount_xaf');
+                    ->selectRaw('SUM(amount_xaf) as net, SUM(fees) as total_fees')
+                    ->first();
+                
+                $cumulInvesti = (float)($sumsHistorique->net ?? 0) + (float)($sumsHistorique->total_fees ?? 0);
 
                 // Si cumulInvesti est à 0 (migration), on tente de récupérer via les transactions liées
                 if ($cumulInvesti <= 0) {
@@ -1937,7 +1859,7 @@ class ProductController extends Controller
                         ->where('product_id', $productId)
                         ->where('status', 'Succès')
                         ->where('date_validation', '<=', $dateN->toDateString())
-                        ->sum('amount');
+                        ->sum('amount'); // amount est déjà Brut pour transactions
                 }
 
                 $valoN = (float)$partsN * (float)$vlN;
@@ -1952,6 +1874,8 @@ class ProductController extends Controller
                     'parts_n1' => (float)$partsN1,
                     'parts_souscrites' => (float)$partsSouscritesMois,
                     'parts_rachetees' => (float)$partsRacheteesMois,
+                    'montant_souscrit' => (float)$montantSouscritMois,
+                    'frais_souscription' => (float)$fraisSouscriptionMois,
                     'vl_n' => (float)$vlN,
                     'vl_n1' => (float)$vlN1,
                     'valo_n' => (float)$valoN,
@@ -2151,17 +2075,20 @@ class ProductController extends Controller
 
         // 3. Reconstruire la chronologie des valorisations avec calcul du capital investi cumulé
         $history = $assetValues->map(function ($vl) use ($movements) {
-            // Cumul des investissements jusqu'à cette date précise du calendrier VL
+            // Cumul des investissements (BRUT = Net + Frais) jusqu'à cette date précise
             $cumulativeInvested = (float) $movements->where('date_operation', '<=', $vl->date_vl)
                 ->whereIn('type', ['souscription', 'versement_libre'])
-                ->sum('amount_xaf');
+                ->reduce(function ($carry, $m) {
+                    return $carry + (float)$m->amount_xaf + (float)($m->fees ?? 0);
+                }, 0);
             
             // Cumul des rachats jusqu'à cette date
             $cumulativeRedemptions = (float) $movements->where('date_operation', '<=', $vl->date_vl)
                 ->whereIn('type', ['rachat', 'rachat_partiel', 'rachat_total', 'rachat'])
                 ->sum('amount_xaf');
 
-            $netInvested = $cumulativeInvested - abs($cumulativeRedemptions);
+            // Le capital investi net de rachats (par rapport au brut initial)
+            $remainingGrossCapital = max(0, $cumulativeInvested - abs($cumulativeRedemptions));
             
             $partsToDate = (float) $movements->where('date_operation', '<=', $vl->date_vl)->sum('nb_parts_change');
             $valuation = round($partsToDate * (float)$vl->vl, 0);
@@ -2171,7 +2098,7 @@ class ProductController extends Controller
                 'vl' => (float)$vl->vl,
                 'parts' => $partsToDate,
                 'valuation' => $valuation,
-                'plus_value' => $valuation - $netInvested
+                'plus_value' => $valuation - $remainingGrossCapital
             ];
         });
 
