@@ -37,26 +37,6 @@ use TCG\Voyager\Facades\Voyager;
 |--------------------------------------------------------------------------
 */
 
-Route::get('/valuation-kori-final', function() {
-    $userId = 66;
-    $date = '2026-03-31';
-    
-    $service = new \App\Services\InvestmentService();
-    $valuation = $service->getConsolidatedFcpPortfolio($userId, $date);
-    
-    $movements = \DB::table('fcp_movements')
-        ->where('user_id', $userId)
-        ->where('date_operation', '<=', $date)
-        ->get();
-
-    return [
-        'client' => 'KORI ASSET MANAGEMENT',
-        'date_arrete' => $date,
-        'summary' => $valuation,
-        'movements_history' => $movements
-    ];
-});
-
 Route::get('/clear-fcp-data', function() {
     return DB::transaction(function () {
         $fcpProductIds = DB::table('products')->where('products_category_id', 1)->pluck('id');
