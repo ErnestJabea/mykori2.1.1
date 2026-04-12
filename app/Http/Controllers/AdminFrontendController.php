@@ -24,12 +24,15 @@ class AdminFrontendController extends Controller
 
     public function dashboard()
     {
+        $this->syncAdminMenus();
+
         $stats = [
-            'total_users' => User::count(),
+            'total_users' => User::whereNotIn('role_id', [1, 2])->count(),
             'total_actions' => UserActivityLog::count(),
-            'recent_actions' => UserActivityLog::with('user')->orderBy('created_at', 'desc')->limit(12)->get(),
+            'recent_actions' => UserActivityLog::with('user')->orderBy('created_at', 'desc')->paginate(10),
             'role_distribution' => DB::table('users')
                 ->join('roles', 'users.role_id', '=', 'roles.id')
+                ->whereNotIn('users.role_id', [1, 2])
                 ->select('roles.display_name', DB::raw('count(*) as total'))
                 ->groupBy('roles.display_name')
                 ->get()
@@ -51,17 +54,43 @@ class AdminFrontendController extends Controller
 
     public function users(Request $request)
     {
-        $query = User::with('role');
+        $query = User::with('role')->whereNotIn('role_id', [1, 2]);
         
         if ($request->has('search')) {
-            $query->where('name', 'like', '%' . $request->search . '%')
+            $query->where(function($q) use ($request) {
+                $q->where('name', 'like', '%' . $request->search . '%')
                   ->orWhere('email', 'like', '%' . $request->search . '%');
+            });
         }
 
         $users = $query->orderBy('name')->paginate(20);
-        $roles = DB::table('roles')->get();
+        $roles = DB::table('roles')->whereNotIn('id', [1, 2])->get();
 
         return view('front-end.admin.users', compact('users', 'roles'));
+    }
+
+    public function storeUser(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users',
+            'role_id' => 'required|exists:roles,id'
+        ]);
+
+        $user = User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => \Illuminate\Support\Facades\Hash::make('Kori@2026'), // Mot de passe par défaut
+            'role_id' => $request->role_id,
+        ]);
+
+        UserActivityLog::log(
+            "CREATION_COLLABORATEUR", 
+            $user, 
+            "L'Administrateur " . auth()->user()->name . " a créé le compte de " . $user->name . " avec le rôle ID: " . $request->role_id
+        );
+
+        return back()->with('success', 'Le collaborateur ' . $user->name . ' a été créé avec succès. Mot de passe par défaut : Kori@2026');
     }
 
     public function updateUserRole(Request $request, User $user)
@@ -82,12 +111,49 @@ class AdminFrontendController extends Controller
 
     public function activityLogs(Request $request)
     {
-        $logs = UserActivityLog::with('user')->orderBy('created_at', 'desc')->paginate(50);
-        return view('front-end.admin.logs', compact('logs'));
+        $query = UserActivityLog::with('user');
+
+        // Filtre par Utilisateur (ID ou Nom)
+        if ($request->filled('user_id')) {
+            $query->where('user_id', $request->user_id);
+        }
+
+        // Filtre par Date de début
+        if ($request->filled('start_date')) {
+            $query->whereDate('created_at', '>=', $request->start_date);
+        }
+
+        // Filtre par Date de fin
+        if ($request->filled('end_date')) {
+            $query->whereDate('created_at', '<=', $request->end_date);
+        }
+
+        // Tri dynamique
+        $sort = $request->get('sort', 'created_at');
+        $direction = $request->get('direction', 'desc');
+        $query->orderBy($sort, $direction);
+
+        $logs = $query->paginate(10)->withQueryString();
+        
+        $allUsers = User::whereNotIn('role_id', [1, 2])->orderBy('name')->paginate(10);
+
+        return view('front-end.admin.logs', compact('logs', 'allUsers'));
     }
 
-    public function exportLogs()
+    public function exportLogs(Request $request)
     {
+        $query = UserActivityLog::with('user');
+
+        if ($request->filled('user_id')) {
+            $query->where('user_id', $request->user_id);
+        }
+        if ($request->filled('start_date')) {
+            $query->whereDate('created_at', '>=', $request->start_date);
+        }
+        if ($request->filled('end_date')) {
+            $query->whereDate('created_at', '<=', $request->end_date);
+        }
+
         $fileName = 'activity_logs_' . date('Y-m-d_His') . '.csv';
         $headers = [
             "Content-type"        => "text/csv; charset=UTF-8",
@@ -97,12 +163,12 @@ class AdminFrontendController extends Controller
             "Expires"             => "0"
         ];
 
-        $callback = function() {
+        $callback = function() use ($query) {
             $file = fopen('php://output', 'w');
             fputs($file, (chr(0xEF) . chr(0xBB) . chr(0xBF))); // BOM UTF-8
             fputcsv($file, ['Date', 'Utilisateur', 'Action', 'Description', 'Cible', 'Adresse IP'], ';');
 
-            UserActivityLog::with('user')->chunk(100, function($logs) use ($file) {
+            $query->chunk(100, function($logs) use ($file) {
                 foreach ($logs as $log) {
                     fputcsv($file, [
                         $log->created_at->format('d/m/Y H:i:s'),
@@ -145,7 +211,9 @@ class AdminFrontendController extends Controller
             'roles_json' => 'required|array'
         ]);
 
-        FrontMenu::create($request->all());
+        $data = $request->all();
+        $data['is_active'] = true;
+        FrontMenu::create($data);
 
         return back()->with('success', 'Menu créé avec succès.');
     }
@@ -166,5 +234,64 @@ class AdminFrontendController extends Controller
     {
         $menu->delete();
         return back()->with('success', 'Menu supprimé.');
+    }
+
+    private function syncAdminMenus()
+    {
+        $adminRoles = [1, 8];
+        $menus = [
+            [
+                'title' => 'Console Admin',
+                'route' => 'admin.front.dashboard',
+                'icon' => 'las la-server',
+                'section' => 'admin',
+                'order' => 1,
+                'roles_json' => $adminRoles,
+                'is_active' => true
+            ],
+            [
+                'title' => 'Habilitations',
+                'route' => 'admin.front.users',
+                'icon' => 'las la-users-cog',
+                'section' => 'admin',
+                'order' => 2,
+                'roles_json' => $adminRoles,
+                'is_active' => true
+            ],
+            [
+                'title' => 'Piste d\'Audit',
+                'route' => 'admin.front.logs',
+                'icon' => 'las la-history',
+                'section' => 'admin',
+                'order' => 3,
+                'roles_json' => $adminRoles,
+                'is_active' => true
+            ],
+            [
+                'title' => 'Valeurs Liquidatives',
+                'route' => 'asset-manager.vls',
+                'icon' => 'las la-chart-area',
+                'section' => 'asset_manager',
+                'order' => 4,
+                'roles_json' => [1, 3, 8],
+                'is_active' => true
+            ],
+            [
+                'title' => 'Valeurs Liquidatives',
+                'route' => 'compliance.vl-history',
+                'icon' => 'las la-chart-area',
+                'section' => 'compliance',
+                'order' => 4,
+                'roles_json' => [1, 5, 8],
+                'is_active' => true
+            ]
+        ];
+
+        foreach ($menus as $m) {
+            FrontMenu::updateOrCreate(
+                ['route' => $m['route']],
+                $m
+            );
+        }
     }
 }

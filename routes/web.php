@@ -1,5 +1,93 @@
 <?php
 
+Route::get('/diag-fomethe', function() {
+
+    $transactions = DB::table('transactions as t')
+        ->join('products as p', 't.product_id', '=', 'p.id')
+        ->join('users as u', 't.user_id', '=', 'u.id')
+        ->where('p.products_category_id', 1)
+        ->where('t.status', 'Succès')
+        ->select('t.id', 'u.name', 't.amount', 't.fees', 't.date_validation')
+        ->get();
+
+    $discrepancies = [];
+
+    foreach ($transactions as $t) {
+        $gross = (float)$t->amount + (float)$t->fees;
+        
+        $isOff = ($gross > 0 && ($gross % 1000 != 0));
+        $isZero = ((float)$t->fees == 0);
+
+        if ($isOff || $isZero) {
+            $discrepancies[] = [
+                'id' => $t->id,
+                'client' => $t->name,
+                'date' => $t->date_validation,
+                'amount' => $t->amount,
+                'fees' => $t->fees,
+                'gross' => $gross,
+                'status' => $isZero ? 'ZERO_FEES' : 'OFF_ROUND'
+            ];
+        }
+    }
+    return $discrepancies;
+});
+
+Route::get('/diag-fcp-fees', function() {
+    $transactions = DB::table('transactions as t')
+        ->join('products as p', 't.product_id', '=', 'p.id')
+        ->join('users as u', 't.user_id', '=', 'u.id')
+        ->where('p.products_category_id', 1)
+        ->where('t.status', 'Succès')
+        ->select('t.id', 'u.name', 't.amount', 't.fees', 't.date_validation')
+        ->get();
+
+    $discrepancies = [];
+
+    foreach ($transactions as $t) {
+        $gross = (float)$t->amount + (float)$t->fees;
+        
+        $isOff = ($gross > 0 && ($gross % 1000 != 0));
+        $isZero = ((float)$t->fees == 0);
+
+        if ($isOff || $isZero) {
+            $discrepancies[] = [
+                'id' => $t->id,
+                'client' => $t->name,
+                'date' => $t->date_validation,
+                'amount' => $t->amount,
+                'fees' => $t->fees,
+                'gross' => $gross,
+                'status' => $isZero ? 'ZERO_FEES' : 'OFF_ROUND'
+            ];
+        }
+    }
+    return $discrepancies;
+});
+
+Route::get('/nina-final-check', function() {
+    $userId = 74;
+    $date = '2026-03-31';
+
+    $movements = DB::table('fcp_movements')
+        ->where('user_id', $userId)
+        ->orderBy('date_operation', 'asc')
+        ->get();
+
+    $transactions = DB::table('transactions')
+        ->where('user_id', $userId)
+        ->get(['id', 'amount', 'fees', 'date_validation']);
+
+    $service = new \App\Services\InvestmentService();
+    $valuation = $service->getConsolidatedFcpPortfolio($userId, $date);
+
+    return response()->json([
+        'movements' => $movements,
+        'transactions' => $transactions,
+        'valuation_31_03' => $valuation
+    ]);
+});
+
 use App\Http\Controllers\AchatActionController;
 use App\Http\Controllers\AchatActionCustomerController;
 use App\Http\Controllers\AdminFrontendController;
@@ -35,50 +123,16 @@ use TCG\Voyager\Facades\Voyager;
 
 /*
 |--------------------------------------------------------------------------
-| Web Routes
-|--------------------------------------------------------------------------
 */
 
-Route::get('/repair-production-data', function() {
+
+Route::get('/clear-fcp-data', function() {
     return DB::transaction(function () {
-        // --- 1. Correction pour Mme NINA LAMERO (ID 74) ---
-        $ninaId = 74;
-        // Correction du capital brut (frais de 19 800 -> 20 000 pour atteindre 3 000 000 brut total)
-        DB::table('transactions')->where('id', 100)->update(['fees' => 20000]);
-
-        // Mouvement du 04/02/2026
-        DB::table('fcp_movements')->where('user_id', $ninaId)->whereDate('date_operation', '2026-02-04')
-            ->update([
-                'vl_applied' => 10979.81,
-                'nb_parts_change' => 1980000 / 10979.81,
-                'comment' => "Correction : Alignement carnet d'ordre"
-            ]);
-        DB::table('fcp_movements')->where('user_id', $ninaId)->whereDate('date_operation', '2026-03-06')
-            ->update([
-                'vl_applied' => 11293.51,
-                'nb_parts_change' => 990000 / 11293.51,
-                'comment' => "Correction : Alignement carnet d'ordre"
-            ]);
-
-        // --- 2. Correction pour Mme ESSAGA (ID 71) ---
-        $essagaId = 71;
-        $movements = DB::table('fcp_movements')->where('user_id', $essagaId)->get();
-        foreach($movements as $m) {
-             $preciseParts = (float)$m->amount_xaf / (float)$m->vl_applied;
-             DB::table('fcp_movements')->where('id', $m->id)->update(['nb_parts_change' => $preciseParts]);
-        }
-
-        // --- 3. Recalcul des totaux (Running Balance) ---
-        foreach([$ninaId, $essagaId] as $id) {
-            $total = 0;
-            $items = DB::table('fcp_movements')->where('user_id', $id)->orderBy('date_operation', 'asc')->orderBy('id', 'asc')->get();
-            foreach($items as $item) {
-                $total += (float)$item->nb_parts_change;
-                DB::table('fcp_movements')->where('id', $item->id)->update(['nb_parts_total' => $total]);
-            }
-        }
-
-        return "Correction terminée avec succès pour Nina (ID 74) et Essaga (ID 71). PENSEZ A SUPPRIMER CETTE ROUTE.";
+        $fcpProductIds = DB::table('products')->where('products_category_id', 1)->pluck('id');
+        DB::table('fcp_movements')->whereIn('product_id', $fcpProductIds)->delete();
+        DB::table('transaction_supplementaires')->whereIn('product_id', $fcpProductIds)->delete();
+        DB::table('transactions')->whereIn('product_id', $fcpProductIds)->delete();
+        return "NETTOYAGE RÉUSSI : Toutes les données FCP ont été effacées. Vous pouvez maintenant ré-insérer vos clients proprement via l'interface.";
     });
 });
 
@@ -601,9 +655,8 @@ Route::middleware('auth')->group(function () {
                 'date_souscription'  => $tx->date_validation ?? $tx->created_at,
                 'libelle'            => $tx->title ?? 'SOUSCRIPTION',
                 'ref'                => $tx->ref,
-                'produit'            => $productTitle,
-                'montant'            => (float)$tx->amount + (float)$tx->fees,
-                'fees'               => 0, // Inclus dans le brut
+                'montant'            => (float)$tx->amount,
+                'fees'               => 0, // Déjà inclus dans le montant brut enregistré
                 'sens'               => 'entrant',
                 'source'             => 'tx',
                 'id'                 => $tx->id,
@@ -638,8 +691,7 @@ Route::middleware('auth')->group(function () {
                     'date_souscription'  => $tx->date_validation ?? $tx->created_at,
                     'libelle'            => $tx->title ?? 'VERSEMENT LIBRE',
                     'ref'                => $tx->ref,
-                    'produit'            => $productTitle,
-                    'montant'            => (float)$tx->amount + (float)$tx->fees,
+                    'montant'            => (float)$tx->amount,
                     'fees'               => 0,
                     'sens'               => 'entrant',
                     'source'             => 'tx_supp',
@@ -756,7 +808,19 @@ Route::get('/logout', function () {
 
 Route::group(['prefix' => 'admin'], function () {
     Voyager::routes();
+    // Valeurs Liquidatives
+    Route::get('/vls', [AssetManagerController::class, 'vlHistory'])->name('asset-manager.vls');
+    Route::post('/vls/store', [AssetManagerController::class, 'storeVl'])->name('asset-manager.vls.store');
+});
 
+// --- Dossier Compliance (Audit & Risques) ---
+Route::prefix('compliance')->middleware(['auth'])->group(function () {
+    Route::get('/dashboard', [ComplianceController::class, 'dashboard'])->name('compliance.dashboard');
+    Route::get('/clients', [ComplianceController::class, 'clients'])->name('compliance.clients');
+    Route::get('/client/{client}', [ComplianceController::class, 'clientHistory'])->name('compliance.client-detail');
+    Route::get('/vls', [ComplianceController::class, 'vlHistory'])->name('compliance.vl-history');
+    Route::get('/vls/export', [ComplianceController::class, 'export'])->name('compliance.vls.export');
+    Route::get('/portfolio-audit', [ComplianceController::class, 'portfolioAudit'])->name('compliance.portfolio-audit');
 });
 
 // --- Dossier Backoffice ---
@@ -779,9 +843,11 @@ Route::prefix('dg')->middleware(['auth'])->group(function () {
 Route::prefix('admin-front')->middleware(['auth'])->group(function () {
     Route::get('/dashboard', [\App\Http\Controllers\AdminFrontendController::class, 'dashboard'])->name('admin.front.dashboard');
     Route::get('/users', [\App\Http\Controllers\AdminFrontendController::class, 'users'])->name('admin.front.users');
+    // Ajout de la route pour créer un utilisateur
+    Route::post('/users/store', [\App\Http\Controllers\AdminFrontendController::class, 'storeUser'])->name('admin.front.store-user');
     Route::post('/users/{user}/role', [\App\Http\Controllers\AdminFrontendController::class, 'updateUserRole'])->name('admin.front.update-role');
     Route::get('/logs', [\App\Http\Controllers\AdminFrontendController::class, 'activityLogs'])->name('admin.front.logs');
-    Route::get('/logs/export', [\App\Http\Controllers\AdminFrontendController::class, 'exportLogs'])->name('admin.front.export-logs');
+    Route::get('/logs/export', [\App\Http\Controllers\AdminFrontendController::class, 'exportLogs'])->name('admin.front.logs.export');
     
     // Gestion des Menus
     Route::get('/menus', [\App\Http\Controllers\AdminFrontendController::class, 'menus'])->name('admin.front.menus');

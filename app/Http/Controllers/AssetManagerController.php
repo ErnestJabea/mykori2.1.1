@@ -663,5 +663,54 @@ class AssetManagerController extends Controller
         return $result;
     }
 
+    /**
+     * Gestion des Valeurs Liquidatives (VL)
+     */
+    public function vlHistory(Request $request)
+    {
+        $products = Product::where('products_category_id', 1)->get();
+        $selectedProductId = $request->get('product_id', $products->first()?->id);
+        
+        $vls = AssetValue::with('product')
+            ->where('product_id', $selectedProductId)
+            ->orderBy('date_vl', 'desc')
+            ->orderBy('id', 'desc')
+            ->paginate(15);
 
+        return view('front-end.asset-manager.vls', compact('products', 'vls', 'selectedProductId'));
+    }
+
+    public function storeVl(Request $request)
+    {
+        $request->validate([
+            'product_id' => 'required|exists:products,id',
+            'vl' => 'required|numeric|min:0',
+            'date_vl' => 'required|date',
+        ]);
+
+        // Vérifier si une VL existe déjà à cette date pour ce produit
+        $exists = AssetValue::where('product_id', $request->product_id)
+            ->whereDate('date_vl', $request->date_vl)
+            ->first();
+
+        if ($exists) {
+            $exists->update(['vl' => $request->vl]);
+            $msg = "Valeur Liquidative mise à jour pour le " . Carbon::parse($request->date_vl)->format('d/m/Y');
+        } else {
+            AssetValue::create([
+                'product_id' => $request->product_id,
+                'vl' => $request->vl,
+                'date_vl' => $request->date_vl,
+            ]);
+            $msg = "Nouvelle Valeur Liquidative enregistrée avec succès.";
+        }
+
+        \App\Models\UserActivityLog::log(
+            "MAJ_VALEUR_LIQUIDATIVE",
+            null,
+            "L'Asset Manager " . auth()->user()->name . " a mis à jour la VL du produit ID #{$request->product_id} à {$request->vl} pour la date du {$request->date_vl}"
+        );
+
+        return back()->with('success', $msg);
+    }
 }

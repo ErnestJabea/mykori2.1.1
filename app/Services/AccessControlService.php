@@ -51,9 +51,8 @@ class AccessControlService
     {
         $roleId = Auth::user()->role_id ?? 0;
         
-        // On récupère tous les menus actifs
-        $menus = \App\Models\FrontMenu::where('is_active', true)
-                  ->orderBy('section')
+        // On récupère tous les menus (on retire le filtre is_active le temps du test pour forcer l'affichage des existants)
+        $menus = \App\Models\FrontMenu::orderBy('section')
                   ->orderBy('order')
                   ->get();
 
@@ -68,23 +67,38 @@ class AccessControlService
 
         $filteredMenus = [];
 
+        $isAdminRoute = request()->is('admin-front*');
+
         foreach ($sections as $key => $section) {
-            // Si l'utilisateur a le droit de voir la section
-            if (self::can($section['permission'])) {
-                
-                $items = [];
+            // Si on est sur une route admin, on ne veut voir QUE la section admin
+            if ($isAdminRoute && $key !== 'admin') {
+                continue;
+            }
+
+            $items = [];
+            $currentUserRoleId = intval($roleId);
+
+            // Force l'accès pour l'admin ou si l'utilisateur a le droit sur la section
+            $hasSectionAccess = in_array($currentUserRoleId, [1, 8]) || self::can($section['permission']);
+            
+            // Cas particulier : l'Asset Manager (3) doit TOUJOURS voir sa propre section
+            if ($key === 'asset_manager' && $currentUserRoleId === 3) {
+                $hasSectionAccess = true;
+            }
+
+            if ($hasSectionAccess) {
                 // On cherche les menus de cette section pour lesquels l'utilisateur a le rôle
                 foreach ($menus->where('section', $key) as $menu) {
                     $roles = is_array($menu->roles_json) ? $menu->roles_json : [];
-                    
-                    // Si pas de roles_json défini, on se base sur la permission
-                    if (empty($roles)) {
-                        if (self::can($menu->permission)) {
-                            $items[] = ['title' => $menu->title, 'route' => $menu->route, 'icon' => $menu->icon];
-                        }
-                    } 
-                    // Sinon on vérifie si le rôle ID est dans la liste
-                    elseif (in_array($roleId, $roles) || $roleId == 1) {
+                    $roles = array_map('intval', $roles);
+                    $currentUserRoleId = intval($roleId);
+
+                    // Admin (1) et Admin Frontend (8) voient tout pour piloter
+                    if (in_array($currentUserRoleId, [1, 8])) {
+                        $items[] = ['title' => $menu->title, 'route' => $menu->route, 'icon' => $menu->icon];
+                    }
+                    // Autres : vérification par rôle ou par permission (si pas de rôle défini)
+                    elseif (in_array($currentUserRoleId, $roles) || (empty($roles) && self::can($menu->permission))) {
                          $items[] = ['title' => $menu->title, 'route' => $menu->route, 'icon' => $menu->icon];
                     }
                 }
