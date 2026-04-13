@@ -49,7 +49,7 @@ class AchatActionController extends Controller
             $new_transaction->title = "Investissement " . $periodicite . " de " . $name_product->title;
             $new_transaction->ref = "Kori-" . $existing_transaction->ref . "-" . $unique_id;
             $new_transaction->payment_mode = "A définir";
-            $new_transaction->amount = $montant_normal;
+            $new_transaction->amount = $montantTotal;
             $new_transaction->fees = $fraisGestion;
             $new_transaction->status = "En attente";
             $new_transaction->user_id = $customer_id;
@@ -61,7 +61,7 @@ class AchatActionController extends Controller
             $new_transaction->date_validation = $date_valeur;
 
             $vl_actuel = $vl ? $vl->vl : $name_product->vl;
-            Mail::to($name_product->email_contact)->send(new AchatActionMail($valeurLiquidative, $vl_actuel, $fraisGestion, $montant_normal, $name_product, $username, $useremail));
+            Mail::to($name_product->email_contact)->send(new AchatActionMail($valeurLiquidative, $vl_actuel, $fraisGestion, $montantTotal, $name_product, $username, $useremail));
 
             $new_transaction->save();
 
@@ -73,7 +73,7 @@ class AchatActionController extends Controller
             $transaction->title = "Souscription " . $periodicite . " de " . $name_product->title;
             $transaction->ref = "Kori-" . $unique_id;
             $transaction->payment_mode = "A définir";
-            $transaction->amount = $montant_normal;
+            $transaction->amount = $montantTotal;
             $transaction->fees = $fraisGestion;
             $transaction->status = "En attente";
             $transaction->user_id = $customer_id;
@@ -165,7 +165,8 @@ class AchatActionController extends Controller
                 $new_transaction->amount = $montantTotal;
                 $new_transaction->fees = 0;
             } else {
-                $new_transaction->amount = $request->input('montant_normal', $montantTotal); 
+                // Pour FCP, on stocke désormais le BRUT (Total) dans la colonne amount
+                $new_transaction->amount = $montantTotal; 
                 $new_transaction->fees = $fraisGestion;
             }
             $new_transaction->status = "En attente";
@@ -198,7 +199,8 @@ class AchatActionController extends Controller
                 $transaction->amount = $montantTotal;
                 $transaction->fees = 0;
             } else {
-                $transaction->amount = $request->input('montant_normal', $montantTotal); 
+                // Pour FCP, on stocke désormais le BRUT (Total) dans la colonne amount
+                $transaction->amount = $montantTotal; 
                 $transaction->fees = $fraisGestion;
             }
             

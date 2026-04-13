@@ -120,7 +120,7 @@
                                             @endif
                                         </td> --}}
                                         <td class="py-4 px-6 text-end font-bold text-n700">
-                                            {{ number_format($transaction->amount + ($transaction->fees ?? 0), 0, ' ', ' ') }} XAF
+                                            {{ number_format($transaction->amount, 0, ' ', ' ') }} XAF
                                         </td>
                                         {{-- <td class="py-4 px-6 text-center">
                                             <div class="flex gap-1 items-center justify-center">
@@ -148,7 +148,7 @@
                                                     @csrf
                                                     <button type="submit"
                                                         class="p-1.5 bg-success/10 text-success rounded-lg hover:bg-success hover:text-white transition-all shadow-sm"
-                                                        title="Valider Compliance">
+                                                        title="Valider l'opération">
                                                         <i class="las la-check"></i>
                                                     </button>
                                                 </form>
@@ -175,4 +175,5 @@
     </main>
 
     @include('partials.transaction-details-modal')
+    @include('partials.ajax-validation-script')
 @endsection

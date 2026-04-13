@@ -56,7 +56,7 @@ class AchatActionCustomerController extends Controller
             $new_transaction->title = "Souscription suppl. " . $type_souscription . " de " . $name_product->title;
             $new_transaction->ref = "Kori-" . $existing_transaction->ref . "-" . $unique_id;
             $new_transaction->payment_mode = "A définir";
-            $new_transaction->amount = $montant_normal;
+            $new_transaction->amount = $montantTotal;
             $new_transaction->fees = $fraisGestion;
             $new_transaction->status = "En attente";
             $new_transaction->user_id = $customer;
@@ -75,7 +75,7 @@ class AchatActionCustomerController extends Controller
             $transaction->title = "Souscription " . $type_souscription . " de " . $name_product->title;
             $transaction->ref = "Kori-" . $unique_id;
             $transaction->payment_mode = "A définir";
-            $transaction->amount = $montant_normal;
+            $transaction->amount = $montantTotal;
             $transaction->fees = $fraisGestion;
             $transaction->status = "En attente";
             $transaction->user_id = $customer;
@@ -146,7 +146,8 @@ class AchatActionCustomerController extends Controller
                 $new_transaction->amount = $montantTotal; 
                 $new_transaction->fees = 0; 
             } else {
-                $new_transaction->amount = $montant_normal; 
+                // Pour FCP, on enregistre désormais le BRUT (total payé)
+                $new_transaction->amount = $montantTotal; 
                 $new_transaction->fees = $fraisGestion;
             }
             $new_transaction->status = "En attente";
@@ -173,7 +174,8 @@ class AchatActionCustomerController extends Controller
                 $transaction->amount = $montantTotal; 
                 $transaction->fees = 0; 
             } else {
-                $transaction->amount = $montant_normal; 
+                // Pour FCP, on enregistre désormais le BRUT (total payé)
+                $transaction->amount = $montantTotal; 
                 $transaction->fees = $fraisGestion;
             }
             

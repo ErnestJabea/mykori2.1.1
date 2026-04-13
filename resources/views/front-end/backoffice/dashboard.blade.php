@@ -86,7 +86,7 @@
                                                     </div>
                                                 </td>
                                                 <td class="px-6 py-4 text-right">
-                                                    <span class="text-marron font-black text-base italic">{{ number_format($trans->amount + ($trans->fees ?? 0), 0, '.', ' ') }}</span> 
+                                                    <span class="text-marron font-black text-base italic">{{ number_format($trans->amount, 0, '.', ' ') }}</span> 
                                                     <span class="text-[9px] text-n400 font-bold ml-1">XAF</span>
                                                 </td>
                                                 <td class="px-6 py-4">
@@ -178,4 +178,5 @@
         </div>
     </main>
     @include('partials.transaction-details-modal')
+    @include('partials.ajax-validation-script')
 @endsection

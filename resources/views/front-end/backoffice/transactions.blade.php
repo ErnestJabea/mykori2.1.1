@@ -102,4 +102,5 @@
         </div>
     </main>
     @include('partials.transaction-details-modal')
+    @include('partials.ajax-validation-script')
 @endsection

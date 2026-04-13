@@ -100,8 +100,8 @@
                             <ul class="menu-ul">
                                 @foreach($group['items'] as $item)
                                     <li class="menu-li">
-                                        <button class="menu-btn transition-all duration-300 {{ request()->routeIs($item['route']) ? 'bg-primary/10 text-primary border-primary' : 'bg-n0 border-n30 hover:border-primary/50' }} dark:bg-bg4 dark:border-n500">
-                                            <a href="{{ route($item['route']) }}"
+                                        <button class="menu-btn transition-all duration-300 {{ (\Route::has($item['route']) && request()->routeIs($item['route'])) || request()->is($item['route'] . '*') ? 'bg-primary/10 text-primary border-primary' : 'bg-n0 border-n30 hover:border-primary/50' }} dark:bg-bg4 dark:border-n500">
+                                            <a href="{{ \Route::has($item['route']) ? route($item['route']) : url($item['route']) }}"
                                                 class="flex items-center justify-start gap-3 w-full px-4 py-2">
                                                 <span class="menu-icon text-xl">
                                                     <i class="{{ $item['icon'] }}"></i>

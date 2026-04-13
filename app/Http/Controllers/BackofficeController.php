@@ -149,6 +149,14 @@ class BackofficeController extends Controller
 
         $msg = $validated ? "Transaction validée et activée avec succès !" : "Validation enregistrée. En attente des autres services.";
 
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => $msg,
+                'validated_globally' => $validated
+            ]);
+        }
+
         return back()->with('success', $msg);
     }
 }

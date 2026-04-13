@@ -1,142 +1,113 @@
-@extends('front-end/app/app-home-asset', ['title' => 'Évolution des VL | Compliance', 'body_class' => 'vertical bg-secondary1/5 dark:bg-bg3 my-products-page other-page compliance-profil'])
+@extends('front-end/app/app-home-asset', ['title' => 'Audit des VL - Compliance'])
 
 @section('content')
-    <main class="main-content has-sidebar my-products-page other-page">
-        <div class="grid grid-cols-12 gap-4 xxl:gap-6">
-            <!-- Header Section -->
-            <div class="col-span-12 flex flex-col gap-4 md:col-span-12 xxl:gap-6">
-                <div class="bg-white dark:bg-bg3 p-6 rounded-2xl shadow-sm border border-n30">
-                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-                        <div>
-                            <h3 class="h3 uppercase">HISTORIQUE DES VL</h3>
-                            <p class="text-sm opacity-70 font-medium text-primary">Traçabilité complète des changements de
-                                valorisation</p>
-                        </div>
+    <main class="kad-main main-content has-sidebar">
+        <div class="kad-inner">
+
+            {{-- ── HEADER ─────────────────────────────────────────── --}}
+            <div class="kad-topbar">
+                <div class="kad-topbar-left">
+                    <div class="kad-topbar-icon" style="background: rgba(234, 179, 8, 0.1);">
+                        <i class="las la-shield-alt" style="color: #854d0e;"></i>
                     </div>
-
-                    <!-- Export Advanced Options -->
-                    <div class="border-t border-n30 pt-6">
-                        <h4 class="text-xs font-bold uppercase opacity-60 mb-4 flex items-center gap-2">
-                            <i class="las la-file-export text-lg"></i> EXPORT PERSONNALISÉ (CSV)
-                        </h4>
-                        <form action="{{ route('compliance.export') }}" method="GET" class="grid grid-cols-12 gap-4">
-                            <input type="hidden" name="type" value="vls">
-
-                            <!-- Product Selection -->
-                            <div class="col-span-12 lg:col-span-6">
-                                <label class="text-[11px] font-bold opacity-60 mb-2 block uppercase">Produits FCP à inclure
-                                    :</label>
-                                <div
-                                    class="flex flex-wrap gap-3 bg-n10 p-4 rounded-xl border border-n30 max-h-[120px] overflow-y-auto">
-                                    @foreach ($products as $p)
-                                        <label
-                                            class="flex items-center gap-2 cursor-pointer hover:text-primary duration-200">
-                                            <input type="checkbox" name="product_ids[]" value="{{ $p->id }}"
-                                                class="w-4 h-4 rounded border-n40 checked:bg-primary" checked>
-                                            <span class="text-xs font-medium">{{ $p->title }}</span>
-                                        </label>
-                                    @endforeach
-                                </div>
-                            </div>
-
-                            <!-- Date Range -->
-                            <div class="col-span-12 md:col-span-6 lg:col-span-4">
-                                <label class="text-[11px] font-bold opacity-60 mb-2 block uppercase">Période :</label>
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div class="bg-n10 p-3 rounded-xl border border-n30 relative">
-                                        <label class="text-[9px] block opacity-60 uppercase mb-1">Du</label>
-                                        <div class="flex items-center gap-2">
-                                            <i class="las la-calendar text-primary text-sm"></i>
-                                            <input type="text" name="start_date" id="date"
-                                                class="bg-white border border-n30 rounded px-2 py-1 text-xs w-full focus:outline-none focus:border-primary cursor-pointer"
-                                                placeholder="JJ/MM/AAAA" readonly>
-                                        </div>
-                                    </div>
-                                    <div class="bg-n10 p-3 rounded-xl border border-n30 relative">
-                                        <label class="text-[9px] block opacity-60 uppercase mb-1">Au</label>
-                                        <div class="flex items-center gap-2">
-                                            <i class="las la-calendar text-primary text-sm"></i>
-                                            <input type="text" name="end_date" id="date2" value="{{ date('Y-m-d') }}"
-                                                class="bg-white border border-n30 rounded px-2 py-1 text-xs w-full focus:outline-none focus:border-primary cursor-pointer"
-                                                placeholder="JJ/MM/AAAA" readonly>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Export Action -->
-                            <div class="col-span-12 md:col-span-6 lg:col-span-2 flex items-end">
-                                <button type="submit"
-                                    class="w-full btn bg-success text-white rounded-xl py-4 flex items-center justify-center gap-2 hover:opacity-90 duration-300 font-bold shadow-lg">
-                                    <i class="las la-download text-xl"></i> EXPORTER
-                                </button>
-                            </div>
-                        </form>
+                    <div>
+                        <h2 class="kad-topbar-title">Audit des Valeurs Liquidatives</h2>
+                        <p class="kad-topbar-sub">Supervision et traçabilité des performances fonds.</p>
                     </div>
                 </div>
             </div>
 
-            <div class="col-span-12">
-                <div class="box bg-white dark:bg-bg3 rounded-2xl border border-n30 shadow-sm overflow-hidden">
-                    <div class="p-6 border-b border-n30 bg-n10/30">
-                        <form action="{{ route('compliance.vl-history') }}" method="GET"
-                            class="flex flex-wrap items-center gap-4">
-                            <div class="flex items-center gap-2">
-                                <label class="text-sm font-bold opacity-60">Filtrer par Produit :</label>
-                                <select name="product_id"
-                                    class="bg-white border border-n30 rounded-lg px-4 py-2 text-sm focus:border-primary focus:outline-none min-w-[200px]">
-                                    @foreach ($products as $p)
-                                        <option value="{{ $p->id }}"
-                                            {{ $selectedProductId == $p->id ? 'selected' : '' }}>{{ $p->title }}
-                                        </option>
-                                    @endforeach
-                                </select>
+            {{-- ── EXPORT PANEL ──────────────────────────────────── --}}
+            <div class="kad-panel" style="margin-top: 1rem;">
+                <div class="bg-white p-6 rounded-3xl border border-n30 shadow-sm">
+                    <h4 class="text-[10px] font-black uppercase text-n500 mb-4 tracking-widest italic">
+                        <i class="las la-file-export text-lg text-success"></i> Exportation des données d'audit
+                    </h4>
+                    <form action="{{ route('compliance.export') }}" method="GET" class="flex flex-wrap items-end gap-6">
+                        <input type="hidden" name="type" value="vls">
+                        
+                        <div class="flex flex-col gap-2 grow min-w-[300px]">
+                            <label class="kad-field-label">Produits à inclure</label>
+                            <div class="flex flex-wrap gap-2 p-3 bg-n10 rounded-xl border border-n30">
+                                @foreach($products as $p)
+                                    <label class="flex items-center gap-2 px-3 py-1 bg-white border border-n30 rounded-lg cursor-pointer hover:border-primary transition-all">
+                                        <input type="checkbox" name="product_ids[]" value="{{ $p->id }}" checked class="accent-primary">
+                                        <span class="text-[10px] font-bold">{{ $p->title }}</span>
+                                    </label>
+                                @endforeach
                             </div>
-                            <button type="submit" class="btn bg-primary text-white rounded-lg px-6 py-2">
-                                Appliquer le filtre
-                            </button>
+                        </div>
+
+                        <div class="flex flex-col gap-2">
+                            <label class="kad-field-label">Période du</label>
+                            <input type="date" name="start_date" class="kad-input">
+                        </div>
+
+                        <div class="flex flex-col gap-2">
+                            <label class="kad-field-label">au</label>
+                            <input type="date" name="end_date" value="{{ date('Y-m-d') }}" class="kad-input">
+                        </div>
+
+                        <button type="submit" class="kad-btn-primary" style="background: var(--kad-success)">
+                            <i class="las la-download"></i> Exporter
+                        </button>
+                    </form>
+                </div>
+
+                {{-- ── TABLE ──────────────────────────────────────────── --}}
+                <div class="kad-table-card mt-2">
+                    <div class="p-6 border-b border-n30 bg-n10/30 flex justify-between items-center">
+                        <form action="{{ route('compliance.vl-history') }}" method="GET" class="flex items-center gap-4">
+                            <label class="text-[10px] font-black uppercase text-n500 italic">Filtrer par Produit :</label>
+                            <select name="product_id" class="kad-input" style="width: auto; min-width: 220px;" onchange="this.form.submit()">
+                                @foreach($products as $p)
+                                    <option value="{{ $p->id }}" {{ $selectedProductId == $p->id ? 'selected' : '' }}>
+                                        {{ $p->title }}
+                                    </option>
+                                @endforeach
+                            </select>
                         </form>
                     </div>
 
-                    <div class="overflow-x-auto">
-                        <table class="w-full whitespace-nowrap">
+                    <div class="kad-table-wrap">
+                        <table class="kad-table">
                             <thead>
-                                <tr class="bg-n20 dark:bg-bg3 text-n500 uppercase text-[11px] font-bold">
-                                    <th class="py-4 px-6 text-start">Date de la Valeur</th>
-                                    <th class="py-4 px-6 text-start">Produit Associé</th>
-                                    <th class="py-4 px-6 text-end">Valeur Liquidative (XAF)</th>
-                                    <th class="py-4 px-6 text-end">Horodatage Système</th>
+                                <tr>
+                                    <th>Date de la Valeur</th>
+                                    <th>Produit</th>
+                                    <th class="text-right">Valeur Liquidative (XAF)</th>
+                                    <th class="text-right">Enregistrement Système</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-n30">
-                                @foreach ($vls as $v)
-                                    <tr class="hover:bg-primary/5 duration-200">
-                                        <td class="py-4 px-6">
-                                            <div class="flex items-center gap-2">
+                            <tbody>
+                                @foreach($vls as $v)
+                                    <tr class="hover:bg-n10/50">
+                                        <td class="kad-td-date">
+                                            <div class="flex items-center gap-3">
                                                 <i class="las la-calendar text-primary"></i>
-                                                <span
-                                                    class="text-sm font-bold">{{ Carbon\Carbon::parse($v->date_vl)->format('d/m/Y') }}</span>
+                                                {{ \Carbon\Carbon::parse($v->date_vl)->translatedFormat('d F Y') }}
                                             </div>
                                         </td>
-                                        <td class="py-4 px-6">
-                                            <span
-                                                class="px-2 py-0.5 rounded bg-n20 text-n700 text-[10px] font-bold uppercase">
-                                                {{ $v->product->title ?? 'Produit Inconnu' }}
+                                        <td>
+                                            <span class="px-2 py-0.5 rounded bg-n20 text-n700 text-[9px] font-black uppercase tracking-widest">
+                                                {{ $v->product->title ?? 'N/A' }}
                                             </span>
                                         </td>
-                                        <td class="py-4 px-6 text-end font-extrabold text-primary text-lg">
+                                        <td class="text-right font-black text-primary text-lg">
                                             {{ number_format($v->vl, 2, ',', ' ') }}
                                         </td>
-                                        <td class="py-4 px-6 text-end text-xs opacity-60 italic">
-                                            Défini le {{ $v->created_at->format('d/m/Y à H:i') }}
+                                        <td class="text-right text-[10px] text-n400 font-bold italic">
+                                            MAJ le {{ $v->created_at->format('d/m/Y à H:i') }}
                                         </td>
                                     </tr>
                                 @endforeach
                             </tbody>
                         </table>
                     </div>
+
+                    {{-- ── PAGINATION ────────────────────────────────────── --}}
                     @if ($vls->hasPages())
-                        <div class="p-4 border-t border-n30 flex justify-center">
+                        <div class="px-6 py-6 border-t border-n30 flex justify-center bg-n10/20">
                             {{ $vls->appends(request()->input())->links() }}
                         </div>
                     @endif
@@ -144,4 +115,40 @@
             </div>
         </div>
     </main>
+
+    <style>
+        .kad-main {
+            --kad-maroon: #6b1f0a;
+            --kad-primary: #1d6fb5;
+            --kad-primary-10: rgba(29, 111, 181, 0.08);
+            --kad-success: #16a34a;
+            --kad-page-bg: #f8fafc;
+            --kad-bg: #ffffff;
+            --kad-bg-soft: #f1f5f9;
+            --kad-border: 1px solid #e2e8f0;
+            --kad-text: #1e293b;
+            --kad-text-soft: #64748b;
+            --kad-text-muted: #94a3b8;
+            --kad-radius-md: 12px;
+            --kad-radius-xl: 20px;
+        }
+
+        .kad-main { min-height: 100vh; background: var(--kad-page-bg); font-family: 'Inter', sans-serif; }
+        .kad-inner { max-width: 1280px; margin: 0 auto; padding: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+        .kad-topbar { display: flex; justify-content: space-between; align-items: center; }
+        .kad-topbar-left { display: flex; align-items: center; gap: 14px; }
+        .kad-topbar-icon { width: 46px; height: 46px; background: var(--kad-bg); border-radius: var(--kad-radius-md); border: var(--kad-border); display: flex; align-items: center; justify-content: center; font-size: 24px; }
+        .kad-topbar-title { font-size: 18px; font-weight: 800; text-transform: uppercase; color: var(--kad-maroon); margin: 0; font-style: italic; }
+        .kad-topbar-sub { font-size: 11px; color: var(--kad-text-soft); font-weight: 600; font-style: italic; }
+        
+        .kad-btn-primary { display: flex; align-items: center; gap: 8px; padding: 10px 24px; background: var(--kad-primary); color: #fff; border-radius: var(--kad-radius-md); font-size: 11px; font-weight: 800; text-transform: uppercase; font-style: italic; transition: all 0.2s; border:none; cursor: pointer;}
+        
+        .kad-field-label { font-size: 9px; font-weight: 800; text-transform: uppercase; color: var(--kad-text-muted); font-style: italic; padding-left: 2px; }
+        .kad-input { width: 100%; padding: 10px 16px; background: var(--kad-bg-soft); border: var(--kad-border); border-radius: var(--kad-radius-md); font-size: 13px; font-weight: 700; font-style: italic; color: var(--kad-text); outline: none; }
+
+        .kad-table-card { background: var(--kad-bg); border-radius: var(--kad-radius-xl); border: var(--kad-border); overflow: hidden; }
+        .kad-table { width: 100%; border-collapse: collapse; text-align: left; table-layout: fixed; }
+        .kad-table thead th { padding: 16px 24px; background: #f8fafc; font-size: 9px; font-weight: 800; text-transform: uppercase; color: var(--kad-text-muted); border-bottom: var(--kad-border); }
+        .kad-table tbody td { padding: 14px 24px; font-size: 13px; font-weight: 600; border-bottom: var(--kad-border); vertical-align: middle; word-break: break-all; }
+    </style>
 @endsection
