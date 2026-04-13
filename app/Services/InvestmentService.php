@@ -411,6 +411,7 @@ class InvestmentService
 
             $portfolio[] = [
                 'product_id' => $product->id,
+                'product_name' => $product->title,
                 'name' => $product->title,
                 'slug' => $product->slug,
                 'total_parts' => $stats['parts'],
