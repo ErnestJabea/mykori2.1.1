@@ -101,11 +101,11 @@
                                             MAJ le {{ $v->created_at->format('d/m/Y à H:i') }}
                                         </td>
                                         <td class="text-right">
-                                            <form action="{{ route('compliance.vl.delete', $v->id) }}" method="POST" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer cette valeur liquidative ? Cette action est irréversible.')" style="display:inline;">
+                                            <form action="{{ route('compliance.vl.delete', $v->id) }}" method="POST" onsubmit="return confirm('Attention : suppression définitive de cette VL ! Confirmer ?')" style="display:inline;">
                                                 @csrf
                                                 @method('DELETE')
-                                                <button type="submit" class="text-danger hover:text-danger/70 transition-all text-xl" title="Supprimer">
-                                                    <i class="las la-trash-alt"></i>
+                                                <button type="submit" class="p-2 rounded-lg hover:bg-red-50 text-[#ef4444] transition-all" title="Supprimer">
+                                                    <i class="las la-trash text-xl" style="color: #ef4444; font-size: 20px;"></i>
                                                 </button>
                                             </form>
                                         </td>
