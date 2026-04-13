@@ -179,7 +179,7 @@
                         categories: [
                             @if (isset($fcpProducts[0]) && $fcpProducts[0]->vl_history->count() > 0)
                                 @foreach ($fcpProducts[0]->vl_history as $vl)
-                                    "{{ \Carbon\Carbon::parse($vl->created_at)->format('d/m') }}",
+                                    "{{ \Carbon\Carbon::parse($vl->date_vl)->format('d/m') }}",
                                 @endforeach
                             @endif
                         ],
