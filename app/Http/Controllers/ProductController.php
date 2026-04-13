@@ -789,8 +789,8 @@ class ProductController extends Controller
             $user->total_capital = $userTotalInvestiGross;
             $user->total_capital_net = $userTotalInvestiNet;
             $user->portefeuille_total = $userTotalValorisation;
-            // Gain calculated against Net for FCP to show market performance
-            $user->total_interets = max(0, $userTotalValorisation - $userTotalInvestiNet);
+            // Gain calculated against Gross so that Capital Brut + Gain = Portefeuille Total
+            $user->total_interets = max(0, $userTotalValorisation - $userTotalInvestiGross);
             $user->product_count = $activeContractsCount;
             $user->has_fcp = $hasFcp;
             $user->has_pmg = $hasPmg;
