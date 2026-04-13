@@ -422,9 +422,9 @@ class InvestmentService
                 'latest_vl_date' => $latestVlEntry ? $latestVlEntry->date_vl : $currentDate->toDateString(),
                 'first_vl' => $firstMovement ? (float)$firstMovement->vl_applied : $currentVl,
                 'first_subscription_date' => $firstMovement ? $firstMovement->date_operation : $currentDate->toDateString(),
-                'total_gain' => $valuation - $stats['invested_net'], // Gain relatif au net (capital réel placé)
+                'total_gain' => $valuation - $stats['invested_brut'], // Gain relatif au brut (total payé)
                 'weekly_gain' => $weeklyGain,
-                'performance' => $stats['invested_net'] > 0 ? (($valuation - $stats['invested_net']) / $stats['invested_net']) * 100 : 0
+                'performance' => $stats['invested_brut'] > 0 ? (($valuation - $stats['invested_brut']) / $stats['invested_brut']) * 100 : 0
             ];
         }
 

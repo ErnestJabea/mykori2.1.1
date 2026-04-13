@@ -393,8 +393,7 @@ public function previewFcp(int $clientId)
             'valo_n'            => (float)$valoN,
             'valo_n1'           => (float)$valoN1,
             'cumul_investi'     => (float)$cumulInvestiBrut,
-            'cumul_investi_net' => (float)$cumulInvestiNet,
-            'plus_value'        => (float)($valoN - $cumulInvestiNet),
+            'plus_value'        => (float)($valoN - $cumulInvestiBrut),
             'gain_mensuel'      => (float)($valoN - $valoN1),
         ];
     }
@@ -832,8 +831,7 @@ private function genererPdfFcp(int $clientId): string
                 'valo_n'            => (float)$valoN,
                 'valo_n1'           => (float)$valoN1,
                 'cumul_investi'     => (float)$cumulInvestiBrut,
-                'cumul_investi_net' => (float)$cumulInvestiNet,
-                'plus_value'        => (float)($valoN - $cumulInvestiNet),
+                'plus_value'        => (float)($valoN - $cumulInvestiBrut),
                 'gain_mensuel'      => (float)($valoN - $valoN1),
             ];
     }

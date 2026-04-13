@@ -211,11 +211,10 @@ class ProductController extends Controller
             return [
                 'id' => $p['product_id'],
                 'product_id' => $p['product_id'],
-                'product_name' => $p['name'],
+                'product_name' => $p['product_name'],
                 'type_product' => 1,
                 'montant_transaction' => $totalGross,
                 'capital_investi' => $totalGross,
-                'capital_investi_net' => $p['invested_net'] ?? $totalGross,
                 'total_gains_fcp' => $p['total_gain'] ?? 0,
                 'gain_semaine_fcp' => $p['weekly_gain'] ?? 0,
                 'gain_month' => $p['total_gain'] ?? 0,
@@ -1905,8 +1904,7 @@ class ProductController extends Controller
                     'valo_n' => (float)$valoN,
                     'valo_n1' => (float)$valoN1,
                     'cumul_investi' => (float)$cumulInvestiBrut,
-                    'cumul_investi_net' => (float)$cumulInvestiNet,
-                    'plus_value' => (float)($valoN - $cumulInvestiNet),
+                    'plus_value' => (float)($valoN - $cumulInvestiBrut),
                     'gain_mensuel' => (float)($valoN - $valoN1),
                 ];
             }

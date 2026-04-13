@@ -240,7 +240,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                     <th>Produit</th>
                                     <th>Date Valeur</th>
                                     <th>Échéance</th>
-                                    <th class="text-right">Capital (Brut)</th>
+                                    <th class="text-right">Capital Investi</th>
                                     <th class="text-center">Taux / Durée</th>
                                     <th class="text-right">Intérêt Mensuel</th>
                                     <th class="text-right">Gains Cumulés</th>
@@ -314,7 +314,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                 <tr>
                                     <th>Produit</th>
                                     <th>Date Souscr.</th>
-                                    <th class="text-right">Capital (Brut/Net)</th>
+                                    <th class="text-right">Capital Investi</th>
                                     <th class="text-right">VL Achat</th>
                                     <th class="text-right">Nb Parts</th>
                                     <th class="text-right">Valeur Portfolio</th>
@@ -340,9 +340,6 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                                 <div class="flex flex-col">
                                                     <span
                                                         class="brut-val">{{ number_format($my_product['capital_investi'], 0, ' ', ' ') }}</span>
-                                                    <span
-                                                        class="net-val">{{ number_format($my_product['capital_investi_net'] ?? 0, 0, ' ', ' ') }}
-                                                        net</span>
                                                 </div>
                                             </td>
                                             <td class="text-right font-medium">

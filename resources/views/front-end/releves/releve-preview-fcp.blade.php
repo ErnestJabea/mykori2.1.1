@@ -205,7 +205,7 @@
                             <tr>
                                 <th class="text-center">Date de Valorisation</th>
                                 <th class="text-center">VL à date (XAF)</th>
-                                <th class="text-right">Capital Total Investi (Brut)</th>
+                                <th class="text-right">Capital Total Investi</th>
                                 <th class="text-center">Nombre de Parts Cumulé</th>
                                 <th class="text-right">Valorisation Portefeuille</th>
                                 <th class="text-right">Plus-Value</th>
@@ -215,10 +215,8 @@
                             <tr>
                                 <td class="text-center">{{ $date_releve }}</td>
                                 <td class="text-center">{{ number_format(data_get($p, 'vl_n', 0), 2, ',', ' ') }}</td>
-                                 <td class="text-right">
-                                    <div style="font-weight: bold;">XAF {{ number_format(data_get($p, 'cumul_investi', 0), 0, ' ', ' ') }} (Brut)</div>
-                                    <div style="font-size: 10px; color: #666;">XAF {{ number_format(data_get($p, 'cumul_investi_net', 0), 0, ' ', ' ') }} (Net)</div>
-                                 </td>
+                                 <td class="text-right">XAF
+                                     {{ number_format(data_get($p, 'cumul_investi', 0), 0, ' ', ' ') }}</td>
                                  <td class="text-center">{{ number_format(data_get($p, 'parts_n', 0), 2, ',', ' ') }}
                                 </td>
                                 <td class="text-right" style="font-weight: bold;">XAF
