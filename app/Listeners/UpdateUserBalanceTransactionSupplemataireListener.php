@@ -41,7 +41,9 @@ class UpdateUserBalanceTransactionSupplemataireListener
                         (new InvestmentService())->recordPmgMovement($transaction, 'versement_libre');
                     }
 
-                    $transaction->update(['date_validation' => $event->date_transaction]);
+                    if (empty($transaction->date_validation)) {
+                        $transaction->update(['date_validation' => $event->date_transaction]);
+                    }
 
                 } else if ($newStatus === 'En attente' || $newStatus === 'Refusé') {
                     if ($product->products_category_id == 1) {
@@ -51,7 +53,7 @@ class UpdateUserBalanceTransactionSupplemataireListener
                         $newBalancePmg = max(0, $user->solde_pmg - $amount); // Correction potentielle ici aussi
                         $user->update(['solde_pmg' => $newBalancePmg]);
                     }
-                    $transaction->update(['date_validation' => null]);
+                    // On ne vide plus la date_validation pour conserver la date de valeur saisie au formulaire
                 }
             }
         });
