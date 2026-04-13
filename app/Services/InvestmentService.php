@@ -149,9 +149,11 @@ class InvestmentService
         }
 
         // On s'assure que les parts sont bien basées sur le montant NET (déjà déduit des frais)
-        // On conserve la précision maximale (float) pour le stockage interne
-        $nbParts = (float)$transaction->amount / $vl;
+        // Le montant enregistré en transaction est désormais le BRUT total
         $fees = (float)($transaction->fees ?? 0);
+        $amountNet = (float)$transaction->amount - $fees;
+        
+        $nbParts = $amountNet / $vl;
 
         return DB::table('fcp_movements')->insert([
             'transaction_id' => $transaction->id,
@@ -159,13 +161,15 @@ class InvestmentService
             'user_id'        => $transaction->user_id,
             'product_id'     => $transaction->product_id,
             'type'           => $type,
-            'amount_xaf'     => (float)$transaction->amount, // Montant NET (Ce qui est réellement investi)
-            'fees'           => (float)($transaction->fees ?? 0), // Frais prélevés lors de la souscription
+            'amount_xaf'     => $amountNet,
+            'fees'           => $fees,
             'vl_applied'     => $vl,
             'nb_parts_change' => $nbParts,
-            'nb_parts_total' => $this->getCurrentParts($transaction->user_id, $transaction->product_id) + $nbParts,
+            'nb_parts_total' => 0, // Sera recalculé par le job ou service
             'date_operation' => $dateOp,
-            'comment'        => "Validation de parts FCP (Frais: $fees)"
+            'comment'        => $transaction->title ?? "Souscription FCP",
+            'created_at'     => now(),
+            'updated_at'     => now(),
         ]);
     }
 
@@ -385,7 +389,7 @@ class InvestmentService
             $currentVl = $latestVlEntry ? (float)$latestVlEntry->vl : (float)($product->vl ?? 100);
             
             $valuation = $stats['parts'] * $currentVl;
-            $invested = $stats['invested'];
+            $invested = $stats['invested_brut'];
             $gainTotal = $valuation - $invested;
 
             // Calcul du gain hebdomadaire (Evolution VL sur 7 jours)
@@ -410,15 +414,17 @@ class InvestmentService
                 'name' => $product->title,
                 'slug' => $product->slug,
                 'total_parts' => $stats['parts'],
-                'total_invested' => $invested,
+                'total_invested' => $stats['invested_brut'],
+                'invested_brut' => $stats['invested_brut'],
+                'invested_net' => $stats['invested_net'],
                 'current_valuation' => $valuation,
                 'current_vl' => $currentVl,
                 'latest_vl_date' => $latestVlEntry ? $latestVlEntry->date_vl : $currentDate->toDateString(),
                 'first_vl' => $firstMovement ? (float)$firstMovement->vl_applied : $currentVl,
                 'first_subscription_date' => $firstMovement ? $firstMovement->date_operation : $currentDate->toDateString(),
-                'total_gain' => $gainTotal,
+                'total_gain' => $valuation - $stats['invested_net'], // Gain relatif au net (capital réel placé)
                 'weekly_gain' => $weeklyGain,
-                'performance' => $invested > 0 ? ($gainTotal / $invested) * 100 : 0
+                'performance' => $stats['invested_net'] > 0 ? (($valuation - $stats['invested_net']) / $stats['invested_net']) * 100 : 0
             ];
         }
 
@@ -434,18 +440,26 @@ class InvestmentService
             ->get();
 
         $parts = 0;
-        $invested = 0;
+        $invested_brut = 0;
+        $invested_net = 0;
 
         foreach ($movements as $m) {
             $parts += (float)$m->nb_parts_change;
             if (in_array($m->type, ['souscription', 'versement_libre'])) {
-                $invested += (float)$m->amount_xaf; 
+                $invested_brut += (float)($m->amount_xaf + ($m->fees ?? 0)); 
+                $invested_net += (float)$m->amount_xaf;
             } elseif (in_array($m->type, ['rachat_partiel', 'rachat_total', 'rachat'])) {
-                $invested -= abs((float)$m->nb_parts_change * (float)$m->vl_applied);
+                $decote = abs((float)$m->nb_parts_change * (float)$m->vl_applied);
+                $invested_brut -= $decote;
+                $invested_net -= $decote;
             }
         }
 
-        return ['parts' => $parts, 'invested' => $invested];
+        return [
+            'parts' => $parts,
+            'invested_brut' => $invested_brut,
+            'invested_net' => $invested_net
+        ];
     }
 
 

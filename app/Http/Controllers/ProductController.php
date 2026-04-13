@@ -1865,16 +1865,25 @@ class ProductController extends Controller
                     ->selectRaw('SUM(amount_xaf) as net, SUM(fees) as total_fees')
                     ->first();
                 
-                $cumulInvesti = (float)($sumsHistorique->net ?? 0) + (float)($sumsHistorique->total_fees ?? 0);
+                $cumulInvestiNet = (float)($sumsHistorique->net ?? 0);
+                $cumulInvestiBrut = $cumulInvestiNet + (float)($sumsHistorique->total_fees ?? 0);
 
-                // Si cumulInvesti est à 0 (migration), on tente de récupérer via les transactions liées
-                if ($cumulInvesti <= 0) {
-                     $cumulInvesti = DB::table('transactions')
+                // Si cumulInvestiBrut est à 0 (migration), on tente de récupérer via les transactions liées
+                if ($cumulInvestiBrut <= 0) {
+                     $cumulInvestiBrut = DB::table('transactions')
                         ->where('user_id', $client->id)
                         ->where('product_id', $productId)
                         ->where('status', 'Succès')
                         ->where('date_validation', '<=', $dateN->toDateString())
                         ->sum('amount'); // amount est déjà Brut pour transactions
+                     
+                     $totalFees = DB::table('transactions')
+                        ->where('user_id', $client->id)
+                        ->where('product_id', $productId)
+                        ->where('status', 'Succès')
+                        ->where('date_validation', '<=', $dateN->toDateString())
+                        ->sum('fees');
+                     $cumulInvestiNet = $cumulInvestiBrut - (float)$totalFees;
                 }
 
                 $valoN = (float)$partsN * (float)$vlN;
@@ -1895,8 +1904,9 @@ class ProductController extends Controller
                     'vl_n1' => (float)$vlN1,
                     'valo_n' => (float)$valoN,
                     'valo_n1' => (float)$valoN1,
-                    'cumul_investi' => (float)$cumulInvesti,
-                    'plus_value' => (float)($valoN - $cumulInvesti),
+                    'cumul_investi' => (float)$cumulInvestiBrut,
+                    'cumul_investi_net' => (float)$cumulInvestiNet,
+                    'plus_value' => (float)($valoN - $cumulInvestiNet),
                     'gain_mensuel' => (float)($valoN - $valoN1),
                 ];
             }

@@ -215,9 +215,11 @@
                             <tr>
                                 <td class="text-center">{{ $date_releve }}</td>
                                 <td class="text-center">{{ number_format(data_get($p, 'vl_n', 0), 2, ',', ' ') }}</td>
-                                <td class="text-right">XAF
-                                    {{ number_format(data_get($p, 'cumul_investi', 0), 0, ' ', ' ') }}</td>
-                                <td class="text-center">{{ number_format(data_get($p, 'parts_n', 0), 2, ',', ' ') }}
+                                 <td class="text-right">
+                                    <div style="font-weight: bold;">XAF {{ number_format(data_get($p, 'cumul_investi', 0), 0, ' ', ' ') }} (Brut)</div>
+                                    <div style="font-size: 10px; color: #666;">XAF {{ number_format(data_get($p, 'cumul_investi_net', 0), 0, ' ', ' ') }} (Net)</div>
+                                 </td>
+                                 <td class="text-center">{{ number_format(data_get($p, 'parts_n', 0), 2, ',', ' ') }}
                                 </td>
                                 <td class="text-right" style="font-weight: bold;">XAF
                                     {{ number_format(data_get($p, 'valo_n', 0), 0, ' ', ' ') }}</td>
@@ -253,7 +255,7 @@
                                 <td class="text-center">{{ number_format(data_get($p, 'parts_n1', 0), 2, ',', ' ') }}
                                 </td>
                                 <td class="text-right" style="color: green; font-weight: bold;">XAF
-                                    {{ number_format(data_get($p, 'montant_souscrit', 0) + data_get($p, 'frais_souscription', 0), 0, ' ', ' ') }}
+                                    {{ number_format(data_get($p, 'montant_souscrit', 0), 0, ' ', ' ') }}
                                 </td>
                                 <td class="text-right" style="color: #666;">XAF
                                     {{ number_format(data_get($p, 'frais_souscription', 0), 0, ' ', ' ') }}</td>
