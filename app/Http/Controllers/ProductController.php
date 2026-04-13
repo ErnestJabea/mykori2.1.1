@@ -492,7 +492,8 @@ class ProductController extends Controller
         $totalPmgAum = 0;
 
         foreach ($customers as $customer) {
-            $customerTotalInvesti = 0;
+            $userTotalInvestiGross = 0;
+            $userTotalInvestiNet = 0;
             $totalValorization = 0;
             $allTrans = $customer->transactions->concat($customer->transactionssupplementaires);
             $processedFcpProducts = [];
@@ -502,8 +503,10 @@ class ProductController extends Controller
                 $dateEcheance = Carbon::parse($trans->date_echeance);
                 if ($dateEcheance->gte($currentDate)) {
                     $principalInitial = (float)($trans->amount);
-                    $globalTotalInvested += $principalInitial;
-                    $customerTotalInvesti += $principalInitial;
+                    $fees = (float)($trans->fees ?? 0);
+                    
+                    $userTotalInvestiGross += $principalInitial;
+                    $userTotalInvestiNet += ($principalInitial - $fees);
 
                     if ($trans->product->products_category_id == 2) {
                         $valo = (float)$this->calculatePMGValorization($trans, $currentDate);
@@ -520,16 +523,25 @@ class ProductController extends Controller
                 }
             }
 
-            if ($customerTotalInvesti > 0) {
+            if ($userTotalInvestiGross > 0) {
                 $activeClientsCount++;
             }
+            $globalTotalInvested += $userTotalInvestiGross;
             $globalAum += $totalValorization;
 
+            $customer->total_capital = $userTotalInvestiGross;
+            $customer->total_capital_net = $userTotalInvestiNet;
             $customer->portefeuille_total = $totalValorization;
+            $customer->total_interets = max(0, $totalValorization - $userTotalInvestiNet);
             $customer->product_count = $allTrans->count();
+            $customer->has_fcp = $customer->transactions->where('product.products_category_id', 1)->count() > 0;
         }
 
-        $globalTotalInterests = max(0, $globalAum - $globalTotalInvested);
+        $globalTotalInterests = 0;
+        foreach ($customers as $customer) {
+            $globalTotalInterests += $customer->total_interets;
+        }
+
         $fcpProductsList = Product::where('products_category_id', 1)
             ->where('status', 1)
             ->get();
@@ -727,12 +739,13 @@ class ProductController extends Controller
         $processedUsers = collect();
         $globalTotalAum = 0;
         $globalTotalInvesti = 0;
-        $globalTotalInterets = 0;
+        $globalTotalInterests = 0;
         $activeClientsCount = 0;
         $inactiveClientsCount = 0;
 
         foreach ($allMatchedUsers as $user) {
-            $userTotalInvesti = 0;
+            $userTotalInvestiGross = 0;
+            $userTotalInvestiNet = 0;
             $userTotalValorisation = 0;
             $activeContractsCount = 0;
             $hasFcp = false;
@@ -751,16 +764,16 @@ class ProductController extends Controller
                 if ($isPmg) $hasPmg = true;
                 if ($isFcp) $hasFcp = true;
 
-                // Apply category filter to the user's individual totals
                 if ($categoryFilter == '1' && !$isFcp) continue;
                 if ($categoryFilter == '2' && !$isPmg) continue;
 
-                // Calcul si contrat encore valide
                 if ($dateEcheance->gte($currentDate)) {
                     $activeContractsCount++;
                     $principalInitial = (float)($trans->amount);
                     $fees = (float)($trans->fees ?? 0);
-                    $userTotalInvesti += ($principalInitial + $fees);
+                    
+                    $userTotalInvestiGross += $principalInitial;
+                    $userTotalInvestiNet += ($principalInitial - $fees);
 
                     if ($isPmg) {
                         $userTotalValorisation += $this->calculatePMGValorization($trans, $currentDate);
@@ -774,10 +787,11 @@ class ProductController extends Controller
                 }
             }
 
-            // Attachement des données calculées au modèle
-            $user->total_capital = $userTotalInvesti;
+            $user->total_capital = $userTotalInvestiGross;
+            $user->total_capital_net = $userTotalInvestiNet;
             $user->portefeuille_total = $userTotalValorisation;
-            $user->total_interets = max(0, $userTotalValorisation - $userTotalInvesti);
+            // Gain calculated against Net for FCP to show market performance
+            $user->total_interets = max(0, $userTotalValorisation - $userTotalInvestiNet);
             $user->product_count = $activeContractsCount;
             $user->has_fcp = $hasFcp;
             $user->has_pmg = $hasPmg;
@@ -789,10 +803,10 @@ class ProductController extends Controller
 
             if ($keep) {
                 $processedUsers->push($user);
-                $globalTotalInvesti += $userTotalInvesti;
+                $globalTotalInvesti += $userTotalInvestiGross;
                 $globalTotalAum += $userTotalValorisation;
-                $globalTotalInterets += $user->total_interets; // Somme des intérêts positifs individuels
-                if ($userTotalInvesti > 0) {
+                $globalTotalInterests += $user->total_interets; // Somme des intérêts positifs individuels
+                if ($userTotalInvestiGross > 0) {
                     $activeClientsCount++;
                 } else {
                     $inactiveClientsCount++;
@@ -827,7 +841,7 @@ class ProductController extends Controller
                 'customers', 
                 'globalTotalAum', 
                 'globalTotalInvesti', 
-                'globalTotalInterets', 
+                'globalTotalInterests', 
                 'search', 
                 'activeClientsCount', 
                 'inactiveClientsCount',
@@ -841,7 +855,7 @@ class ProductController extends Controller
             'customers', 
             'globalTotalAum', 
             'globalTotalInvesti', 
-            'globalTotalInterets', 
+            'globalTotalInterests', 
             'search', 
             'activeClientsCount', 
             'inactiveClientsCount',
