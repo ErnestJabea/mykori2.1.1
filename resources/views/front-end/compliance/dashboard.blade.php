@@ -1,4 +1,4 @@
-@extends('front-end/app/app-home-asset', ['title' => 'Tableau de Bord Compliance', 'body_class' => 'vertical bg-secondary1/5 dark:bg-bg3 my-products-page other-page compliance-profil'])
+@extends('front-end.app.app-home-asset', ['title' => 'Tableau de Bord Compliance', 'body_class' => 'vertical bg-secondary1/5 dark:bg-bg3 my-products-page other-page compliance-profil'])
 
 @section('content')
     <main class="main-content has-sidebar my-products-page other-page">
