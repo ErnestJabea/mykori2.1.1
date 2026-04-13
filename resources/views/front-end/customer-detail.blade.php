@@ -680,6 +680,8 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
     <script>
         const productsList = @json($products);
         const ownedPmgProductIds = @json($ownedPmgProductIds);
+        let pickerEditEch = null;
+        let pickerEcheance = null;
 
         function openEditModal(id, isSupp, ref, amount, vl, dateVal, dateEch, prodId, catId) {
             console.log("Opening edit modal for:", ref);
@@ -698,6 +700,12 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
             $('#edit-vl').val(vl);
             $('#edit-date-val').val(dateVal);
             $('#edit-date-ech').val(dateEch);
+
+            // SYNC picker min date on open
+            if (pickerEditEch && dateVal) {
+                const dVal = new Date(dateVal);
+                pickerEditEch.setMin(dVal);
+            }
 
             // Hide/Show expiry for PMG/FCP
             if (catId == 1) {
@@ -878,6 +886,12 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
 
             // Datepickers for edit modal
             if (typeof datepicker === 'function') {
+                pickerEditEch = datepicker('#edit-date-ech', {
+                    formatter: (i, d) => {
+                        i.value = d.toISOString().split('T')[0];
+                    }
+                });
+
                 datepicker('#edit-date-val', {
                     formatter: (i, d) => {
                         i.value = d.toISOString().split('T')[0];
@@ -889,16 +903,22 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                         const val = `${y}-${m}-${day}`;
 
                         instance.el.value = val;
+
+                        // SYNC: d'échéance min = date de valeur pour Edit
+                        if (pickerEditEch) {
+                            pickerEditEch.setMin(date);
+                            const currentEch = document.getElementById('edit-date-ech').value;
+                            if (currentEch && new Date(currentEch) < date) {
+                                pickerEditEch.setDate(date);
+                                document.getElementById('edit-date-ech').value = val;
+                            }
+                        }
+
                         const catId = $('#edit-cat-id').val();
                         const prodId = $('#edit-prod-id').val();
                         if (catId == 1 && prodId) {
                             fetchVlForEdit(prodId, val);
                         }
-                    }
-                });
-                datepicker('#edit-date-ech', {
-                    formatter: (i, d) => {
-                        i.value = d.toISOString().split('T')[0];
                     }
                 });
             }
@@ -943,7 +963,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                 }
             });
 
-            const pickerEcheance = datepicker('#datepicker_echeance', {
+            pickerEcheance = datepicker('#datepicker_echeance', {
                 formatter: (input, date, instance) => {
                     input.value = date.toISOString().split('T')[0];
                 },
