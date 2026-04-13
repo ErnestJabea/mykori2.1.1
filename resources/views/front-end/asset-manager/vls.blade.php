@@ -74,12 +74,20 @@
                                             <span class="kad-action-badge"
                                                 style="background: rgba(22, 163, 74, 0.1); color: #16a34a;">Validé</span>
                                         </td>
-                                        <td class="text-right">
+                                        <td class="text-right flex justify-end gap-2">
                                             <button
                                                 onclick="editVl({{ json_encode(['id' => $vl->id, 'product_id' => $vl->product_id, 'date_vl' => $vl->date_vl, 'vl' => $vl->vl]) }})"
-                                                class="w-8 h-8 rounded-lg bg-bg10 text-n500 hover:bg-primary/10 hover:text-primary transition-all">
+                                                class="w-8 h-8 rounded-lg bg-bg10 text-n500 hover:bg-primary/10 hover:text-primary transition-all" title="Modifier">
                                                 <i class="las la-pen"></i>
                                             </button>
+                                            
+                                            <form action="{{ route('asset-manager.vl.delete', $vl->id) }}" method="POST" onsubmit="return confirm('Confirmer la suppression définitive de cette VL ?')" style="display:inline;">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="w-8 h-8 rounded-lg bg-red-50 text-[#ef4444] hover:bg-red-100 transition-all" title="Supprimer">
+                                                    <i class="las la-trash-alt"></i>
+                                                </button>
+                                            </form>
                                         </td>
                                     </tr>
                                 @endforeach

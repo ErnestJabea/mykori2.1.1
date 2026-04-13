@@ -721,7 +721,8 @@ Route::group(['prefix' => 'admin'], function () {
     Voyager::routes();
     // Valeurs Liquidatives
     Route::get('/vls', [AssetManagerController::class, 'vlHistory'])->name('asset-manager.vls');
-    Route::post('/vls/store', [AssetManagerController::class, 'storeVl'])->name('asset-manager.vls.store');
+    Route::post('/vls', [AssetManagerController::class, 'storeVl'])->name('asset-manager.vls.store');
+    Route::delete('/vls/{id}', [AssetManagerController::class, 'deleteVl'])->name('asset-manager.vl.delete');
 });
 
 // --- Dossier Compliance (Audit & Risques) ---
