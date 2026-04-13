@@ -1,4 +1,4 @@
-@extends('layouts.app')
+@extends('front-end.app.app-home-asset', ['title' => 'Page Introuvable', 'body_class' => 'vertical bg-secondary1/5 dark:bg-bg3'])
 
 @section('content')
 <main class="min-h-screen flex items-center justify-center p-6 bg-n10 dark:bg-bg3">
