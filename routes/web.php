@@ -730,6 +730,7 @@ Route::prefix('compliance')->middleware(['auth'])->group(function () {
     Route::get('/clients', [ComplianceController::class, 'clients'])->name('compliance.clients');
     Route::get('/client/{client}', [ComplianceController::class, 'clientHistory'])->name('compliance.client-detail');
     Route::get('/vls', [ComplianceController::class, 'vlHistory'])->name('compliance.vl-history');
+    Route::delete('/vls/{id}', [ComplianceController::class, 'deleteVl'])->name('compliance.vl.delete');
     Route::get('/vls/export', [ComplianceController::class, 'export'])->name('compliance.vls.export');
     Route::get('/portfolio-audit', [ComplianceController::class, 'portfolioAudit'])->name('compliance.portfolio-audit');
 });

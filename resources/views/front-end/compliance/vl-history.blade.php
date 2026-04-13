@@ -77,6 +77,7 @@
                                     <th>Produit</th>
                                     <th class="text-right">Valeur Liquidative (XAF)</th>
                                     <th class="text-right">Enregistrement Système</th>
+                                    <th class="text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -98,6 +99,15 @@
                                         </td>
                                         <td class="text-right text-[10px] text-n400 font-bold italic">
                                             MAJ le {{ $v->created_at->format('d/m/Y à H:i') }}
+                                        </td>
+                                        <td class="text-right">
+                                            <form action="{{ route('compliance.vl.delete', $v->id) }}" method="POST" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer cette valeur liquidative ? Cette action est irréversible.')" style="display:inline;">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="text-danger hover:text-danger/70 transition-all text-xl" title="Supprimer">
+                                                    <i class="las la-trash-alt"></i>
+                                                </button>
+                                            </form>
                                         </td>
                                     </tr>
                                 @endforeach

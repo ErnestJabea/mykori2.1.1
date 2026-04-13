@@ -355,4 +355,24 @@ class ComplianceController extends Controller
 
         return response()->stream($callback, 200, $headers);
     }
+
+    /**
+     * Suppression d'une valeur liquidative
+     */
+    public function deleteVl($id)
+    {
+        $vl = AssetValue::findOrFail($id);
+        $productName = $vl->product->title ?? 'N/A';
+        $dateVl = $vl->date_vl;
+
+        $vl->delete();
+
+        \App\Models\UserActivityLog::log(
+            "SUPPRESSION_VALEUR_LIQUIDATIVE",
+            null,
+            "Suppression de la VL du $dateVl pour le produit $productName par le profil Compliance"
+        );
+
+        return back()->with('success', 'Valeur liquidative supprimée avec succès.');
+    }
 }
