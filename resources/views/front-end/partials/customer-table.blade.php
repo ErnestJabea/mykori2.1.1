@@ -28,15 +28,27 @@
         </div>
     </div>
 
-    <!-- Card 2: Total Intérêts -->
+    <!-- Card 2: Total Gains FCP -->
     <div class="flex-1 min-w-[200px] box bg-white dark:bg-bg3 border border-n30 p-4 rounded-2xl flex items-center gap-3 hover:border-success/50 duration-300 transition-all shadow-sm">
         <div class="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center text-success shrink-0">
-            <i class="las la-chart-bar text-xl"></i>
+            <i class="las la-chart-pie text-xl"></i>
         </div>
         <div>
-            <p class="text-[9px] uppercase font-bold opacity-50 mb-1 leading-none text-success">Total Intérêts</p>
+            <p class="text-[9px] uppercase font-bold opacity-50 mb-1 leading-none text-success">Total Gains FCP</p>
             <h4 class="text-base font-bold mb-0 text-success leading-none whitespace-nowrap">
-                +{{ number_format($globalTotalInterets ?? 0, 0, ' ', ' ') }}</h4>
+                +{{ number_format($globalTotalInterestsFcp ?? 0, 0, ' ', ' ') }}</h4>
+        </div>
+    </div>
+
+    <!-- Card 3: Total Intérêts PMG -->
+    <div class="flex-1 min-w-[200px] box bg-white dark:bg-bg3 border border-n30 p-4 rounded-2xl flex items-center gap-3 hover:border-primary/50 duration-300 transition-all shadow-sm">
+        <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+            <i class="las la-chart-line text-xl"></i>
+        </div>
+        <div>
+            <p class="text-[9px] uppercase font-bold opacity-50 mb-1 leading-none text-primary">Total Intérêts PMG</p>
+            <h4 class="text-base font-bold mb-0 text-primary leading-none whitespace-nowrap">
+                +{{ number_format($globalTotalInterestsPmg ?? 0, 0, ' ', ' ') }}</h4>
         </div>
     </div>
 

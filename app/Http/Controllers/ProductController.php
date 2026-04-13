@@ -739,6 +739,8 @@ class ProductController extends Controller
         $globalTotalAum = 0;
         $globalTotalInvesti = 0;
         $globalTotalInterests = 0;
+        $globalTotalInterestsFcp = 0;
+        $globalTotalInterestsPmg = 0;
         $activeClientsCount = 0;
         $inactiveClientsCount = 0;
 
@@ -746,6 +748,10 @@ class ProductController extends Controller
             $userTotalInvestiGross = 0;
             $userTotalInvestiNet = 0;
             $userTotalValorisation = 0;
+            $userFcpValorisation = 0;
+            $userPmgValorisation = 0;
+            $userFcpInvestiGross = 0;
+            $userPmgInvestiGross = 0;
             $activeContractsCount = 0;
             $hasFcp = false;
             $hasPmg = false;
@@ -775,11 +781,16 @@ class ProductController extends Controller
                     $userTotalInvestiNet += ($principalInitial - $fees);
 
                     if ($isPmg) {
-                        $userTotalValorisation += $this->calculatePMGValorization($trans, $currentDate);
+                        $userPmgInvestiGross += $principalInitial;
+                        $valo = $this->calculatePMGValorization($trans, $currentDate);
+                        $userTotalValorisation += $valo;
+                        $userPmgValorisation += $valo;
                     } else {
+                        $userFcpInvestiGross += $principalInitial;
                         if (!in_array($trans->product_id, $processedFcpProducts)) {
                             $fcpData = $this->getFcpPortfolioValue($user->id, $trans->product_id, $currentDate);
                             $userTotalValorisation += $fcpData['valorisation'];
+                            $userFcpValorisation += $fcpData['valorisation'];
                             $processedFcpProducts[] = $trans->product_id;
                         }
                     }
@@ -791,6 +802,10 @@ class ProductController extends Controller
             $user->portefeuille_total = $userTotalValorisation;
             // Gain calculated against Gross so that Capital Brut + Gain = Portefeuille Total
             $user->total_interets = max(0, $userTotalValorisation - $userTotalInvestiGross);
+            
+            $user->total_interets_fcp = max(0, $userFcpValorisation - $userFcpInvestiGross);
+            $user->total_interets_pmg = max(0, $userPmgValorisation - $userPmgInvestiGross);
+
             $user->product_count = $activeContractsCount;
             $user->has_fcp = $hasFcp;
             $user->has_pmg = $hasPmg;
@@ -805,6 +820,8 @@ class ProductController extends Controller
                 $globalTotalInvesti += $userTotalInvestiGross;
                 $globalTotalAum += $userTotalValorisation;
                 $globalTotalInterests += $user->total_interets; // Somme des intérêts positifs individuels
+                $globalTotalInterestsFcp += $user->total_interets_fcp;
+                $globalTotalInterestsPmg += $user->total_interets_pmg;
                 if ($userTotalInvestiGross > 0) {
                     $activeClientsCount++;
                 } else {
@@ -841,6 +858,8 @@ class ProductController extends Controller
                 'globalTotalAum', 
                 'globalTotalInvesti', 
                 'globalTotalInterests', 
+                'globalTotalInterestsFcp',
+                'globalTotalInterestsPmg',
                 'search', 
                 'activeClientsCount', 
                 'inactiveClientsCount',
@@ -855,6 +874,8 @@ class ProductController extends Controller
             'globalTotalAum', 
             'globalTotalInvesti', 
             'globalTotalInterests', 
+            'globalTotalInterestsFcp',
+            'globalTotalInterestsPmg',
             'search', 
             'activeClientsCount', 
             'inactiveClientsCount',
