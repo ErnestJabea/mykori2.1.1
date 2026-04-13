@@ -72,7 +72,7 @@
                             </table>
                         </div>
                         <div class="mt-8">
-                            {{ $months->links('partials.pagination') }}
+                            {{ $months->links('front-end.partials.pagination') }}
                         </div>
                     @else
                         <div class="flex flex-col items-center justify-center py-20 text-center">

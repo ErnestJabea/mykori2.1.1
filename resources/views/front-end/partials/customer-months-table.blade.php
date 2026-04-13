@@ -56,7 +56,7 @@
     </div>
 
     <div class="mt-6 px-6 pb-6 ajax-pagination-detail">
-        {{ $availableMonths->links('partials.pagination') }}
+        {{ $availableMonths->links('front-end.partials.pagination') }}
     </div>
 @else
     <div class="py-10 text-center opacity-60">

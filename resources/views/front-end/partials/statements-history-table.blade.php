@@ -78,7 +78,7 @@
     </div>
     @if ($batches->hasPages())
         <div class="p-8 border-t border-n30 bg-n10/10">
-            {{ $batches->links('partials.pagination') }}
+            {{ $batches->links('front-end.partials.pagination') }}
         </div>
     @endif
 </div>
