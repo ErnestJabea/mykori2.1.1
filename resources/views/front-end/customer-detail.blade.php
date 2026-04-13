@@ -921,6 +921,17 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                         '0') + '-' + String(date.getDate()).padStart(2, '0');
                     instance.el.value = value;
 
+                    // SYNC: d'échéance min = date de valeur
+                    if (pickerEcheance) {
+                        pickerEcheance.setMin(date);
+                        // Si l'échéance actuelle est inférieure à la nouvelle date de valeur, on l'aligne
+                        const currentEch = document.getElementById('datepicker_echeance').value;
+                        if (currentEch && new Date(currentEch) < date) {
+                            pickerEcheance.setDate(date);
+                            document.getElementById('datepicker_echeance').value = date.toISOString().split('T')[0];
+                        }
+                    }
+
                     const prodId = prodSelect.value;
                     if (prodId && typeSelect.value == 1) { // 1 = FCP
                         fetchVlAtDate(prodId, value);
