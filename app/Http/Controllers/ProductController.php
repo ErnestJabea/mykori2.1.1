@@ -1568,6 +1568,11 @@ class ProductController extends Controller
                     })->exists();
             }
 
+            // Règle de conformité : Pas de relevé FCP pour un mois qui n'est pas encore terminé
+            if ($current->month == \Carbon\Carbon::now()->month && $current->year == \Carbon\Carbon::now()->year) {
+                $has_fcp = false;
+            }
+
             if ($has_pmg || $has_fcp) {
                 $monthsList[] = [
                     'year' => $current->year,
