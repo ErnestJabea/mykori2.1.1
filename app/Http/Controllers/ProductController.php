@@ -535,7 +535,7 @@ class ProductController extends Controller
             ->get();
         foreach ($fcpProductsList as $product) {
             $product->vl_history = AssetValue::where('product_id', $product->id)
-                ->orderBy('created_at', 'asc')
+                ->orderBy('created_at', 'desc')
                 ->take(12)
                 ->get();
         }
