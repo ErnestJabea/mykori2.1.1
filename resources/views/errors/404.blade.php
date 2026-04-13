@@ -1,4 +1,4 @@
-@extends('front-end.layouts.app')
+@extends('layouts.app')
 
 @section('content')
 <main class="min-h-screen flex items-center justify-center p-6 bg-n10 dark:bg-bg3">
