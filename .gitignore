@@ -22,3 +22,9 @@ yarn-error.log
 /public/mix-manifest.json
 /public/storage
 /storage/app/public
+/tmp
+*.txt
+*.json
+*.log
+verify_esono.php
+tmp_check_*.php

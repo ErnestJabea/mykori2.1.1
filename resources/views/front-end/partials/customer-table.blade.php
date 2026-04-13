@@ -168,6 +168,11 @@
                         <p class="font-medium">
                             {{ number_format($client->total_capital, 0, ' ', ' ') }}
                         </p>
+                        @if($client->has_fcp && ($client->total_capital != ($client->total_capital_net ?? $client->total_capital)))
+                            <span class="text-[10px] opacity-50 block leading-none mt-1">
+                                ({{ number_format($client->total_capital_net, 0, ' ', ' ') }})
+                            </span>
+                        @endif
                     </td>
 
                     <td class="px-6 py-4 text-right" style="white-space: nowrap;">
