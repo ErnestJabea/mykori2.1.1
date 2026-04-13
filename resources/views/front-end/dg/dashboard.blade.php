@@ -444,5 +444,5 @@
             </div>
         </div>
     </main>
-    @include('partials.transaction-details-modal')
+    @include('front-end.partials.transaction-details-modal')
 @endsection

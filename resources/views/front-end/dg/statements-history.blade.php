@@ -27,7 +27,7 @@
                 </div>
 
                 <!-- Shared Table Component -->
-                @include('partials.statements-history-table')
+                @include('front-end.partials.statements-history-table')
 
 
 

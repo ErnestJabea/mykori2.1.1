@@ -20,7 +20,7 @@
                             </thead>
                             <tbody id="transactionContainer">
                                 <!-- Contenu des transactions -->
-                                @include('partials.transactions_partial', [
+                                @include('front-end.partials.transactions_partial', [
                                     'transactions' => $transactions,
                                 ])
                             </tbody>

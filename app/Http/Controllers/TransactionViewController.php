@@ -31,7 +31,7 @@ class TransactionViewController extends Controller
             $transactions = Transaction::with('sousTransactions')->where('user_id', Auth::user()->id)->paginate(10);
 
             if ($request->ajax()) {
-                return response()->json(view('partials.transactions_partial', compact('transactions'))->render());
+                return response()->json(view('front-end.partials.transactions_partial', compact('transactions'))->render());
             }
 
             return view('front-end.my-history', compact('transactions'));
