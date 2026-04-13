@@ -323,20 +323,21 @@ public function previewFcp(int $clientId)
             ->sum('nb_parts_change')) ?? 0;
 
         $montantSouscritMois = \DB::table('fcp_movements')
-            ->where('user_id', $client->id)
-            ->where('product_id', $productId)
-            ->whereDate('date_operation', '>=', $dateN1->copy()->addDay()->toDateString())
-            ->whereDate('date_operation', '<=', $dateN->toDateString())
-            ->where('nb_parts_change', '>', 0)
-            ->sum('amount_xaf') ?? 0;
+                ->where('user_id', $client->id)
+                ->where('product_id', $productId)
+                ->whereDate('date_operation', '>=', $dateN1->copy()->addDay()->toDateString())
+                ->whereDate('date_operation', '<=', $dateN->toDateString())
+                ->where('nb_parts_change', '>', 0)
+                ->select(DB::raw('SUM(amount_xaf + fees) as total_gross'))
+                ->value('total_gross') ?? 0;
 
         $fraisSouscriptionMois = \DB::table('fcp_movements')
-            ->where('user_id', $client->id)
-            ->where('product_id', $productId)
-            ->whereDate('date_operation', '>=', $dateN1->copy()->addDay()->toDateString())
-            ->whereDate('date_operation', '<=', $dateN->toDateString())
-            ->where('nb_parts_change', '>', 0)
-            ->sum('fees') ?? 0;
+                ->where('user_id', $client->id)
+                ->where('product_id', $productId)
+                ->whereDate('date_operation', '>=', $dateN1->copy()->addDay()->toDateString())
+                ->whereDate('date_operation', '<=', $dateN->toDateString())
+                ->where('nb_parts_change', '>', 0)
+                ->sum('fees') ?? 0;
 
         $vlN = \App\Models\AssetValue::where('product_id', $productId)->where('date_vl', '<=', $dateN->toDateString())->orderBy('date_vl', 'desc')->value('vl') ?? (float)$product->vl;
         $vlN1 = \App\Models\AssetValue::where('product_id', $productId)->where('date_vl', '<=', $dateN1->toDateString())->orderBy('date_vl', 'desc')->value('vl') ?? (float)$product->vl;
@@ -345,21 +346,36 @@ public function previewFcp(int $clientId)
         $valoN1 = (float)$partsN1 * (float)$vlN1;
 
         // Logic de cumul BRUT
+        // Logic de cumul BRUT
         $mainAmount = DB::table('transactions')
             ->where('user_id', $client->id)
             ->where('product_id', $productId)
             ->where('status', 'Succès')
             ->whereDate('date_validation', '<=', $dateN->toDateString())
-            ->sum(DB::raw('amount + COALESCE(fees, 0)'));
+            ->sum('amount');
 
         $suppAmount = DB::table('transaction_supplementaires')
             ->where('user_id', $client->id)
             ->where('product_id', $productId)
             ->where('status', 'Succès')
             ->whereDate('date_validation', '<=', $dateN->toDateString())
-            ->sum(DB::raw('amount + COALESCE(fees, 0)'));
+            ->sum('amount');
 
-        $cumulInvesti = (float)$mainAmount + (float)$suppAmount;
+        $cumulInvestiBrut = (float)$mainAmount + (float)$suppAmount;
+        
+        $mainFees = DB::table('transactions')
+            ->where('user_id', $client->id)
+            ->where('product_id', $productId)
+            ->where('status', 'Succès')
+            ->whereDate('date_validation', '<=', $dateN->toDateString())
+            ->sum('fees');
+        $suppFees = DB::table('transaction_supplementaires')
+            ->where('user_id', $client->id)
+            ->where('product_id', $productId)
+            ->where('status', 'Succès')
+            ->whereDate('date_validation', '<=', $dateN->toDateString())
+            ->sum('fees');
+        $cumulInvestiNet = $cumulInvestiBrut - ((float)$mainFees + (float)$suppFees);
 
         $totalValoN += $valoN;
         $totalValoN1 += $valoN1;
@@ -376,8 +392,9 @@ public function previewFcp(int $clientId)
             'vl_n1'             => (float)$vlN1,
             'valo_n'            => (float)$valoN,
             'valo_n1'           => (float)$valoN1,
-            'cumul_investi'     => (float)$cumulInvesti,
-            'plus_value'        => (float)($valoN - $cumulInvesti),
+            'cumul_investi'     => (float)$cumulInvestiBrut,
+            'cumul_investi_net' => (float)$cumulInvestiNet,
+            'plus_value'        => (float)($valoN - $cumulInvestiNet),
             'gain_mensuel'      => (float)($valoN - $valoN1),
         ];
     }
@@ -751,7 +768,8 @@ private function genererPdfFcp(int $clientId): string
                     ->whereDate('date_operation', '>=', $dateN1->copy()->addDay()->toDateString())
                     ->whereDate('date_operation', '<=', $dateN->toDateString())
                     ->where('nb_parts_change', '>', 0)
-                    ->sum('amount_xaf') ?? 0;
+                    ->select(DB::raw('SUM(amount_xaf + fees) as total_gross'))
+                    ->value('total_gross') ?? 0;
 
             $fraisSouscriptionMois = \DB::table('fcp_movements')
                     ->where('user_id', $client->id)
@@ -767,22 +785,36 @@ private function genererPdfFcp(int $clientId): string
             $valoN = (float)$partsN * (float)$vlN;
             $valoN1 = (float)$partsN1 * (float)$vlN1;
             
-            // Calcul du Cumul BRUT (Montant placé sans frais)
+            // Calcul du Cumul BRUT
             $mainAmount = DB::table('transactions')
                 ->where('user_id', $client->id)
                 ->where('product_id', $productId)
                 ->where('status', 'Succès')
                 ->where('date_validation', '<=', $dateN->toDateString())
-                ->sum(DB::raw('amount + COALESCE(fees, 0)'));
+                ->sum('amount');
 
             $suppAmount = DB::table('transaction_supplementaires')
                 ->where('user_id', $client->id)
                 ->where('product_id', $productId)
                 ->where('status', 'Succès')
                 ->where('date_validation', '<=', $dateN->toDateString())
-                ->sum(DB::raw('amount + COALESCE(fees, 0)'));
+                ->sum('amount');
 
-            $cumulInvesti = (float)$mainAmount + (float)$suppAmount;
+            $cumulInvestiBrut = (float)$mainAmount + (float)$suppAmount;
+            
+            $mainFees = DB::table('transactions')
+                ->where('user_id', $client->id)
+                ->where('product_id', $productId)
+                ->where('status', 'Succès')
+                ->where('date_validation', '<=', $dateN->toDateString())
+                ->sum('fees');
+            $suppFees = DB::table('transaction_supplementaires')
+                ->where('user_id', $client->id)
+                ->where('product_id', $productId)
+                ->where('status', 'Succès')
+                ->where('date_validation', '<=', $dateN->toDateString())
+                ->sum('fees');
+            $cumulInvestiNet = $cumulInvestiBrut - ((float)$mainFees + (float)$suppFees);
 
             $totalValoN += $valoN;
             $totalValoN1 += $valoN1;
@@ -799,8 +831,9 @@ private function genererPdfFcp(int $clientId): string
                 'vl_n1'             => (float)$vlN1,
                 'valo_n'            => (float)$valoN,
                 'valo_n1'           => (float)$valoN1,
-                'cumul_investi'     => (float)$cumulInvesti,
-                'plus_value'        => (float)($valoN - $cumulInvesti),
+                'cumul_investi'     => (float)$cumulInvestiBrut,
+                'cumul_investi_net' => (float)$cumulInvestiNet,
+                'plus_value'        => (float)($valoN - $cumulInvestiNet),
                 'gain_mensuel'      => (float)($valoN - $valoN1),
             ];
     }
