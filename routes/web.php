@@ -566,6 +566,7 @@ Route::middleware('auth')->group(function () {
                 'date_souscription'  => $tx->date_validation ?? $tx->created_at,
                 'libelle'            => $tx->title ?? 'SOUSCRIPTION',
                 'ref'                => $tx->ref,
+                'produit'            => $productTitle,
                 'montant'            => (float)$tx->amount,
                 'fees'               => 0, // Déjà inclus dans le montant brut enregistré
                 'sens'               => 'entrant',
@@ -602,6 +603,7 @@ Route::middleware('auth')->group(function () {
                     'date_souscription'  => $tx->date_validation ?? $tx->created_at,
                     'libelle'            => $tx->title ?? 'VERSEMENT LIBRE',
                     'ref'                => $tx->ref,
+                    'produit'            => $productTitle,
                     'montant'            => (float)$tx->amount,
                     'fees'               => 0,
                     'sens'               => 'entrant',
