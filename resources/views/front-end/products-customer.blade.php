@@ -101,10 +101,18 @@
                             </select>
                         </div>
 
-                        <div>
-                            <label class="mb-2 block text-sm font-semibold opacity-80">Produit</label>
-                            <select id="select_produit" name="product_id" class="w-full rounded-xl border border-n30 bg-secondary1/5 px-4 py-3 outline-none focus:border-primary" disabled>
-                                <option value="">Choisir un type</option>
+                        </div>
+                        
+                        <!-- Mode de gestion des intérêts (PMG only) -->
+                        <div class="hidden" id="interest_management_container">
+                            <label class="mb-2 block text-sm font-semibold opacity-80 italic text-primary">Gestion des Intérêts</label>
+                            <select id="interest_management" name="interest_management" class="w-full rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 outline-none focus:border-primary font-bold">
+                                <option value="">Choisir un mode de gestion...</option>
+                                <option value="A la date d'échéance de placement">À la date d'échéance de placement</option>
+                                <option value="Annuellement a la date anniversaire">Annuellement à la date anniversaire</option>
+                                <option value="Capitalisation jusqu'a echeance du mandat de placement">Capitalisation jusqu'à échéance du mandat de placement</option>
+                                <option value="Interets precomptes">Intérêts précomptés</option>
+                                <option value="Chaque mois (mois anniversaire pour les cas exceptionnels)">Chaque mois (mois anniversaire pour les cas exceptionnels)</option>
                             </select>
                         </div>
 
@@ -120,7 +128,7 @@
 
                         <div>
                             <label class="mb-2 block text-sm font-semibold opacity-80">Date de valeur</label>
-                            <input type="date" name="date_valeur" value="{{ date('Y-m-d') }}" class="w-full rounded-xl border border-n30 bg-secondary1/5 px-4 py-3 outline-none focus:border-primary" required>
+                            <input type="date" name="date_valeur" id="date_valeur" value="{{ date('Y-m-d') }}" class="w-full rounded-xl border border-n30 bg-secondary1/5 px-4 py-3 outline-none focus:border-primary" required>
                         </div>
 
                         <div id="date_echeance_container">
@@ -185,6 +193,11 @@
             const catId = this.value;
             prodSelect.innerHTML = '<option value="">Sélectionner un produit</option>';
             
+            // Reset date limits by default
+            const dateInput = document.getElementById('date_valeur');
+            dateInput.removeAttribute('min');
+            dateInput.removeAttribute('max');
+
             if (catId) {
                 prodSelect.disabled = false;
                 const filtered = productsList.filter(p => {
@@ -205,18 +218,41 @@
                     prodSelect.appendChild(opt);
                 });
 
-                if (catId == 1) {
+                // RESTRICTION DATE (Commune FCP & PMG) : Aujourd'hui (max) et -7 jours (min)
+                const today = new Date().toISOString().split('T')[0];
+                const minDate = new Date();
+                minDate.setDate(new Date().getDate() - 7);
+                const minDateStr = minDate.toISOString().split('T')[0];
+
+                dateInput.setAttribute('min', minDateStr);
+                dateInput.setAttribute('max', today);
+                
+                // Si la valeur actuelle est hors limites, on remet à aujourd'hui
+                if (dateInput.value < minDateStr || dateInput.value > today) {
+                    dateInput.value = today;
+                }
+
+                if (catId == 1) { // FCP
                    labelVlTaux.textContent = "Valeur Liquidative (Dernière)";
                    vlTauxInput.readOnly = true;
                    vlTauxInput.classList.add('bg-gray-100');
                    echeanceContainer.style.opacity = "0.5";
                    echeanceInput.disabled = true;
-                } else {
+                   document.getElementById('interest_management_container').classList.add('hidden');
+
+                } else { // PMG
                    labelVlTaux.textContent = "Taux d'intérêt (%)";
                    vlTauxInput.readOnly = false;
                    vlTauxInput.classList.remove('bg-gray-100');
                    echeanceContainer.style.opacity = "1";
                    echeanceInput.disabled = false;
+                   document.getElementById('interest_management_container').classList.remove('hidden');
+
+                   // SYNC: d'échéance min = date de valeur + 1 jour
+                   const dVal = new Date(dateInput.value);
+                   const nextDay = new Date(dVal);
+                   nextDay.setDate(nextDay.getDate() + 1);
+                   echeanceInput.setAttribute('min', nextDay.toISOString().split('T')[0]);
                 }
             } else {
                 prodSelect.disabled = true;
@@ -224,7 +260,8 @@
         });
 
         function calculateExpiry() {
-            const dateValStr = document.querySelector('input[name="date_valeur"]').value;
+            const dateInput = document.getElementById('date_valeur');
+            const dateValStr = dateInput.value;
             const productId = prodSelect.value;
             const product = productsList.find(p => p.id == productId);
 
@@ -233,13 +270,22 @@
                 const duree = parseInt(product.duree);
                 dateVal.setMonth(dateVal.getMonth() + duree);
                 const expiryStr = dateVal.getFullYear() + '-' + String(dateVal.getMonth() + 1).padStart(2, '0') + '-' + String(dateVal.getDate()).padStart(2, '0');
-                document.getElementById('date_echeance_input').value = expiryStr;
+                echeanceInput.value = expiryStr;
             }
         }
 
-        document.querySelector('input[name="date_valeur"]').addEventListener('change', function() {
-            if (typeSelect.value == 2) {
+        document.getElementById('date_valeur').addEventListener('change', function() {
+            if (typeSelect.value == 2) { // PMG
                 calculateExpiry();
+                
+                // SYNC min date for expiry
+                const nextDay = new Date(this.value);
+                nextDay.setDate(nextDay.getDate() + 1);
+                echeanceInput.setAttribute('min', nextDay.toISOString().split('T')[0]);
+                
+                if (echeanceInput.value && echeanceInput.value <= this.value) {
+                    echeanceInput.value = nextDay.toISOString().split('T')[0];
+                }
             }
         });
 
@@ -291,6 +337,7 @@
                     fraisGestion: fees,
                     date_valeur: formData.get('date_valeur'),
                     date_echeance: formData.get('date_echeance'),
+                    interest_management: document.getElementById('interest_management').value,
                     taux_insere: vl_taux
                 };
 

@@ -204,9 +204,30 @@
                                         <label for="date_valeur" class="mb-4 block font-medium md:text-lg">
                                             Date Valeur
                                         </label>
+                                        @php
+                                            $today = \Carbon\Carbon::now();
+                                            $activeFriday = $today->copy()->next(\Carbon\Carbon::FRIDAY);
+                                            if ($today->isFriday()) {
+                                                $activeFriday = $today->copy();
+                                            }
+                                            
+                                            // Check if VL exists for this Friday for this product
+                                            $vlExists = \App\Models\AssetValue::where('product_id', $product->id)
+                                                ->whereDate('date_vl', $activeFriday->format('Y-m-d'))
+                                                ->exists();
+                                            
+                                            if ($vlExists) {
+                                                $activeFriday = $activeFriday->addWeek();
+                                            }
+                                            $finalActiveFriday = $activeFriday->format('Y-m-d');
+                                        @endphp
                                         <input type="date"
-                                            class="w-full rounded-3xl border border-n30 bg-secondary1/5 px-6 py-2.5 dark:border-n500 dark:bg-bg3 md:py-3"
-                                            id="date_valeur" name="date_valeur" value="{{ date('Y-m-d') }}" required />
+                                            class="w-full rounded-3xl border border-n30 bg-secondary1/5 px-6 py-2.5 dark:border-n500 dark:bg-bg3 md:py-3 date-fridays-only"
+                                            id="date_valeur" name="date_valeur" value="{{ $finalActiveFriday }}" 
+                                            min="{{ \Carbon\Carbon::now()->subDays(7)->format('Y-m-d') }}"
+                                            max="{{ \Carbon\Carbon::now()->format('Y-m-d') }}"
+                                            required 
+                                            data-product-id="{{ $product->id }}" />
                                     </div>
                                     <div class="col-span-2">
                                         <label for="date_echeance" class="mb-4 block font-medium md:text-lg">
@@ -214,7 +235,24 @@
                                         </label>
                                         <input type="date"
                                             class="w-full rounded-3xl border border-n30 bg-secondary1/5 px-6 py-2.5 dark:border-n500 dark:bg-bg3 md:py-3"
-                                            id="date_echeance" name="date_echeance" value="{{ date('Y-m-d', strtotime('+'.$product->duree.' months')) }}" required />
+                                            id="date_echeance" name="date_echeance" 
+                                            value="{{ \Carbon\Carbon::parse($finalActiveFriday)->addMonths($product->duree)->format('Y-m-d') }}"
+                                            min="{{ \Carbon\Carbon::parse($finalActiveFriday)->addDay()->format('Y-m-d') }}"
+                                            required />
+                                    </div>
+                                    <div class="col-span-2">
+                                        <label for="interest_management" class="mb-4 block font-medium md:text-lg italic text-primary">
+                                            Gestion des Intérêts
+                                        </label>
+                                        <select id="interest_management" name="interest_management"
+                                            class="w-full rounded-3xl border border-primary/30 bg-primary/5 px-6 py-2.5 dark:border-n500 dark:bg-bg3 md:py-3 font-bold focus:border-primary outline-none">
+                                            <option value="">Choisir un mode de gestion...</option>
+                                            <option value="A la date d'échéance de placement">À la date d'échéance de placement</option>
+                                            <option value="Annuellement a la date anniversaire">Annuellement à la date anniversaire</option>
+                                            <option value="Capitalisation jusqu'a echeance du mandat de placement">Capitalisation jusqu'à échéance du mandat de placement</option>
+                                            <option value="Interets precomptes">Intérêts précomptés</option>
+                                            <option value="Chaque mois (mois anniversaire pour les cas exceptionnels)">Chaque mois (mois anniversaire pour les cas exceptionnels)</option>
+                                        </select>
                                     </div>
                                     <div class="col-span-2">
                                         <label for="number" class="mb-4 block font-medium md:text-lg"
@@ -273,9 +311,30 @@
                                         <label for="date_valeur_fcp" class="mb-4 block font-medium md:text-lg">
                                             Date Valeur
                                         </label>
+                                        @php
+                                            $todayFcp = \Carbon\Carbon::now();
+                                            $activeFridayFcp = $todayFcp->copy()->next(\Carbon\Carbon::FRIDAY);
+                                            if ($todayFcp->isFriday()) {
+                                                $activeFridayFcp = $todayFcp->copy();
+                                            }
+                                            
+                                            // Check if VL exists for this Friday
+                                            $vlExistsFcp = \App\Models\AssetValue::where('product_id', $product->id)
+                                                ->whereDate('date_vl', $activeFridayFcp->format('Y-m-d'))
+                                                ->exists();
+                                            
+                                            if ($vlExistsFcp) {
+                                                $activeFridayFcp = $activeFridayFcp->addWeek();
+                                            }
+                                            $finalActiveFridayFcp = $activeFridayFcp->format('Y-m-d');
+                                        @endphp
                                         <input type="date"
-                                            class="w-full rounded-3xl border border-n30 bg-secondary1/5 px-6 py-2.5 dark:border-n500 dark:bg-bg3 md:py-3"
-                                            id="date_valeur_fcp" name="date_valeur" value="{{ date('Y-m-d') }}" required />
+                                            class="w-full rounded-3xl border border-n30 bg-secondary1/5 px-6 py-2.5 dark:border-n500 dark:bg-bg3 md:py-3 date-fridays-only"
+                                            id="date_valeur_fcp" name="date_valeur" value="{{ $finalActiveFridayFcp }}" 
+                                            min="{{ \Carbon\Carbon::now()->subDays(7)->format('Y-m-d') }}"
+                                            max="{{ \Carbon\Carbon::now()->format('Y-m-d') }}"
+                                            required 
+                                            data-product-id="{{ $product->id }}" />
                                     </div>
                                     <div class="col-span-2">
                                         <label for="number" class="mb-4 block font-medium md:text-lg"
@@ -446,7 +505,8 @@
                                     montantTotal: montantTotal,
                                     product: {{ $product->id }},
                                     date_valeur: $('#date_valeur').val(),
-                                    date_echeance: $('#date_echeance').val()
+                                    date_echeance: $('#date_echeance').val(),
+                                    interest_management: $('#interest_management').val()
                                 },
                                 success: function(response) {
                                     console.log(response.message);
@@ -472,19 +532,66 @@
                 });
             });
         @endif
+
+        $(document).ready(function() {
+            // Validation des dates : Uniquement les vendredis
+            $('.date-fridays-only').on('change', function() {
+                const dateVal = new Date($(this).val());
+                const day = dateVal.getDay(); // 0 = Dimanche, 5 = Vendredi
+                
+                if (day !== 5) {
+                    alert("Erreur : La date de valeur doit impérativement être un vendredi.");
+                    // On remet la date par défaut ou on vide
+                    $(this).val($(this).attr('value'));
+                    return;
+                }
+            });
+
+            // Règle : Uniquement si nous sommes vendredi
+            @php
+                $isFriday = \Carbon\Carbon::now()->isFriday();
+            @endphp
+            
+            if (!@json($isFriday)) {
+                $('#submitButton').attr('disabled', true).addClass('opacity-50 cursor-not-allowed').text("Souscriptions ouvertes uniquement le vendredi");
+            }
+
+            // Mise à jour de l'échéance PMG quand on change la date de valeur
+            $('#date_valeur').on('change', function() {
+                const dateVal = $(this).val();
+                if (dateVal) {
+                    const d = new Date(dateVal);
+                    
+                    // SYNC min date for expiry (+1 day)
+                    const nextDay = new Date(d);
+                    nextDay.setDate(nextDay.getDate() + 1);
+                    $('#date_echeance').attr('min', nextDay.toISOString().split('T')[0]);
+                    
+                    // Auto-calculate expiry based on product duration
+                    d.setMonth(d.getMonth() + {{ $product->duree }});
+                    $('#date_echeance').val(d.toISOString().split('T')[0]);
+                }
+            });
+        });
     </script>
 
     @if ($product->products_category_id == 1)
         @php
             $tableau = [];
-            foreach ($asset_value_all as $value) {
-                $tableau[] = intval($value->vl);
+            foreach ($asset_value_all2 as $value) {
+                $tableau[] = (float)$value->vl;
             }
 
-            sort($tableau); // Trie le tableau dans l'ordre croissant
-            $minimum = $tableau[0];
-            $maximum = end($tableau);
-
+            if (!empty($tableau)) {
+                $minimum = min($tableau);
+                $maximum = max($tableau);
+                // Adjust min and max for better visualization
+                $yMin = floor($minimum * 0.999); // 0.1% below min
+                $yMax = ceil($maximum * 1.001);  // 0.1% above max
+            } else {
+                $yMin = 0;
+                $yMax = 100;
+            }
         @endphp
 
 
@@ -499,7 +606,7 @@
                         type: "line",
                         data: [
                             @foreach ($asset_value_all2 as $value2)
-                                {{ intval($value2->vl) }},
+                                {{ $value2->vl }},
                             @endforeach
                         ],
                     }, ],
@@ -521,14 +628,19 @@
                         dashArray: [0, 5],
                     },
                     xaxis: {
-                        type: "Semaine",
+                        type: "category",
                         categories: [
-                            @foreach ($asset_value_all as $key => $value)
-                                "Semaine  {{ $key + 1 }}",
+                            @foreach ($asset_value_all2 as $value)
+                                "{{ \Carbon\Carbon::parse($value->date_vl)->format('d/m/Y') }}",
                             @endforeach
                         ],
-                        tickAmount: {{ $asset_value_all->count() }},
-                        labels: {},
+                        tickAmount: 10,
+                        labels: {
+                            rotate: -45,
+                            style: {
+                                fontSize: '10px'
+                            }
+                        },
                         axisTicks: {
                             show: false,
                         },
@@ -537,11 +649,14 @@
                         },
                     },
                     yaxis: {
-                        min: 0,
-                        max: {{ $maximum }},
-                        tickAmount: 5,
+                        min: {{ $yMin }},
+                        max: {{ $yMax }},
+                        forceNiceScale: true,
                         labels: {
-                            offsetX: -17,
+                            formatter: function(val) {
+                                return val.toLocaleString('fr-FR');
+                            },
+                            offsetX: -10,
                         },
                     },
                     fill: {

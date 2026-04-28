@@ -436,16 +436,16 @@ Route::middleware('auth')->group(function () {
                 // Filtrer les valeurs liquidatives créées entre le début et la fin du mois en cours pour le produit sélectionné
                 $product_vls = \App\Models\AssetValue::where('product_id', $product->id)
                     ->orderBy('created_at', 'desc')
-                    ->take(4)
+                    ->take(8)
                     ->get();
 
 
                 $product_vls2 = \App\Models\AssetValue::where('product_id', $product->id)
                     ->orderBy('id', 'desc')
-                    ->take(4)
+                    ->take(8)
                     ->get();
 
-                $date_ord = $product_vls2->sortBy('created_at')->values();
+                $date_ord = $product_vls2->sortBy('date_vl')->values();
 
                 return view('front-end.product-detail-customer')->with('customer', $customer)->with('product', $product)->with('asset_value_all', $product_vls)
                     ->with('asset_value_all2', $date_ord);
@@ -660,16 +660,16 @@ Route::middleware('auth')->group(function () {
         // Filtrer les valeurs liquidatives créées entre le début et la fin du mois en cours pour le produit sélectionné
         $product_vls = \App\Models\AssetValue::where('product_id', $product->id)
             ->orderBy('created_at', 'desc')
-            ->take(4)
+            ->take(8)
             ->get();
 
 
         $product_vls2 = \App\Models\AssetValue::where('product_id', $product->id)
             ->orderBy('id', 'desc')
-            ->take(4)
+            ->take(8)
             ->get();
 
-        $date_ord = $product_vls2->sortBy('created_at')->values();
+        $date_ord = $product_vls2->sortBy('date_vl')->values();
 
         return view('front-end.product-detail')->with('product', $product)->with('asset_value_all', $product_vls)
             ->with('asset_value_all2', $date_ord);
@@ -700,6 +700,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/product-vl/{product_id}/{date}', [ProductController::class, 'getVlAtDate'])->name('api.product-vl');
     Route::get('/api/product-holdings/{user_id}/{product_id}/{date}', [ProductController::class, 'getHoldingsAtDate'])->name('api.product-holdings');
     Route::get('/api/fcp-evolution/{product_id}/{customer_id}', [ProductController::class, 'getFcpEvolutionApi'])->name('api.fcp-evolution');
+    Route::get('/api/pmg-evolution/{product_id}/{customer_id}', [ProductController::class, 'getPmgEvolutionApi'])->name('api.pmg-evolution');
     Route::get('/customer-statement/monthly/{year}/{month}/{type}/{customer_id}', [ProductController::class, 'downloadMonthlyStatement'])->name('customer-statement.monthly');
 
     Route::get('/my-statement/{id}', [ProductController::class, 'downloadStatement'])->name('my-statement');
@@ -721,10 +722,13 @@ Route::get('/logout', function () {
 
 Route::group(['prefix' => 'admin'], function () {
     Voyager::routes();
-    // Valeurs Liquidatives
-    Route::get('/vls', [AssetManagerController::class, 'vlHistory'])->name('asset-manager.vls');
-    Route::post('/vls', [AssetManagerController::class, 'storeVl'])->name('asset-manager.vls.store');
-    Route::delete('/vls/{id}', [AssetManagerController::class, 'deleteVl'])->name('asset-manager.vl.delete');
+    
+    Route::group(['middleware' => ['admin.user']], function () {
+        // Valeurs Liquidatives
+        Route::get('/vls', [AssetManagerController::class, 'vlHistory'])->name('asset-manager.vls');
+        Route::post('/vls', [AssetManagerController::class, 'storeVl'])->name('asset-manager.vls.store');
+        Route::delete('/vls/{id}', [AssetManagerController::class, 'deleteVl'])->name('asset-manager.vl.delete');
+    });
 });
 
 // --- Dossier Compliance (Audit & Risques) ---

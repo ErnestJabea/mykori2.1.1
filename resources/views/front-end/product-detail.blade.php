@@ -437,14 +437,20 @@
     @if ($product->products_category_id == 1)
         @php
             $tableau = [];
-            foreach ($asset_value_all as $value) {
-                $tableau[] = intval($value->vl);
+            foreach ($asset_value_all2 as $value) {
+                $tableau[] = (float)$value->vl;
             }
 
-            sort($tableau); // Trie le tableau dans l'ordre croissant
-            $minimum = $tableau[0];
-            $maximum = end($tableau);
-
+            if (!empty($tableau)) {
+                $minimum = min($tableau);
+                $maximum = max($tableau);
+                // Adjust min and max for better visualization
+                $yMin = floor($minimum * 0.999); // 0.1% below min
+                $yMax = ceil($maximum * 1.001);  // 0.1% above max
+            } else {
+                $yMin = 0;
+                $yMax = 100;
+            }
         @endphp
 
 
@@ -459,7 +465,7 @@
                         type: "line",
                         data: [
                             @foreach ($asset_value_all2 as $value2)
-                                {{ intval($value2->vl) }},
+                                {{ $value2->vl }},
                             @endforeach
                         ],
                     }, ],
@@ -481,14 +487,19 @@
                         dashArray: [0, 5],
                     },
                     xaxis: {
-                        type: "Semaine",
+                        type: "category",
                         categories: [
-                            @foreach ($asset_value_all as $key => $value)
-                                "Semaine  {{ $key + 1 }}",
+                            @foreach ($asset_value_all2 as $value)
+                                "{{ \Carbon\Carbon::parse($value->date_vl)->format('d/m/Y') }}",
                             @endforeach
                         ],
-                        tickAmount: {{ $asset_value_all->count() }},
-                        labels: {},
+                        tickAmount: 10,
+                        labels: {
+                            rotate: -45,
+                            style: {
+                                fontSize: '10px'
+                            }
+                        },
                         axisTicks: {
                             show: false,
                         },
@@ -497,11 +508,14 @@
                         },
                     },
                     yaxis: {
-                        min: 0,
-                        max: {{ $maximum }},
-                        tickAmount: 5,
+                        min: {{ $yMin }},
+                        max: {{ $yMax }},
+                        forceNiceScale: true,
                         labels: {
-                            offsetX: -17,
+                            formatter: function(val) {
+                                return val.toLocaleString('fr-FR');
+                            },
+                            offsetX: -10,
                         },
                     },
                     fill: {

@@ -48,8 +48,9 @@ class MovementController extends Controller
         $currentDate = Carbon::now();
         $movements  = DB::table('financial_movements')
             ->join('transactions', 'financial_movements.transaction_id', '=', 'transactions.id')
+            ->join('products', 'transactions.product_id', '=', 'products.id')
             ->where('transactions.user_id', $customerId)
-            ->select('financial_movements.*')
+            ->select('financial_movements.*', 'products.title as product_title', 'transactions.ref as transaction_ref')
             ->orderBy('financial_movements.date_operation', 'desc')
             ->get();
 
@@ -70,7 +71,44 @@ class MovementController extends Controller
 
         $ownedFcpProducts = \App\Models\Product::whereIn('id', $ownedFcpIds)->get();
 
-        return view('front-end.customer-transactions-management', compact('movements', 'customerId', 'transactionsUsers', 'customer', 'ownedFcpProducts'));
+        // Récupérer les mouvements FCP
+        $fcpMovements = DB::table('fcp_movements')
+            ->join('products', 'fcp_movements.product_id', '=', 'products.id')
+            ->where('fcp_movements.user_id', $customerId)
+            ->select('fcp_movements.*', 'products.title as product_title')
+            ->get();
+
+        $unifiedOperations = collect();
+
+        foreach ($movements as $mvt) {
+            $unifiedOperations->push((object)[
+                'date_op' => $mvt->date_operation,
+                'category' => 'PMG',
+                'product_title' => $mvt->product_title,
+                'reference' => $mvt->transaction_ref,
+                'type' => $mvt->type,
+                'amount' => $mvt->amount,
+                'parts_change' => null,
+                'comment' => $mvt->comments
+            ]);
+        }
+
+        foreach ($fcpMovements as $fcpMvt) {
+            $unifiedOperations->push((object)[
+                'date_op' => $fcpMvt->date_operation,
+                'category' => 'FCP',
+                'product_title' => $fcpMvt->product_title,
+                'reference' => $fcpMvt->reference,
+                'type' => $fcpMvt->type,
+                'amount' => $fcpMvt->amount_xaf,
+                'parts_change' => $fcpMvt->nb_parts_change,
+                'comment' => $fcpMvt->comment
+            ]);
+        }
+
+        $allOperations = $unifiedOperations->sortByDesc('date_op')->values();
+
+        return view('front-end.customer-transactions-management', compact('movements', 'customerId', 'transactionsUsers', 'customer', 'ownedFcpProducts', 'fcpMovements', 'allOperations'));
     }
 
     public function storeFinancialMovement(Request $request)

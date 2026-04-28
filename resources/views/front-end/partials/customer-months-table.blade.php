@@ -5,7 +5,7 @@
                 <tr class="bg-secondary1/5 dark:bg-bg3">
                     <th class="px-6 py-4 text-start font-semibold">Période</th>
                     <th class="px-6 py-4 text-center font-semibold">Types</th>
-                    <th class="px-6 py-4 text-center font-semibold">Téléchargement (PDF)</th>
+                    <th class="px-6 py-4 text-center font-semibold">Aperçu & Téléchargement</th>
                 </tr>
             </thead>
             <tbody>
@@ -35,17 +35,31 @@
                         <td class="px-6 py-4">
                             <div class="flex justify-center gap-3">
                                 @if ($m['has_pmg'])
-                                    <a href="{{ route('customer-statement.monthly', ['year' => $m['year'], 'month' => $m['month'], 'type' => 'pmg', 'customer_id' => $customer->id]) }}"
-                                        class="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary/90 transition-all">
-                                        <i class="las la-download text-base"></i> PMG
-                                    </a>
+                                    <div class="flex flex-col gap-1">
+                                        <a href="{{ route('customer-statement.monthly', ['year' => $m['year'], 'month' => $m['month'], 'type' => 'pmg', 'customer_id' => $customer->id]) }}?action=view"
+                                            target="_blank"
+                                            class="flex items-center justify-center gap-2 rounded-lg bg-n10 border border-n30 px-3 py-1.5 text-[10px] font-bold text-n700 hover:bg-n30 transition-all w-full">
+                                            <i class="las la-eye text-sm"></i> Aperçu PMG
+                                        </a>
+                                        <a href="{{ route('customer-statement.monthly', ['year' => $m['year'], 'month' => $m['month'], 'type' => 'pmg', 'customer_id' => $customer->id]) }}"
+                                            class="flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-[10px] font-bold text-white hover:bg-primary/90 transition-all w-full">
+                                            <i class="las la-download text-sm"></i> PDF PMG
+                                        </a>
+                                    </div>
                                 @endif
                                 @if ($m['has_fcp'])
-                                    <a href="{{ route('customer-statement.monthly', ['year' => $m['year'], 'month' => $m['month'], 'type' => 'fcp', 'customer_id' => $customer->id]) }}"
-                                        class="flex items-center gap-2 rounded-lg bg-secondary px-4 py-2 text-xs font-bold text-white hover:bg-secondary/90 transition-all"
-                                        style="background-color: #ebb009">
-                                        <i class="las la-download text-base"></i> FCP
-                                    </a>
+                                    <div class="flex flex-col gap-1">
+                                        <a href="{{ route('customer-statement.monthly', ['year' => $m['year'], 'month' => $m['month'], 'type' => 'fcp', 'customer_id' => $customer->id]) }}?action=view"
+                                            target="_blank"
+                                            class="flex items-center justify-center gap-2 rounded-lg bg-n10 border border-n30 px-3 py-1.5 text-[10px] font-bold text-n700 hover:bg-n30 transition-all w-full">
+                                            <i class="las la-eye text-sm"></i> Aperçu FCP
+                                        </a>
+                                        <a href="{{ route('customer-statement.monthly', ['year' => $m['year'], 'month' => $m['month'], 'type' => 'fcp', 'customer_id' => $customer->id]) }}"
+                                            class="flex items-center justify-center gap-2 rounded-lg bg-secondary px-3 py-1.5 text-[10px] font-bold text-white hover:bg-secondary/90 transition-all w-full"
+                                            style="background-color: #ebb009">
+                                            <i class="las la-download text-sm"></i> PDF FCP
+                                        </a>
+                                    </div>
                                 @endif
                             </div>
                         </td>

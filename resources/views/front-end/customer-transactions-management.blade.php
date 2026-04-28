@@ -61,7 +61,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                             </div>
                         </a>
                     </div>
-                    <div class="content-card">
+                    {{--       <div class="content-card">
                         <a href="#popup-remboursement" class="open-popup-link">
                             <div class="content-card-body">
                                 <div class="content-card-icon">
@@ -73,7 +73,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                 </div>
                             </div>
                         </a>
-                    </div>
+                    </div> --}}
                     <div class="content-card">
                         <a href="#popup-rachat-fcp" class="open-popup-link">
                             <div class="content-card-body">
@@ -87,6 +87,104 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                             </div>
                         </a>
                     </div>
+                </div>
+                
+                <!-- NEW SECTION: HISTORIQUE DES OPERATIONS (THEME KORI) -->
+                <div class="flex flex-wrap w-full mt-8 mb-8">
+                    <div class="content-bloc-list-produit w-full" style="flex: 1 1 100%; max-width: 100%;">
+                        <div class="box">
+                            <h3 class="mb-4">HISTORIQUE SYNTHÉTIQUE DES OPÉRATIONS (FCP & PMG)</h3>
+                            
+                            <div class="kori-table-wrapper mt-4">
+                                <table class="kori-fcp-table text-left" style="width: 100%;">
+                                    <thead>
+                                        <tr>
+                                    <th>DATE</th>
+                                    <th class="text-center">CATÉGORIE</th>
+                                    <th>PRODUIT</th>
+                                    <th>RÉF. OPÉRATION</th>
+                                    <th>TYPE</th>
+                                    <th class="text-right">MONTANT BRUT</th>
+                                    <th class="text-right">PARTS (FCP)</th>
+                                    <th>COMMENTAIRE</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($allOperations as $op)
+                                <tr>
+                                    <td>
+                                        <div class="flex flex-col">
+                                            <span class="font-bold text-n900">{{ \Carbon\Carbon::parse($op->date_op)->format('d/m/Y') }}</span>
+                                            <span class="text-xs opacity-60">{{ \Carbon\Carbon::parse($op->date_op)->format('H:i') }}</span>
+                                        </div>
+                                    </td>
+                                    
+                                    <td class="text-center">
+                                        @if($op->category == 'PMG')
+                                            <span class="badge bg-secondary/10 text-secondary px-2 py-1 rounded text-[10px] font-bold border border-secondary/20 shadow-sm">
+                                                PMG
+                                            </span>
+                                        @else
+                                            <span class="badge bg-primary/10 text-primary px-2 py-1 rounded text-[10px] font-bold border border-primary/20 shadow-sm">
+                                                FCP
+                                            </span>
+                                        @endif
+                                    </td>
+                                    
+                                    <td>
+                                        <span class="font-bold text-n900">{{ $op->product_title }}</span>
+                                    </td>
+                                    
+                                    <td>
+                                        <span class="font-mono text-xs opacity-70">{{ $op->reference ?? '-' }}</span>
+                                    </td>
+                                    
+                                    <td>
+                                        @if($op->type == 'precompte_interets')
+                                            <span class="badge bg-blue-100 text-blue-700 px-2 py-1 rounded">Précompte Int.</span>
+                                        @elseif($op->type == 'paiement_interets')
+                                            <span class="badge bg-green-100 text-green-700 px-2 py-1 rounded">Paiement Int.</span>
+                                        @elseif($op->type == 'rachat_partiel' || $op->type == 'rachat')
+                                            <span class="badge bg-orange-100 text-orange-700 px-2 py-1 rounded">Rachat</span>
+                                        @elseif($op->type == 'souscription')
+                                            <span class="badge bg-green-100 text-green-700 px-2 py-1 rounded">Souscription</span>
+                                        @else
+                                            <span class="badge bg-gray-100 text-gray-700 px-2 py-1 rounded">{{ ucfirst(str_replace('_', ' ', $op->type)) }}</span>
+                                        @endif
+                                    </td>
+                                    
+                                    <td class="text-right">
+                                        <span class="font-bold text-n900">
+                                            {{ number_format($op->amount, 0, ',', ' ') }} XAF
+                                        </span>
+                                    </td>
+                                    
+                                    <td class="text-right">
+                                        @if($op->parts_change !== null)
+                                            <span class="inline-flex px-2 py-1 rounded {{ $op->parts_change < 0 ? 'bg-red-50 text-red-600' : 'bg-green-100 text-green-700' }} text-xs font-bold font-mono">
+                                                {{ $op->parts_change > 0 ? '+' : '' }}{{ number_format($op->parts_change, 4) }}
+                                            </span>
+                                        @else
+                                            <span class="opacity-30 font-bold">-</span>
+                                        @endif
+                                    </td>
+                                    
+                                    <td>
+                                        <p class="text-xs opacity-70 italic max-w-[200px] truncate m-0" title="{{ $op->comment }}">{{ $op->comment ?? '-' }}</p>
+                                    </td>
+                                </tr>
+                                @empty
+                                <tr>
+                                    <td colspan="8" class="text-center py-8 opacity-50">
+                                        Aucun historique d'opération disponible pour ce client.
+                                    </td>
+                                </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                </div>
                 </div>
 
                 <div id="popup-interet-precomptes" class="mfp-hide white-popup-block">
@@ -172,14 +270,16 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                         $product = App\Models\Product::find($trans->product_id);
                                     @endphp
                                     <option value="{{ $trans->id }}">
-                                        {{ $product->title }} - (Initial: {{ number_format($trans->amount, 0, ',', ' ') }} XAF)
+                                        {{ $product->title }} - (Initial: {{ number_format($trans->amount, 0, ',', ' ') }}
+                                        XAF)
                                     </option>
                                 @endforeach
                             </select>
                         </div>
                         <div class="form-group mb-3">
                             <label>Montant du remboursement (XAF)</label>
-                            <input type="number" name="amount" class="form-control" placeholder="Montant à rembourser" required>
+                            <input type="number" name="amount" class="form-control" placeholder="Montant à rembourser"
+                                required>
                         </div>
                         <div class="text-right mt-4">
                             <button type="submit" class="btn btn-success">Valider le Remboursement</button>
@@ -204,21 +304,26 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                         </div>
                         <div class="form-group mb-3">
                             <label>Date d'effet du rachat</label>
-                            <input type="text" name="date_operation" id="rachat-fcp-date" value="{{ date('Y-m-d') }}" class="form-control" readonly required>
+                            <input type="text" name="date_operation" id="rachat-fcp-date"
+                                value="{{ date('Y-m-d') }}" class="form-control" readonly required>
                         </div>
                         <div class="form-group mb-3">
                             <label>Montant Brut du rachat (XAF)</label>
-                            <input type="number" name="amount_brut" id="rachat-fcp-amount" class="form-control" placeholder="Montant souhaité" required>
+                            <input type="number" name="amount_brut" id="rachat-fcp-amount" class="form-control"
+                                placeholder="Montant souhaité" required>
                             <p class="text-[10px] mt-1 italic text-n500" id="rachat-fcp-available-label"></p>
                         </div>
                         <div class="form-group mb-3">
                             <label>Frais de rachat (XAF)</label>
-                            <input type="number" name="amount_frais" id="rachat-fcp-frais" class="form-control" value="0">
+                            <input type="number" name="amount_frais" id="rachat-fcp-frais" class="form-control"
+                                value="0">
                         </div>
 
                         <!-- APERCU DU CALCUL -->
-                        <div id="rachat-fcp-preview" class="hidden mt-4 p-4 rounded-2xl bg-primary/5 border border-dashed border-primary/20">
-                            <h5 class="text-xs font-bold uppercase mb-3 text-primary"><i class="las la-calculator"></i> Aperçu du calcul</h5>
+                        <div id="rachat-fcp-preview"
+                            class="hidden mt-4 p-4 rounded-2xl bg-primary/5 border border-dashed border-primary/20">
+                            <h5 class="text-xs font-bold uppercase mb-3 text-primary"><i class="las la-calculator"></i>
+                                Aperçu du calcul</h5>
                             <div class="flex flex-col gap-2">
                                 <div class="flex justify-between text-xs">
                                     <span>VL appliquée :</span>
@@ -240,7 +345,8 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                         </div>
 
                         <div class="text-right mt-6">
-                            <button type="submit" id="btn-confirm-rachat-fcp" class="btn btn-primary bg-primary text-white px-8 py-3 rounded-xl font-bold uppercase tracking-wider">
+                            <button type="submit" id="btn-confirm-rachat-fcp"
+                                class="btn btn-primary bg-primary text-white px-8 py-3 rounded-xl font-bold uppercase tracking-wider">
                                 Confirmer le Rachat FCP
                             </button>
                         </div>
@@ -373,12 +479,15 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
             // Initialisation du calendrier stylisé
             const pickerRachat = datepicker('#rachat-fcp-date', {
                 formatter: (input, date, instance) => {
-                    const value = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+                    const value = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2,
+                        '0') + '-' + String(date.getDate()).padStart(2, '0');
                     input.value = value;
                 },
                 startDay: 1,
                 customDays: ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'],
-                customMonths: ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'],
+                customMonths: ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août',
+                    'Septembre', 'Octobre', 'Novembre', 'Décembre'
+                ],
                 overlayButton: "Valider",
                 overlayPlaceholder: "Année (4 chiffres)",
                 onSelect: (instance, date) => {
@@ -403,7 +512,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                     .then(data => {
                         if (data.status === 'success') {
                             rachatFcpPreview.removeClass('hidden');
-                            
+
                             const vl = data.vl;
                             const totalValo = data.valuation;
                             const partsARetirer = amount / vl;
@@ -414,7 +523,8 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                             $('#preview-fcp-parts').text(partsARetirer.toFixed(4));
                             $('#preview-fcp-net').text(netClient.toLocaleString() + ' XAF');
                             $('#preview-fcp-restant').text(restant.toLocaleString() + ' XAF');
-                            $('#rachat-fcp-available-label').text('Disponible à cette date : ' + totalValo.toLocaleString() + ' XAF (' + data.parts.toFixed(4) + ' parts)');
+                            $('#rachat-fcp-available-label').text('Disponible à cette date : ' + totalValo
+                                .toLocaleString() + ' XAF (' + data.parts.toFixed(4) + ' parts)');
 
                             if (amount > totalValo) {
                                 rachatFcpAmount.addClass('border-red-500');
@@ -447,7 +557,8 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                     },
                     error: function(xhr) {
                         btn.prop('disabled', false).text('CONFIRMER LE RACHAT FCP');
-                        const msg = xhr.responseJSON ? xhr.responseJSON.message : 'Erreur réseau';
+                        const msg = xhr.responseJSON ? xhr.responseJSON.message :
+                            'Erreur réseau';
                         alert('Erreur : ' + msg);
                     }
                 });

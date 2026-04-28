@@ -305,12 +305,12 @@ class UserController extends Controller
                 continue;
             }
 
-            // Récupérer les 10 dernières valeurs liquidatives pour le graphique de variation
+            // Récupérer les 20 dernières valeurs liquidatives triées par date réelle
             $assetValues = AssetValue::where('product_id', $product->id)
-                ->orderBy('created_at', 'desc')
-                ->take(10)
+                ->orderBy('date_vl', 'desc')
+                ->take(8)
                 ->get()
-                ->reverse();
+                ->sortBy('date_vl');
 
             if ($assetValues->isEmpty()) {
                 continue;

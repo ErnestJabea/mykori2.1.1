@@ -69,7 +69,7 @@ class ProductController extends Controller
     {
         $totalInvested = $transaction->amount;
         $currentDate = Carbon::now();
-        $daysDifference = Carbon::parse($transaction->date_validation)->diffInDays($currentDate) - 1;
+        $daysDifference = Carbon::parse($transaction->date_validation)->diffInDays($currentDate) + 1;
         $rate = ($vl_buy / 100) / 360; // Supposons que vl_buy est le taux d'intérêt annuel
         $rate_invested = $totalInvested * $rate;
         //dd($rate_invested_without_days = $totalInvested + $rate_invested);
@@ -80,7 +80,7 @@ class ProductController extends Controller
     {
         $totalInvested = $transaction->amount;
         $currentDate = Carbon::now();
-        $daysDifference = Carbon::parse($transaction->date_validation)->diffInDays($currentDate);
+        $daysDifference = Carbon::parse($transaction->date_validation)->diffInDays($currentDate) + 1;
         $rate = $vl_buy / 100 / 52; // Supposons que vl_buy est le taux d'intérêt annuel
         $gain = ($totalInvested + $totalInvested * $rate) * $daysDifference;
         return $gain / 7;
@@ -547,10 +547,39 @@ class ProductController extends Controller
         foreach ($fcpProductsList as $product) {
             $product->vl_history = AssetValue::where('product_id', $product->id)
                 ->orderBy('date_vl', 'desc')
-                ->take(12)
+                ->take(8)
                 ->get()
-                ->reverse();
+                ->sortBy('date_vl');
         }
+        $startOfMonth = $currentDate->copy()->startOfMonth()->toDateString();
+        $endOfMonth = $currentDate->copy()->endOfMonth()->toDateString();
+
+        $expiringPmgCount = Transaction::where('status', 'Succès')
+            ->whereHas('product', fn($q) => $q->where('products_category_id', 2))
+            ->whereBetween('date_echeance', [$startOfMonth, $endOfMonth])
+            ->count();
+            
+        $expiringPmgSuppCount = TransactionSupplementaire::where('status', 'Succès')
+            ->whereHas('product', fn($q) => $q->where('products_category_id', 2))
+            ->whereBetween('date_echeance', [$startOfMonth, $endOfMonth])
+            ->count();
+
+        $totalExpiringPmgThisMonth = $expiringPmgCount + $expiringPmgSuppCount;
+
+        $anniversaryPmgCount = Transaction::where('status', 'Succès')
+            ->whereHas('product', fn($q) => $q->where('products_category_id', 2))
+            ->whereMonth('date_validation', $currentDate->month)
+            ->whereYear('date_validation', '<', $currentDate->year)
+            ->count();
+            
+        $anniversaryPmgSuppCount = TransactionSupplementaire::where('status', 'Succès')
+            ->whereHas('product', fn($q) => $q->where('products_category_id', 2))
+            ->whereMonth('date_validation', $currentDate->month)
+            ->whereYear('date_validation', '<', $currentDate->year)
+            ->count();
+
+        $totalAnniversariesThisMonth = $anniversaryPmgCount + $anniversaryPmgSuppCount;
+
         return view('front-end.asset-manager', [
             'customers' => $customers,
             'globalAum' => $globalAum,
@@ -559,7 +588,9 @@ class ProductController extends Controller
             'activeClientsCount' => $activeClientsCount,
             'fcpProducts' => $fcpProductsList,
             'totalFcpAum' => $totalFcpAum,
-            'totalPmgAum' => $totalPmgAum
+            'totalPmgAum' => $totalPmgAum,
+            'totalExpiringPmgThisMonth' => $totalExpiringPmgThisMonth,
+            'totalAnniversariesThisMonth' => $totalAnniversariesThisMonth
         ]);
     }
 
@@ -602,14 +633,17 @@ class ProductController extends Controller
         $nextMonth = $startDate->copy()->addMonthNoOverflow()->startOfMonth();
 
         if ($targetDate->lt($nextMonth)) {
-            $totalInterest = ($baseCapital * $rate * $startDate->diffInDays($targetDate)) / 360;
+            // Jour de dépôt exclu
+            $totalInterest = ($baseCapital * $rate * ($startDate->diffInDays($targetDate))) / 360;
         } else {
-            $totalInterest = ($baseCapital * $rate * $startDate->diffInDays($startDate->copy()->endOfMonth())) / 360;
+            // Jour de dépôt exclu pour le premier mois incomplet
+            $totalInterest = ($baseCapital * $rate * ($startDate->diffInDays($startDate->copy()->endOfMonth()))) / 360;
             $fullMonths = $nextMonth->diffInMonths($targetDate->copy()->addDay());
             $totalInterest += ($baseCapital * ($rate / 12)) * $fullMonths;
             $lastMonthStart = $nextMonth->copy()->addMonths($fullMonths);
             if ($lastMonthStart->lt($targetDate)) {
-                $totalInterest += ($baseCapital * $rate * $lastMonthStart->diffInDays($targetDate)) / 360;
+                // Jour de retrait inclus pour le dernier mois
+                $totalInterest += ($baseCapital * $rate * ($lastMonthStart->diffInDays($targetDate) + 1)) / 360;
             }
         }
     }
@@ -640,7 +674,7 @@ class ProductController extends Controller
         $amount = (float)$trans->amount;
         $startDate = Carbon::parse($trans->date_validation);
         
-        $days = $startDate->diffInDays($targetDate);
+        $days = $startDate->diffInDays($targetDate) + 1;
         $interest = ($amount * $rate * $days) / 360;
         
         return round($amount + $interest, 0);
@@ -732,6 +766,10 @@ class ProductController extends Controller
             });
         }
 
+        $startOfMonth = $currentDate->copy()->startOfMonth();
+        $endOfMonth = $currentDate->copy()->endOfMonth();
+        $filter = $request->input('filter');
+
         // 3. Récupération de tous les clients correspondants pour calcul et tri
         $allMatchedUsers = $usersQuery->get();
 
@@ -755,6 +793,8 @@ class ProductController extends Controller
             $activeContractsCount = 0;
             $hasFcp = false;
             $hasPmg = false;
+            $hasExpiringPmg = false;
+            $hasAnniversary = false;
 
             $processedFcpProducts = [];
             $allTrans = $user->transactions->concat($user->transactionssupplementaires);
@@ -763,10 +803,19 @@ class ProductController extends Controller
                 if ($trans->status != 'Succès') continue;
                 
                 $dateEcheance = Carbon::parse($trans->date_echeance);
+                $dateValidation = Carbon::parse($trans->date_validation);
                 $isPmg = ($trans->product->products_category_id == 2);
                 $isFcp = ($trans->product->products_category_id == 1);
 
-                if ($isPmg) $hasPmg = true;
+                if ($isPmg) {
+                    $hasPmg = true;
+                    if ($dateEcheance->between($startOfMonth, $endOfMonth)) {
+                        $hasExpiringPmg = true;
+                    }
+                    if ($dateValidation->month == $currentDate->month && $dateValidation->year < $currentDate->year) {
+                        $hasAnniversary = true;
+                    }
+                }
                 if ($isFcp) $hasFcp = true;
 
                 if ($categoryFilter == '1' && !$isFcp) continue;
@@ -809,11 +858,15 @@ class ProductController extends Controller
             $user->product_count = $activeContractsCount;
             $user->has_fcp = $hasFcp;
             $user->has_pmg = $hasPmg;
+            $user->has_expiring_pmg = $hasExpiringPmg;
+            $user->has_anniversary = $hasAnniversary;
 
-            // Filtration par catégorie
+            // Filtration par catégorie et par échéance
             $keep = true;
             if ($categoryFilter == '1' && !$hasFcp) $keep = false;
             if ($categoryFilter == '2' && !$hasPmg) $keep = false;
+            if ($filter == 'expiring_pmg' && !$hasExpiringPmg) $keep = false;
+            if ($filter == 'anniversaries' && !$hasAnniversary) $keep = false;
 
             if ($keep) {
                 $processedUsers->push($user);
@@ -864,6 +917,7 @@ class ProductController extends Controller
                 'activeClientsCount', 
                 'inactiveClientsCount',
                 'categoryFilter',
+                'filter',
                 'sortBy',
                 'order'
             ));
@@ -880,6 +934,7 @@ class ProductController extends Controller
             'activeClientsCount', 
             'inactiveClientsCount',
             'categoryFilter',
+            'filter',
             'sortBy',
             'order'
         ));
@@ -1726,6 +1781,17 @@ class ProductController extends Controller
                 })->get();
 
             $merged = $allTransactions->merge($supplemental);
+
+            // Ajustement de la date du relevé si tous les mandats sont échus dans le mois
+            $maxExpiryInMonth = $merged->where('date_echeance', '<=', $dateN->toDateString())
+                                       ->where('date_echeance', '>=', $dateN->copy()->startOfMonth()->toDateString())
+                                       ->max('date_echeance');
+            $anyActivePastMonth = $merged->where('date_echeance', '>', $dateN->toDateString())->isNotEmpty();
+            
+            if (!$anyActivePastMonth && $maxExpiryInMonth) {
+                $dateN = Carbon::parse($maxExpiryInMonth);
+            }
+
             $grouped = $merged->groupBy('product_id');
 
             $produitsAffiches = [];
@@ -1769,8 +1835,8 @@ class ProductController extends Controller
 
                     if ($mvtCap) {
                         $dateCap = Carbon::parse($mvtCap->date_operation);
-                        $joursAvant = $dateN1->diffInDays($dateCap->copy()->subDay());
-                        $joursApres = $dateCap->diffInDays($dateN);
+                        $joursAvant = $dateN1->diffInDays($dateCap->copy()->subDay()) + 1;
+                        $joursApres = $dateCap->diffInDays($dateN) + 1;
                         $gainA = ($mvtCap->capital_before * ($trans->vl_buy/100) * $joursAvant) / 360;
                         $gainB = ($mvtCap->capital_after * ($trans->vl_buy/100) * $joursApres) / 360;
                         $productGainMensuelTotal += ($gainA + $gainB);
@@ -1818,7 +1884,15 @@ class ProductController extends Controller
                 "Téléchargement du relevé PMG pour {$periodeLabel}"
             );
 
-            return $pdf->download("releve_pmg_{$year}_{$month}.pdf");
+            $clientSlug = str_replace(' ', '_', strtolower($client->name));
+            $monthName = strtolower($dateN->translatedFormat('F'));
+            $yearStr = $dateN->format('Y');
+            $fileName = "rdc_{$clientSlug}_{$monthName}_{$yearStr}.pdf";
+
+            if (request('action') === 'view') {
+                return $pdf->stream($fileName);
+            }
+            return $pdf->download($fileName);
 
         } else {
             // Logique FCP copiée de ListeClientReleveController@previewFcp
@@ -1951,7 +2025,13 @@ class ProductController extends Controller
                 "Téléchargement du relevé FCP pour {$periodeLabel}"
             );
 
-            return $pdf->download("releve_fcp_{$year}_{$month}.pdf");
+            $clientSlug = str_replace(' ', '_', strtolower($client->name));
+            $monthName = strtolower($dateN->translatedFormat('F'));
+            $yearStr = $dateN->format('Y');
+            if (request('action') === 'view') {
+                return $pdf->stream($fileName);
+            }
+            return $pdf->download($fileName);
         }
     }
 
@@ -2150,6 +2230,125 @@ class ProductController extends Controller
                 'plus_value' => $valuation - $remainingGrossCapital
             ];
         });
+
+        return response()->json([
+            'product_name' => $product->title,
+            'customer_name' => $user->name,
+            'history' => $history
+        ]);
+    }
+
+    /**
+     * API pour récupérer l'évolution des intérêts d'un produit PMG pour un utilisateur spécifique
+     */
+    public function getPmgEvolutionApi($productId, $customerId)
+    {
+        $user = \App\Models\User::findOrFail($customerId);
+        $product = \App\Models\Product::findOrFail($productId);
+
+        $transactions = \App\Models\Transaction::where('user_id', $customerId)
+            ->where('product_id', $productId)
+            ->where('status', 'Succès')
+            ->get();
+
+        $supplementals = \App\Models\TransactionSupplementaire::where('user_id', $customerId)
+            ->where('product_id', $productId)
+            ->where('status', 'Succès')
+            ->get();
+
+        $allTrans = $transactions->concat($supplementals);
+
+        if ($allTrans->isEmpty()) {
+            return response()->json(['history' => [], 'message' => 'Aucune transaction trouvée']);
+        }
+
+        $minDate = $allTrans->min(function($t) { return \Carbon\Carbon::parse($t->date_validation ?? $t->created_at); });
+        $maxEcheance = $allTrans->max(function($t) { return \Carbon\Carbon::parse($t->date_echeance); });
+        $endDate = \Carbon\Carbon::now()->min($maxEcheance);
+
+        $datesToCalculate = collect();
+        $currentDate = $minDate->copy()->startOfMonth();
+
+        while ($currentDate->lt($endDate)) {
+            $endOfM = $currentDate->copy()->endOfMonth();
+            if ($endOfM->lt($endDate)) {
+                $datesToCalculate->push($endOfM);
+            }
+            $currentDate->addMonth();
+        }
+        $datesToCalculate->push($endDate->copy());
+
+        // Add exact dates of financial movements to have precise jumps
+        $txIds = $allTrans->pluck('id');
+        $movementDates = \Illuminate\Support\Facades\DB::table('financial_movements')
+            ->whereIn('transaction_id', $txIds)
+            ->where('date_operation', '<=', $endDate->toDateString())
+            ->pluck('date_operation')
+            ->map(function($d) { return \Carbon\Carbon::parse($d); });
+        
+        foreach($movementDates as $md) {
+            $datesToCalculate->push($md);
+        }
+
+        $datesToCalculate = $datesToCalculate->unique(function($d) { return $d->toDateString(); })->sortByDesc(function($d) { return $d->timestamp; })->values();
+
+        $history = [];
+
+        foreach ($datesToCalculate as $date) {
+            $totalNetCapital = 0;
+            $totalValuation = 0;
+            $tauxMoyenStr = [];
+
+            foreach ($allTrans as $trans) {
+                if (\Carbon\Carbon::parse($trans->date_validation ?? $trans->created_at)->gt($date)) continue;
+
+                $val = $this->calculatePMGValorization($trans, $date->toDateString());
+                
+                $lastMovement = \Illuminate\Support\Facades\DB::table('financial_movements')
+                    ->where('transaction_id', $trans->id)
+                    ->whereIn('type', ['capitalisation_interets', 'rachat_partiel'])
+                    ->where('date_operation', '<=', $date->toDateString())
+                    ->orderBy('date_operation', 'desc')
+                    ->first();
+                $baseCapital = $lastMovement ? (float)$lastMovement->capital_after : (float)$trans->amount;
+
+                $payouts = \Illuminate\Support\Facades\DB::table('financial_movements')
+                    ->where('transaction_id', $trans->id)
+                    ->whereIn('type', ['precompte_interets', 'paiement_interets'])
+                    ->where('date_operation', '<=', $date->toDateString())
+                    ->sum('amount') ?? 0;
+
+                $totalRedemption = \Illuminate\Support\Facades\DB::table('financial_movements')
+                    ->where('transaction_id', $trans->id)
+                    ->where('type', 'rachat_total')
+                    ->where('date_operation', '<=', $date->toDateString())
+                    ->exists();
+
+                $netCapital = $baseCapital - $payouts;
+                if ($totalRedemption) {
+                    $netCapital = 0;
+                }
+
+                $totalNetCapital += $netCapital;
+                $totalValuation += $val;
+                
+                if (!$totalRedemption) {
+                    $tauxMoyenStr[] = $trans->vl_buy . '%';
+                }
+            }
+
+            if ($totalNetCapital == 0 && $totalValuation == 0) continue;
+
+            $interests = max(0, $totalValuation - $totalNetCapital);
+
+            $history[] = [
+                'date' => $date->format('d/m/Y'),
+                'capital' => $totalNetCapital,
+                'taux' => implode(', ', array_unique($tauxMoyenStr)),
+                'valuation' => $totalValuation,
+                'interests' => $interests
+            ];
+        }
 
         return response()->json([
             'product_name' => $product->title,

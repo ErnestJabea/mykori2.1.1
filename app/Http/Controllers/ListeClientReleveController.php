@@ -145,7 +145,6 @@ public function previewPmg(int $clientId)
 
     $transactions = Transaction::where('user_id', $client->id)
         ->where('status', 'Succès')
-        ->where('date_echeance', '>=', Carbon::now()->format('Y-m-d'))
         ->whereHas('product', function($q) {
             $q->where('products_category_id', 2);
         })->get();
@@ -165,6 +164,16 @@ public function previewPmg(int $clientId)
         })->get();
 
     $merged = $allTransactions->merge($supplemental);
+
+    // Ajustement de la date du relevé si tous les mandats sont échus dans le mois
+    $maxExpiryInMonth = $merged->where('date_echeance', '<=', $dateN->toDateString())
+                               ->where('date_echeance', '>=', $dateN->copy()->startOfMonth()->toDateString())
+                               ->max('date_echeance');
+    $anyActivePastMonth = $merged->where('date_echeance', '>', $dateN->toDateString())->isNotEmpty();
+    
+    if (!$anyActivePastMonth && $maxExpiryInMonth) {
+        $dateN = Carbon::parse($maxExpiryInMonth);
+    }
     $grouped = $merged->groupBy('product_id');
 
     $produitsAffiches = [];
@@ -206,8 +215,8 @@ public function previewPmg(int $clientId)
             $currentTransGain = 0;
             if ($mvtCap) {
                 $dateCap = Carbon::parse($mvtCap->date_operation);
-                $joursA = $dateN1->diffInDays($dateCap->copy()->subDay());
-                $joursB = $dateCap->diffInDays($dateN);
+                $joursA = $dateN1->diffInDays($dateCap->copy()->subDay()) + 1;
+                $joursB = $dateCap->diffInDays($dateN) + 1;
                 $gA = ($mvtCap->capital_before * ($trans->vl_buy/100) * $joursA) / 360;
                 $gB = ($mvtCap->capital_after * ($trans->vl_buy/100) * $joursB) / 360;
                 $currentTransGain = ($gA + $gB);
@@ -578,6 +587,16 @@ private function genererPdfPmg(int $clientId): string
         })->get();
 
     $merged = $allTransactions->merge($supplemental);
+
+    // Ajustement de la date du relevé si tous les mandats sont échus dans le mois
+    $maxExpiryInMonth = $merged->where('date_echeance', '<=', $dateN->toDateString())
+                               ->where('date_echeance', '>=', $dateN->copy()->startOfMonth()->toDateString())
+                               ->max('date_echeance');
+    $anyActivePastMonth = $merged->where('date_echeance', '>', $dateN->toDateString())->isNotEmpty();
+    
+    if (!$anyActivePastMonth && $maxExpiryInMonth) {
+        $dateN = Carbon::parse($maxExpiryInMonth);
+    }
     $grouped = $merged->groupBy('product_id');
 
     $totalValoN = 0;
@@ -619,8 +638,8 @@ private function genererPdfPmg(int $clientId): string
             $currentTransGain = 0;
             if ($mvtCap) {
                 $dateCap = Carbon::parse($mvtCap->date_operation);
-                $joursA = $dateN1->diffInDays($dateCap->copy()->subDay());
-                $joursB = $dateCap->diffInDays($dateN);
+                $joursA = $dateN1->diffInDays($dateCap->copy()->subDay()) + 1;
+                $joursB = $dateCap->diffInDays($dateN) + 1;
                 $gA = ($mvtCap->capital_before * ($trans->vl_buy/100) * $joursA) / 360;
                 $gB = ($mvtCap->capital_after * ($trans->vl_buy/100) * $joursB) / 360;
                 $currentTransGain = ($gA + $gB);
@@ -698,7 +717,10 @@ private function genererPdfPmg(int $clientId): string
             mkdir($path, 0755, true);
         }
 
-        $fileName = 'releve_pmg_' . $client->id . '_' . now()->format('His') . '.pdf';
+        $clientSlug = str_replace(' ', '_', strtolower($client->name));
+        $monthName = strtolower($dateN->translatedFormat('F'));
+        $year = $dateN->format('Y');
+        $fileName = "rdc_{$clientSlug}_{$monthName}_{$year}.pdf";
         $filePath = $path . '/' . $fileName;
 
         $pdf->save($filePath);
@@ -856,7 +878,10 @@ private function genererPdfFcp(int $clientId): string
             mkdir($path, 0755, true);
         }
 
-        $fileName = 'releve_fcp_' . $client->id . '_' . now()->format('His') . '.pdf';
+        $clientSlug = str_replace(' ', '_', strtolower($client->name));
+        $monthName = strtolower($dateN->translatedFormat('F'));
+        $year = $dateN->format('Y');
+        $fileName = "rdc_{$clientSlug}_{$monthName}_{$year}.pdf";
         $filePath = $path . '/' . $fileName;
         $pdf->save($filePath);
 

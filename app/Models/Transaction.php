@@ -31,7 +31,7 @@ class Transaction extends Model
     protected $fillable = [
         'title', 'ref', 'payment_mode', 'amount', 'fees', 'status', 'user_id', 
         'product_id', 'vl_buy', 'nb_part', 'date_validation', 
-        'montant_initiale', 'type', 'duree', 'date_echeance',
+        'montant_initiale', 'type', 'duree', 'date_echeance', 'interest_management',
         'is_compliance_validated', 'is_backoffice_validated', 'is_dg_validated',
         'compliance_validated_at', 'backoffice_validated_at', 'dg_validated_at'
     ];

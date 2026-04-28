@@ -42,6 +42,7 @@
                     <input type="hidden" name="category" id="modal-category">
                     <input type="hidden" name="sort_by" id="modal-sort-by">
                     <input type="hidden" name="order" id="modal-order">
+                    <input type="hidden" name="filter" id="modal-filter">
 
                     <div class="p-6 space-y-6">
                         <!-- Status Selection -->
@@ -129,6 +130,7 @@
             $('#modal-category').val(params.get('category') || 'all');
             $('#modal-sort-by').val(params.get('sort_by') || 'name');
             $('#modal-order').val(params.get('order') || 'asc');
+            $('#modal-filter').val(params.get('filter') || '');
             
             $('#export-modal').css('display', 'flex');
         });
@@ -169,8 +171,9 @@
             let category = new URLSearchParams(window.location.search).get('category') || 'all';
             let sort_by = new URLSearchParams(window.location.search).get('sort_by') || 'name';
             let order = new URLSearchParams(window.location.search).get('order') || 'asc';
+            let filter = new URLSearchParams(window.location.search).get('filter') || '';
             
-            let url = `{{ route('customer') }}?search=${search}&category=${category}&sort_by=${sort_by}&order=${order}`;
+            let url = `{{ route('customer') }}?search=${search}&category=${category}&sort_by=${sort_by}&order=${order}&filter=${filter}`;
             
             timer = setTimeout(function() {
                 fetchCustomers(url);

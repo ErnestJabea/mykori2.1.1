@@ -16,11 +16,19 @@
                         <h3>MES SOUSCRIPTIONS PMG</h3>
                         @foreach ($productsWithGains as $my_product)
                             @if ($my_product['type_product'] == 2)
-                                <div class="item-product">
+                                @php
+                                    $isExpired = \Carbon\Carbon::parse($my_product['date_echeance'])->isPast();
+                                @endphp
+                                <div class="item-product {{ $isExpired ? 'expired-product-card' : '' }}" {!! $isExpired ? 'style="background-color: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2);"' : '' !!}>
                                     <div class="content-link-title">
                                         <a href="{{ route('product-detail-gain', ['slug' => $my_product['slug']]) }}"
                                             class="flex flex-space-between-center">
-                                            <span>{{ $my_product['product_name'] }}</span>
+                                            <span class="flex items-center gap-2">
+                                                {{ $my_product['product_name'] }}
+                                                @if($isExpired)
+                                                    <span class="badge bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full">EXPIRÉ</span>
+                                                @endif
+                                            </span>
                                             <span> <i class="las la-arrow-right duration-300 group-hover:pl-2"></i></span>
                                         </a>
                                     </div>
@@ -46,20 +54,26 @@
                                         </div>
                                         <div class="content-label-info">
                                             <div class="label-">Intérêt mensuel :</div>
-                                            <div class="response-">XAF
-                                                {{ number_format($my_product['gain_mensuel'], 0, ' ', ' ') }}
+                                            <div class="response- {{ $isExpired ? 'text-red-500 font-bold' : '' }}">XAF
+                                                {{ $isExpired ? '0' : number_format($my_product['gain_mensuel'], 0, ' ', ' ') }}
                                             </div>
                                         </div>
                                         <div class="content-label-info">
                                             <div class="label-">Gains cumulés :</div>
-                                            <div class="response-">XAF
-                                                {{ number_format($my_product['interets_generes'], 0, ' ', ' ') }}
+                                            <div class="response- {{ $isExpired ? 'text-red-500 font-bold' : '' }}">XAF
+                                                {{ $isExpired ? '0' : number_format($my_product['interets_generes'], 0, ' ', ' ') }}
+                                            </div>
+                                        </div>
+                                        <div class="content-label-info">
+                                            <div class="label- text-gold font-bold">Gains actifs :</div>
+                                            <div class="response- {{ $isExpired ? 'text-red-500 font-bold' : 'text-gold font-bold' }}">XAF
+                                                {{ $isExpired ? '0' : number_format(max(0, $my_product['portfolio_valeur'] - $my_product['capital_investi']), 0, ' ', ' ') }}
                                             </div>
                                         </div>
                                         <div class="content-label-info">
                                             <div class="label-">Portefeuille :</div>
-                                            <div class="response-">XAF
-                                                {{ number_format($my_product['portfolio_valeur'], 0, ' ', ' ') }}
+                                            <div class="response- {{ $isExpired ? 'text-red-600 font-bold' : '' }}">XAF
+                                                {{ $isExpired ? '0' : number_format($my_product['portfolio_valeur'], 0, ' ', ' ') }}
                                             </div>
                                         </div>
                                     </div>
@@ -70,7 +84,7 @@
                                     </div>
                                     <div class="content-label-info">
                                         <div class="label-">Date d'échéance:</div>
-                                        <div class="response-"> {{ $my_product['date_echeance'] }}
+                                        <div class="response- {{ $isExpired ? 'text-red-600 font-bold' : '' }}"> {{ $my_product['date_echeance'] }}
                                         </div>
                                     </div>
                                 </div>

@@ -8,9 +8,17 @@
        class="ajax-tab px-6 py-3 text-sm font-bold border-b-2 transition-all duration-300 {{ ($categoryFilter ?? '') == '1' ? 'border-primary text-primary' : 'border-transparent opacity-50 hover:opacity-100' }}">
         CLIENTS FCP
     </a>
-    <a href="{{ route('customer', array_merge(request()->query(), ['category' => '2', 'page' => 1])) }}" 
-       class="ajax-tab px-6 py-3 text-sm font-bold border-b-2 transition-all duration-300 {{ ($categoryFilter ?? '') == '2' ? 'border-primary text-primary' : 'border-transparent opacity-50 hover:opacity-100' }}">
+    <a href="{{ route('customer', array_merge(request()->query(), ['category' => '2', 'page' => 1, 'filter' => ''])) }}" 
+       class="ajax-tab px-6 py-3 text-sm font-bold border-b-2 transition-all duration-300 {{ ($categoryFilter ?? '') == '2' && empty($filter) ? 'border-primary text-primary' : 'border-transparent opacity-50 hover:opacity-100' }}">
         CLIENTS PMG
+    </a>
+    <a href="{{ route('customer', array_merge(request()->query(), ['filter' => 'expiring_pmg', 'page' => 1])) }}" 
+       class="ajax-tab px-6 py-3 text-sm font-bold border-b-2 transition-all duration-300 {{ ($filter ?? '') == 'expiring_pmg' ? 'border-red-500 text-red-500' : 'border-transparent opacity-50 hover:opacity-100 hover:text-red-500' }}">
+        ÉCHÉANCES PMG DU MOIS
+    </a>
+    <a href="{{ route('customer', array_merge(request()->query(), ['filter' => 'anniversaries', 'page' => 1])) }}" 
+       class="ajax-tab px-6 py-3 text-sm font-bold border-b-2 transition-all duration-300 {{ ($filter ?? '') == 'anniversaries' ? 'border-blue-500 text-blue-500' : 'border-transparent opacity-50 hover:opacity-100 hover:text-blue-500' }}">
+        ANNIVERSAIRES PMG
     </a>
 </div>
 
@@ -40,13 +48,13 @@
         </div>
     </div>
 
-    <!-- Card 3: Total Intérêts PMG -->
+    <!-- Card 3: Total Gains Actifs PMG -->
     <div class="flex-1 min-w-[200px] box bg-white dark:bg-bg3 border border-n30 p-4 rounded-2xl flex items-center gap-3 hover:border-primary/50 duration-300 transition-all shadow-sm">
         <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
             <i class="las la-chart-line text-xl"></i>
         </div>
         <div>
-            <p class="text-[9px] uppercase font-bold opacity-50 mb-1 leading-none text-primary">Total Intérêts PMG</p>
+            <p class="text-[9px] uppercase font-bold opacity-50 mb-1 leading-none text-primary">Gains Actifs PMG</p>
             <h4 class="text-base font-bold mb-0 text-primary leading-none whitespace-nowrap">
                 +{{ number_format($globalTotalInterestsPmg ?? 0, 0, ' ', ' ') }}</h4>
         </div>
@@ -96,6 +104,7 @@
                 @if(isset($categoryFilter)) <input type="hidden" name="category" value="{{ $categoryFilter }}"> @endif
                 @if(isset($sortBy)) <input type="hidden" name="sort_by" value="{{ $sortBy }}"> @endif
                 @if(isset($order)) <input type="hidden" name="order" value="{{ $order }}"> @endif
+                @if(isset($filter)) <input type="hidden" name="filter" value="{{ $filter }}"> @endif
                 
                 <input type="text" name="search" id="ajax-search" value="{{ $search ?? '' }}" placeholder="Chercher un client..."
                     class="w-64 rounded-full border border-n30 bg-secondary1/5 px-6 py-2 dark:border-n500 dark:bg-bg3 focus:border-primary focus:ring-1 focus:ring-primary outline-none text-sm">
@@ -121,12 +130,13 @@
     <table class="w-full min-w-[1000px]">
         <thead>
             @php
-                $sortUrl = function($field) use ($sortBy, $order, $categoryFilter, $search) {
+                $sortUrl = function($field) use ($sortBy, $order, $categoryFilter, $search, $filter) {
                     $newOrder = ($sortBy == $field && $order == 'asc') ? 'desc' : 'asc';
                     return route('customer', [
                         'sort_by' => $field,
                         'order' => $newOrder,
                         'category' => $categoryFilter ?? 'all',
+                        'filter' => $filter ?? '',
                         'search' => $search ?? ''
                     ]);
                 };
@@ -149,7 +159,7 @@
                 </th>
                 <th class="px-6 py-5 text-right font-semibold opacity-70 cursor-pointer hover:bg-secondary1/10 duration-300">
                     <a href="{{ $sortUrl('total_interets') }}" class="flex items-center justify-end gap-2 w-full ajax-sort">
-                        Total Intérêts {!! $sortIcon('total_interets') !!}
+                        Gains Actifs {!! $sortIcon('total_interets') !!}
                     </a>
                 </th>
                 <th class="px-6 py-5 text-right font-semibold opacity-70 cursor-pointer hover:bg-secondary1/10 duration-300">
@@ -212,6 +222,7 @@
     {{ $customers->appends([
         'search' => $search,
         'category' => $categoryFilter ?? 'all',
+        'filter' => $filter ?? '',
         'sort_by' => $sortBy ?? 'name',
         'order' => $order ?? 'asc'
     ])->links() }}

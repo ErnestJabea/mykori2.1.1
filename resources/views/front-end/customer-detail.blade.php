@@ -6,11 +6,16 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
 
 @section('content')
     <style>
-        .kori-fcp-table th, 
+        .kori-fcp-table th,
         .kori-fcp-table td {
             white-space: nowrap !important;
             padding-left: 15px !important;
             padding-right: 15px !important;
+        }
+
+        .kori-pmg-table th,
+        .kori-pmg-table td {
+            white-space: normal !important;
         }
 
         /* Optionnel : permettre le défilement horizontal si le tableau est trop large */
@@ -95,6 +100,25 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                     class="w-full rounded-xl border border-n30 bg-secondary1/5 px-4 py-3 outline-none focus:border-primary">
                                     <option value="ponctuelle">Ponctuelle (Simple)</option>
                                     <option value="mensuelle">Mensuelle (Récurrente)</option>
+                                </select>
+                            </div>
+
+                            <!-- Mode de gestion des intérêts (PMG only) -->
+                            <div class="col-span-2 form-control hidden pt-4" id="interest_management_container">
+                                <label class="mb-2 block text-sm font-semibold opacity-80 italic text-primary">Gestion des
+                                    Intérêts</label>
+                                <select id="interest_management" name="interest_management"
+                                    class="w-full rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 outline-none focus:border-primary font-bold">
+                                    <option value="">Choisir un mode de gestion...</option>
+                                    <option value="A la date d'échéance de placement">À la date d'échéance de placement
+                                    </option>
+                                    <option value="Annuellement a la date anniversaire">Annuellement à la date anniversaire
+                                    </option>
+                                    <option value="Capitalisation jusqu'a echeance du mandat de placement">Capitalisation
+                                        jusqu'à échéance du mandat de placement</option>
+                                    <option value="Interets precomptes">Intérêts précomptés</option>
+                                    <option value="Chaque mois (mois anniversaire pour les cas exceptionnels)">Chaque mois
+                                        (mois anniversaire pour les cas exceptionnels)</option>
                                 </select>
                             </div>
 
@@ -234,7 +258,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                 <div class="box">
                     <h3 class="mb-4">MES PRODUITS PMG ACTIFS</h3>
                     <div class="kori-table-wrapper mt-4">
-                        <table class="kori-fcp-table">
+                        <table class="kori-fcp-table kori-pmg-table">
                             <thead>
                                 <tr>
                                     <th>Produit</th>
@@ -244,15 +268,28 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                     <th class="text-center">Taux / Durée</th>
                                     <th class="text-right">Intérêt Mensuel</th>
                                     <th class="text-right">Gains Cumulés</th>
+                                    <th class="text-right text-gold">Gains Actifs</th>
                                     <th class="text-right">Valeur Actuelle</th>
+                                    <th class="text-center">Évol.</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach ($productsWithGains as $my_product)
                                     @if ($my_product['type_product'] == 2)
-                                        <tr>
+                                        @php
+                                            $isExpired = \Carbon\Carbon::parse($my_product['date_echeance'])->isPast();
+                                        @endphp
+                                        <tr class="{{ $isExpired ? 'bg-red-50/50 dark:bg-red-900/10' : '' }}">
                                             <td>
-                                                <span class="font-bold text-n900">{{ $my_product['product_name'] }}</span>
+                                                <div class="flex flex-col">
+                                                    <span
+                                                        class="font-bold text-n900">{{ $my_product['product_name'] }}</span>
+                                                    @if ($isExpired)
+                                                        <span
+                                                            class="text-[9px] text-red-500 font-bold uppercase tracking-tighter">Produit
+                                                            expiré</span>
+                                                    @endif
+                                                </div>
                                             </td>
                                             <td>
                                                 <span class="font-semibold text-n600">
@@ -260,7 +297,8 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                                 </span>
                                             </td>
                                             <td>
-                                                <span class="font-semibold text-n600">
+                                                <span
+                                                    class="font-semibold {{ $isExpired ? 'text-red-500 font-bold' : 'text-n600' }}">
                                                     {{ \Carbon\Carbon::parse($my_product['date_echeance'])->format('d/m/Y') }}
                                                 </span>
                                             </td>
@@ -278,19 +316,51 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                                 </div>
                                             </td>
                                             <td class="text-right font-medium text-marron">
-                                                {{ number_format($my_product['gain_mensuel'], 0, ' ', ' ') }}
+                                                {{ $isExpired ? '0' : number_format($my_product['gain_mensuel'], 0, ' ', ' ') }}
                                             </td>
                                             <td class="text-right">
                                                 @php
-                                                    $gainPmg = $my_product['interets_generes'] ?? 0;
-                                                    $pmgClass = $gainPmg > 0 ? 'gain-badge-positive' : ($gainPmg < 0 ? 'gain-badge-negative' : 'gain-badge-neutral');
+                                                    $gainPmg = $isExpired ? 0 : $my_product['interets_generes'] ?? 0;
+                                                    $pmgClass =
+                                                        $gainPmg > 0
+                                                            ? 'gain-badge-positive'
+                                                            : ($gainPmg < 0
+                                                                ? 'gain-badge-negative'
+                                                                : 'gain-badge-neutral');
+                                                    if ($isExpired) {
+                                                        $pmgClass = 'gain-badge-neutral opacity-50';
+                                                    }
                                                 @endphp
                                                 <span class="gain-badge {{ $pmgClass }}">
-                                                    {{ $gainPmg > 0 ? '+' : '' }} {{ number_format($gainPmg, 0, ' ', ' ') }}
+                                                    {{ $gainPmg > 0 ? '+' : '' }}
+                                                    {{ number_format($gainPmg, 0, ' ', ' ') }}
                                                 </span>
                                             </td>
-                                            <td class="text-right text-marron">
-                                                XAF {{ number_format($my_product['portfolio_valeur'], 0, ' ', ' ') }}
+                                            <td class="text-right">
+                                                @php
+                                                    $gainActif = $isExpired
+                                                        ? 0
+                                                        : max(
+                                                            0,
+                                                            $my_product['portfolio_valeur'] -
+                                                                $my_product['capital_investi'],
+                                                        );
+                                                @endphp
+                                                <span class="font-bold text-gold">
+                                                    + {{ number_format($gainActif, 0, ' ', ' ') }}
+                                                </span>
+                                            </td>
+                                            <td
+                                                class="text-right font-bold {{ $isExpired ? 'text-red-600' : 'text-marron' }}">
+                                                XAF
+                                                {{ $isExpired ? '0' : number_format($my_product['portfolio_valeur'], 0, ' ', ' ') }}
+                                            </td>
+                                            <td class="text-center">
+                                                <button type="button"
+                                                    onclick="showPmgEvolution({{ $my_product['product_id'] }}, '{{ $my_product['product_name'] }}')"
+                                                    class="btn-evo-small mx-auto">
+                                                    <i class="las la-chart-area text-lg"></i>
+                                                </button>
                                             </td>
                                         </tr>
                                     @endif
@@ -355,10 +425,16 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                             <td class="text-right">
                                                 @php
                                                     $gainFcp = $my_product['total_gains_fcp'] ?? 0;
-                                                    $fcpClass = $gainFcp > 0 ? 'gain-badge-positive' : ($gainFcp < 0 ? 'gain-badge-negative' : 'gain-badge-neutral');
+                                                    $fcpClass =
+                                                        $gainFcp > 0
+                                                            ? 'gain-badge-positive'
+                                                            : ($gainFcp < 0
+                                                                ? 'gain-badge-negative'
+                                                                : 'gain-badge-neutral');
                                                 @endphp
                                                 <span class="gain-badge {{ $fcpClass }}">
-                                                    {{ $gainFcp > 0 ? '+' : '' }} {{ number_format($gainFcp, 0, ' ', ' ') }}
+                                                    {{ $gainFcp > 0 ? '+' : '' }}
+                                                    {{ number_format($gainFcp, 0, ' ', ' ') }}
                                                 </span>
                                             </td>
                                             <td class="text-center">
@@ -395,7 +471,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                         <i class="las la-list text-primary"></i> Historique des Transactions
                     </h3>
                     <div class="overflow-x-auto overflow-hidden rounded-2xl border border-n30">
-                        <table class="w-full text-left">
+                        <table class="w-full text-left kori-fcp-table">
                             <thead
                                 class="bg-n10 text-[10px] uppercase font-bold text-n500 tracking-widest border-b border-n30">
                                 <tr>
@@ -428,7 +504,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                         </td>
                                         <td class="px-5 py-4 text-center">
                                             <button type="button"
-                                                onclick="openEditModal('{{ $th->id }}', '{{ $th->is_supp ? 'true' : 'false' }}', '{{ $th->ref }}', '{{ $th->amount }}', '{{ $th->vl_buy }}', '{{ \Carbon\Carbon::parse($th->date_validation ?? $th->created_at)->toDateString() }}', '{{ $th->date_echeance }}', '{{ $th->product_id }}', '{{ optional($th->product)->products_category_id }}')"
+                                                onclick="openEditModal('{{ $th->id }}', '{{ $th->is_supp ? 'true' : 'false' }}', '{{ $th->ref }}', '{{ $th->amount }}', '{{ $th->vl_buy }}', '{{ \Carbon\Carbon::parse($th->date_validation ?? $th->created_at)->toDateString() }}', '{{ $th->date_echeance }}', '{{ $th->product_id }}', '{{ optional($th->product)->products_category_id }}', '{{ $th->interest_management }}')"
                                                 class="w-8 h-8 rounded-lg bg-orange-100 text-orange-600 hover:bg-orange-200 transition-all flex items-center justify-center mx-auto">
                                                 <i class="las la-edit"></i>
                                             </button>
@@ -452,7 +528,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                 class="bg-secondary/5 px-5 py-3 border-b border-n30 font-bold text-[10px] tracking-widest uppercase">
                                 Mouvements PMG (CASH)</div>
                             <div class="max-h-[300px] overflow-y-auto">
-                                <table class="w-full text-left">
+                                <table class="w-full text-left kori-fcp-table">
                                     <tbody class="divide-y divide-n30">
                                         @foreach ($financialMovements as $fm)
                                             <tr class="text-[11px] hover:bg-n10 transition-all">
@@ -475,7 +551,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                 class="bg-primary/5 px-5 py-3 border-b border-n30 font-bold text-[10px] tracking-widest uppercase">
                                 Mouvements FCP (PARTS)</div>
                             <div class="max-h-[300px] overflow-y-auto">
-                                <table class="w-full text-left">
+                                <table class="w-full text-left kori-fcp-table">
                                     <thead class="bg-n10 text-[9px] uppercase font-bold text-n500 border-b border-n30">
                                         <tr>
                                             <th class="px-3 py-2">Date Opé.</th>
@@ -614,6 +690,24 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                         </div>
                     </div>
 
+                    <div id="edit-interest-container" class="hidden">
+                        <label
+                            class="block text-[10px] font-bold uppercase text-n500 mb-2 font-Inter tracking-widest italic tracking-wider">Gestion
+                            des Intérêts</label>
+                        <select name="interest_management" id="edit-interest-management"
+                            class="w-full h-[50px] px-4 rounded-xl border border-n30 focus:border-primary outline-none text-sm font-bold bg-n10/50">
+                            <option value="">Sélectionner...</option>
+                            <option value="A la date d'échéance de placement">À la date d'échéance de placement</option>
+                            <option value="Annuellement a la date anniversaire">Annuellement à la date anniversaire
+                            </option>
+                            <option value="Capitalisation jusqu'a echeance du mandat de placement">Capitalisation jusqu'à
+                                échéance du mandat de placement</option>
+                            <option value="Interets precomptes">Intérêts précomptés</option>
+                            <option value="Chaque mois (mois anniversaire pour les cas exceptionnels)">Chaque mois (mois
+                                anniversaire pour les cas exceptionnels)</option>
+                        </select>
+                    </div>
+
                     <div id="edit-response-msg" class="hidden"></div>
 
                     <div class="flex gap-4 pt-4">
@@ -653,7 +747,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                 </div>
                 <div id="evo-content" class="hidden">
                     <div class="max-h-[400px] overflow-y-auto rounded-xl border border-n30">
-                        <table class="w-full text-left">
+                        <table class="w-full text-left kori-fcp-table">
                             <thead class="bg-n10 sticky top-0 border-b border-n30">
                                 <tr class="text-[10px] font-bold uppercase text-n500 italic">
                                     <th class="px-5 py-4">Date</th>
@@ -674,6 +768,50 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
             </div>
         </div>
     </div>
+
+    <!-- MODALE ÉVOLUTION PMG -->
+    <div id="modal-evolution-pmg"
+        class="ac-modal-overlay modalhide fixed inset-0 z-[100] bg-n900/50 backdrop-blur-sm flex items-center justify-center p-4">
+        <div
+            class="modal-inner bg-white dark:bg-bg4 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden animate-modal-in">
+            <div class="p-6 border-b border-n30 flex justify-between items-center bg-n10/50">
+                <h3 class="text-xl font-bold text-n900 flex items-center gap-3 italic uppercase">
+                    <i class="las la-chart-bar text-primary text-2xl"></i>
+                    Évolution PMG : <span id="evo-pmg-product-name" class="text-primary italic">Produit</span>
+                </h3>
+                <button type="button" onclick="closePmgModal()"
+                    class="w-10 h-10 rounded-full hover:bg-n30 flex items-center justify-center text-n500 transition-all">
+                    <i class="las la-times text-2xl"></i>
+                </button>
+            </div>
+            <div class="p-8">
+                <div id="evo-pmg-loader" class="py-10 text-center">
+                    <i class="las la-spinner la-spin text-4xl text-primary"></i>
+                    <p class="mt-4 text-n500 italic">Chargement des données...</p>
+                </div>
+                <div id="evo-pmg-content" class="hidden">
+                    <div class="max-h-[400px] overflow-y-auto rounded-xl border border-n30">
+                        <table class="w-full text-left kori-fcp-table">
+                            <thead class="bg-n10 sticky top-0 border-b border-n30">
+                                <tr class="text-[10px] font-bold uppercase text-n500 italic">
+                                    <th class="px-5 py-4">Date</th>
+                                    <th class="px-5 py-4">Taux</th>
+                                    <th class="px-5 py-4">Capital Net</th>
+                                    <th class="px-5 py-4">Valorisation</th>
+                                    <th class="px-5 py-4 text-right">Intérêts générés</th>
+                                </tr>
+                            </thead>
+                            <tbody id="evo-pmg-table-body" class="divide-y divide-n30"></tbody>
+                        </table>
+                    </div>
+                    <p class="mt-4 text-[10px] text-n400 flex items-center gap-2 italic">
+                        <i class="las la-info-circle text-primary"></i>
+                        Cette table présente la valorisation et les intérêts cumulés (net des rachats et paiements).
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
 @endsection
 
 @section('script_front_end')
@@ -683,7 +821,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
         let pickerEditEch = null;
         let pickerEcheance = null;
 
-        function openEditModal(id, isSupp, ref, amount, vl, dateVal, dateEch, prodId, catId) {
+        function openEditModal(id, isSupp, ref, amount, vl, dateVal, dateEch, prodId, catId, interestMgmt = null) {
             console.log("Opening edit modal for:", ref);
             const modal = $('#modal-edit-transaction');
             if (!modal.length) {
@@ -700,20 +838,43 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
             $('#edit-vl').val(vl);
             $('#edit-date-val').val(dateVal);
             $('#edit-date-ech').val(dateEch);
+            $('#edit-interest-management').val(interestMgmt || "");
 
             // SYNC picker min date on open
             if (pickerEditEch && dateVal) {
                 const dVal = new Date(dateVal);
-                pickerEditEch.setMin(dVal);
+                const nextDVal = new Date(dVal);
+                nextDVal.setDate(nextDVal.getDate() + 1);
+                pickerEditEch.setMin(nextDVal);
             }
 
             // Hide/Show expiry for PMG/FCP
-            if (catId == 1) {
+            if (catId == 1) { // FCP
                 $('#edit-date-ech').parent().hide();
+                $('#edit-interest-container').addClass('hidden');
                 $('#edit-vl').prop('readonly', true).addClass('bg-gray-100');
-            } else {
+
+                // RESTRICTION DATE : Aujourd'hui (max) et -7 jours (min)
+                if (window.pickerEditVal) {
+                    const today = new Date();
+                    const minDate = new Date();
+                    minDate.setDate(today.getDate() - 7);
+                    window.pickerEditVal.setMin(minDate);
+                    window.pickerEditVal.setMax(today);
+                }
+            } else { // PMG
                 $('#edit-date-ech').parent().show();
                 $('#edit-vl').prop('readonly', false).removeClass('bg-gray-100');
+                $('#edit-interest-container').removeClass('hidden');
+
+                // RESTRICTION DATE : Aujourd'hui (max) et -7 jours (min)
+                if (window.pickerEditVal) {
+                    const today = new Date();
+                    const minDate = new Date();
+                    minDate.setDate(today.getDate() - 7);
+                    window.pickerEditVal.setMin(minDate);
+                    window.pickerEditVal.setMax(today);
+                }
             }
 
             modal.removeClass('modalhide').addClass('modalshow').css('display', 'flex');
@@ -759,20 +920,72 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                     }
                     $('#evo-table-body').html(html ||
                         '<tr><td colspan="5" class="py-10 text-center text-n400 italic font-bold">Aucune donnée historique trouvée pour ce produit.</td></tr>'
-                        );
+                    );
                 },
                 error: function() {
                     $('#evo-loader').addClass('hidden');
                     $('#evo-content').removeClass('hidden');
                     $('#evo-table-body').html(
                         '<tr><td colspan="5" class="py-10 text-center text-red-500 italic font-bold">Erreur lors de la récupération des données.</td></tr>'
-                        );
+                    );
                 }
             });
         }
 
         function closeEvoModal() {
             $('#modal-evolution-fcp').addClass('modalhide').removeClass('modalshow').hide();
+        }
+
+        function showPmgEvolution(productId, productName) {
+            const modal = $('#modal-evolution-pmg');
+            $('#evo-pmg-product-name').text(productName);
+
+            // Reset modal state
+            $('#evo-pmg-loader').removeClass('hidden');
+            $('#evo-pmg-content').addClass('hidden');
+            $('#evo-pmg-table-body').html('');
+
+            // Show modal
+            modal.removeClass('modalhide').addClass('modalshow').css('display', 'flex');
+
+            $.ajax({
+                url: `/api/pmg-evolution/${productId}/{{ $customer->id }}`,
+                success: function(r) {
+                    $('#evo-pmg-loader').addClass('hidden');
+                    $('#evo-pmg-content').removeClass('hidden');
+                    let html = '';
+                    if (r.history && r.history.length > 0) {
+                        // Les données sont déjà triées du plus récent au plus ancien par l'API
+                        const history = r.history;
+                        history.forEach(row => {
+                            const interestsClass = row.interests > 0 ? 'text-green-600' : (row
+                                .interests < 0 ? 'text-red-500' : 'text-n500');
+                            const prefix = row.interests > 0 ? '+' : '';
+                            html += `<tr class="text-[11px] hover:bg-n10 transition-all italic">
+                                <td class="px-5 py-4 font-bold border-b border-n30">${row.date}</td>
+                                <td class="px-5 py-4 border-b border-n30 text-primary font-bold">${row.taux}</td>
+                                <td class="px-5 py-4 font-bold text-n900 border-b border-n30">${Number(row.capital).toLocaleString('fr-FR')} XAF</td>
+                                <td class="px-5 py-4 font-bold text-marron border-b border-n30">${Number(row.valuation).toLocaleString('fr-FR')} XAF</td>
+                                <td class="px-5 py-4 text-right font-bold ${interestsClass} border-b border-n30">${prefix}${Number(row.interests).toLocaleString('fr-FR')} XAF</td>
+                            </tr>`;
+                        });
+                    }
+                    $('#evo-pmg-table-body').html(html ||
+                        '<tr><td colspan="5" class="py-10 text-center text-n400 italic font-bold">Aucune donnée historique trouvée pour ce produit.</td></tr>'
+                    );
+                },
+                error: function() {
+                    $('#evo-pmg-loader').addClass('hidden');
+                    $('#evo-pmg-content').removeClass('hidden');
+                    $('#evo-pmg-table-body').html(
+                        '<tr><td colspan="5" class="py-10 text-center text-red-500 italic font-bold">Erreur lors de la récupération des données.</td></tr>'
+                    );
+                }
+            });
+        }
+
+        function closePmgModal() {
+            $('#modal-evolution-pmg').addClass('modalhide').removeClass('modalshow').hide();
         }
 
         function fetchVlForEdit(productId, date) {
@@ -892,7 +1105,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                     }
                 });
 
-                datepicker('#edit-date-val', {
+                window.pickerEditVal = datepicker('#edit-date-val', {
                     formatter: (i, d) => {
                         i.value = d.toISOString().split('T')[0];
                     },
@@ -904,13 +1117,16 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
 
                         instance.el.value = val;
 
-                        // SYNC: d'échéance min = date de valeur pour Edit
+                        // SYNC: d'échéance min = date de valeur + 1 jour pour Edit
                         if (pickerEditEch) {
-                            pickerEditEch.setMin(date);
+                            const nextDay = new Date(date);
+                            nextDay.setDate(nextDay.getDate() + 1);
+                            pickerEditEch.setMin(nextDay);
                             const currentEch = document.getElementById('edit-date-ech').value;
-                            if (currentEch && new Date(currentEch) < date) {
-                                pickerEditEch.setDate(date);
-                                document.getElementById('edit-date-ech').value = val;
+                            if (currentEch && new Date(currentEch) <= date) {
+                                pickerEditEch.setDate(nextDay);
+                                document.getElementById('edit-date-ech').value = nextDay.toISOString()
+                                    .split('T')[0];
                             }
                         }
 
@@ -941,14 +1157,17 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                         '0') + '-' + String(date.getDate()).padStart(2, '0');
                     instance.el.value = value;
 
-                    // SYNC: d'échéance min = date de valeur
+                    // SYNC: d'échéance min = date de valeur + 1 jour
                     if (pickerEcheance) {
-                        pickerEcheance.setMin(date);
-                        // Si l'échéance actuelle est inférieure à la nouvelle date de valeur, on l'aligne
+                        const nextDay = new Date(date);
+                        nextDay.setDate(nextDay.getDate() + 1);
+                        pickerEcheance.setMin(nextDay);
+                        // Si l'échéance actuelle est inférieure ou égale à la nouvelle date de valeur, on l'aligne
                         const currentEch = document.getElementById('datepicker_echeance').value;
-                        if (currentEch && new Date(currentEch) < date) {
-                            pickerEcheance.setDate(date);
-                            document.getElementById('datepicker_echeance').value = date.toISOString().split('T')[0];
+                        if (currentEch && new Date(currentEch) <= date) {
+                            pickerEcheance.setDate(nextDay);
+                            document.getElementById('datepicker_echeance').value = nextDay.toISOString()
+                                .split('T')[0];
                         }
                     }
 
@@ -993,6 +1212,10 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                     const catId = this.value;
                     prodSelect.innerHTML = '<option value="">Choisir un produit...</option>';
 
+                    // RESET Datepicker limits by default
+                    pickerValeur.setMin(null);
+                    pickerValeur.setMax(null);
+
                     if (catId) {
                         prodSelect.disabled = false;
                         const filtered = productsList.filter(p => {
@@ -1018,6 +1241,25 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                             echeanceInput.disabled = true;
                             document.getElementById('type_souscription_container').classList.remove(
                                 'hidden');
+                            document.getElementById('interest_management_container').classList.add(
+                                'hidden');
+
+                            // RESTRICTION DATE : Aujourd'hui (max) et -7 jours (min)
+                            const today = new Date();
+                            const minDate = new Date();
+                            minDate.setDate(today.getDate() - 7);
+
+                            pickerValeur.setMin(minDate);
+                            pickerValeur.setMax(today);
+
+                            // Si la date actuelle est hors limites, on remet à aujourd'hui
+                            const currentVal = new Date(document.getElementById('datepicker_valeur').value);
+                            if (currentVal < minDate || currentVal > today) {
+                                pickerValeur.setDate(today);
+                                document.getElementById('datepicker_valeur').value = today.toISOString()
+                                    .split('T')[0];
+                            }
+
                         } else { // PMG
                             labelVlTaux.textContent = "Taux d'intérêt (%)";
                             vlTauxInput.readOnly = false;
@@ -1025,6 +1267,33 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                             echeanceContainer.style.opacity = "1";
                             echeanceInput.disabled = false;
                             document.getElementById('type_souscription_container').classList.add('hidden');
+
+                            // RESTRICTION DATE : Aujourd'hui (max) et -7 jours (min)
+                            const today = new Date();
+                            const minDate = new Date();
+                            minDate.setDate(today.getDate() - 7);
+
+                            pickerValeur.setMin(minDate);
+                            pickerValeur.setMax(today);
+
+                            // Si la date actuelle est hors limites, on remet à aujourd'hui
+                            const valInput = document.getElementById('datepicker_valeur');
+                            const currentVal = new Date(valInput.value);
+                            if (currentVal < minDate || currentVal > today) {
+                                pickerValeur.setDate(today);
+                                valInput.value = today.toISOString().split('T')[0];
+                            }
+
+                            // SYNC: d'échéance min = date de valeur + 1 jour
+                            if (pickerEcheance) {
+                                const activeDate = pickerValeur.dateSelected || today;
+                                const nextDay = new Date(activeDate);
+                                nextDay.setDate(nextDay.getDate() + 1);
+                                pickerEcheance.setMin(nextDay);
+                            }
+
+                            document.getElementById('interest_management_container').classList.remove(
+                                'hidden');
                         }
                     } else {
                         prodSelect.disabled = true;
@@ -1140,6 +1409,8 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                             taux_insere: vl_taux,
                             type_souscription: document.getElementById('type_souscription') ?
                                 document.getElementById('type_souscription').value : null,
+                            interest_management: document.getElementById('interest_management') ?
+                                document.getElementById('interest_management').value : null,
                             montantAchat: typeId == 1 ? net / vl_taux : net
                         },
                         success: function(r) {
@@ -1234,16 +1505,19 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
             display: inline-block;
             white-space: nowrap;
         }
+
         .gain-badge-positive {
             background: #dcfce7;
             color: #15803d;
             border: 1px solid #bbf7d0;
         }
+
         .gain-badge-negative {
             background: #fee2e2;
             color: #b91c1c;
             border: 1px solid #fecaca;
         }
+
         .gain-badge-neutral {
             background: #f1f5f9;
             color: #64748b;

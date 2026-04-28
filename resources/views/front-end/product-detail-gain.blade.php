@@ -5,14 +5,15 @@
     $user_ = App\Models\User::where('id', Auth::user()->id)->first();
 
     $dateValeur = \Carbon\Carbon::parse($product['date_souscription']);
-    $dateEcheance = $dateValeur->copy()->addMonths($product['duree']);
+    $dateEcheance = \Carbon\Carbon::parse($product['date_echeance']);
+    $isExpired = $dateEcheance->isPast();
     $moisEcoules = $dateValeur->diffInMonths(\Carbon\Carbon::now());
     $moisEcoules = min($moisEcoules, $product['duree']);
     $progression = $product['duree'] > 0 ? round(($moisEcoules / $product['duree']) * 100) : 0;
 
     if ($product['type_product'] == 2) {
-        $gainTotal = $product['gain_month'];
-        $valeurTotale = $product['montant_transaction'] + $gainTotal;
+        $gainTotal = $isExpired ? 0 : $product['gain_month'];
+        $valeurTotale = $isExpired ? 0 : ($product['montant_transaction'] + $gainTotal);
     } else {
         $gainTotal = $user_->gain;
         $valeurTotale = $user_->solde + $gainTotal;
@@ -322,18 +323,27 @@
         <div class="kori-detail">
 
             {{-- ── Header ── --}}
-            <div class="kd-header">
+            <div class="kd-header" {!! $isExpired ? 'style="background-color: rgba(239, 68, 68, 0.05); padding: 1.5rem; border-radius: 12px; border: 1px solid rgba(239, 68, 68, 0.1); margin-bottom: 2rem;"' : '' !!}>
                 <div>
                     <a href="{{ url()->previous() }}" class="kd-back">Mes placements</a>
-                    <h1 class="kd-title">{{ $product['product_name'] }}</h1>
+                    <h1 class="kd-title flex items-center gap-3">
+                        {{ $product['product_name'] }}
+                        @if($isExpired)
+                            <span class="kd-badge" style="background: #ef4444;">EXPIRÉ</span>
+                        @endif
+                    </h1>
                     <span class="kd-badge">{{ $type->abreviation }}</span>
                 </div>
                 <div class="kd-amount-block">
                     <div class="kd-amount-label">Valorisation totale</div>
-                    <div class="kd-amount">
+                    <div class="kd-amount {{ $isExpired ? 'text-red-600' : '' }}">
                         <span class="kd-amount-currency">XAF</span>{{ number_format($valeurTotale, 0, ',', ' ') }}
                     </div>
-                    @if ($gainTotal >= 0)
+                    @if ($isExpired)
+                        <div class="kd-gain-pill negative" style="background: #fee2e2; border-color: #fca5a5; color: #b91c1c;">
+                            0 XAF (Produit déjà expiré)
+                        </div>
+                    @elseif ($gainTotal >= 0)
                         <div class="kd-gain-pill positive">
                             +{{ number_format($gainTotal, 0, ',', ' ') }} XAF de gain
                         </div>
@@ -382,6 +392,11 @@
                                     {{ $product['duree'] }}</div>
                             </div>
                         </div>
+                        <div class="kd-stat">
+                            <div class="kd-stat-label" style="color: #C49A22; font-bold: bold;">Gains Actifs</div>
+                            <div class="kd-stat-value" style="color: #C49A22;">+ {{ number_format(max(0, $valeurTotale - $product['montant_transaction']), 0, ',', ' ') }}<span
+                                    class="kd-stat-sub" style="color: #C49A22;">XAF</span></div>
+                        </div>
                     @else
                         {{-- FCP --}}
                         <div class="kd-stat">
@@ -414,9 +429,11 @@
 
                 {{-- Strip bas de carte --}}
                 @if ($product['type_product'] == 2)
-                    <div class="kd-strip">
-                        <span>Date d'échéance : <strong>{{ $dateEcheance->format('d/m/Y') }}</strong></span>
-                        <span></span>
+                    <div class="kd-strip" {!! $isExpired ? 'style="background: #ef4444;"' : '' !!}>
+                        <span>Date d'échéance : <strong class="{{ $isExpired ? 'underline font-bold' : '' }}">{{ $dateEcheance->format('d/m/Y') }}</strong></span>
+                        @if($isExpired)
+                            <span class="ml-auto"><strong>CONTRAT TERMINÉ</strong></span>
+                        @endif
                     </div>
                 @else
                     <div class="kd-strip">
@@ -432,7 +449,7 @@
                     <div class="kd-chart-header">
                         <div>
                             <div class="kd-chart-title">Évolution des gains</div>
-                            <div class="kd-chart-sub">4 dernières semaines</div>
+                            <div class="kd-chart-sub">8 dernières semaines</div>
                         </div>
                         <span class="kd-chart-tag">{{ $product['product_name'] }}</span>
                     </div>
@@ -447,10 +464,20 @@
 @section('script_front_end')
     @if ($product['type_product'] == 1)
         @php
-            $tableau = array_map('intval', $product['recent_gains']);
-            sort($tableau);
-            $minimum = $tableau[0];
-            $maximum = end($tableau);
+            $tableau = [];
+            foreach ($product['recent_gains'] as $item) {
+                $tableau[] = (float)$item['gain'];
+            }
+            
+            if (!empty($tableau)) {
+                $minimum = min($tableau);
+                $maximum = max($tableau);
+                $yMin = floor($minimum * 0.95); // 5% margin for gains
+                $yMax = ceil($maximum * 1.05);
+            } else {
+                $yMin = 0;
+                $yMax = 100;
+            }
         @endphp
 
         <script>
@@ -461,8 +488,8 @@
                         name: "{{ $product['product_name'] }}",
                         type: "line",
                         data: [
-                            @foreach (array_reverse($product['recent_gains']) as $value)
-                                {{ intval($value) }},
+                            @foreach ($product['recent_gains'] as $item)
+                                {{ $item['gain'] }},
                             @endforeach
                         ],
                     }],
@@ -502,8 +529,8 @@
                     },
                     xaxis: {
                         categories: [
-                            @foreach ($product['recent_gains'] as $key => $value)
-                                "Semaine {{ $key + 1 }}",
+                            @foreach ($product['recent_gains'] as $item)
+                                "{{ \Carbon\Carbon::parse($item['date'])->format('d/m') }}",
                             @endforeach
                         ],
                         axisTicks: {
@@ -520,8 +547,8 @@
                         },
                     },
                     yaxis: {
-                        min: 0,
-                        max: {{ $maximum }},
+                        min: {{ $yMin }},
+                        max: {{ $yMax }},
                         tickAmount: 5,
                         labels: {
                             offsetX: -10,

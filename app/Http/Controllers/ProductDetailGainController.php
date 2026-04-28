@@ -55,17 +55,24 @@ class ProductDetailGainController extends Controller {
                 $recentAssetValues = AssetValue::where('product_id', $transaction->product_id)
                     ->where('date_vl', '>=', $transaction->date_validation)
                     ->orderBy('date_vl', 'desc')
-                    ->take(4)
+                    ->take(8)
                     ->get();
 
                 //dd($recentAssetValues);
                 if ($recentAssetValues->isNotEmpty()) {
-                    $vl_actuel = $recentAssetValues->first()->vl;
+                    $recentAssetValues = $recentAssetValues->sortBy('date_vl');
+                    $vl_actuel = $recentAssetValues->last()->vl;
                     foreach ($recentAssetValues as $assetValue) {
                         $recentGain = $this->calculateFCPGain($assetValue->vl, $transaction);
-                        $recentGains[] = $recentGain;
-                        $totalGain += $recentGain;
+                        $recentGains[] = [
+                            'gain' => $recentGain,
+                            'date' => $assetValue->date_vl
+                        ];
+                        // On ne cumule que le gain le plus récent pour totalGain ici ? 
+                        // En fait la boucle calcule les gains historiques. 
+                        // L'ancien code ajoutait à totalGain dans la boucle, ce qui semble faux s'il veut le gain TOTAL actuel.
                     }
+                    $totalGain = $this->calculateFCPGain($vl_actuel, $transaction);
                 }
 
                 // Calculer la différence hebdomadaire si nécessaire
