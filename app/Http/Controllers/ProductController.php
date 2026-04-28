@@ -2028,6 +2028,8 @@ class ProductController extends Controller
             $clientSlug = str_replace(' ', '_', strtolower($client->name));
             $monthName = strtolower($dateN->translatedFormat('F'));
             $yearStr = $dateN->format('Y');
+            $fileName = "rdc_{$clientSlug}_{$monthName}_{$yearStr}.pdf";
+
             if (request('action') === 'view') {
                 return $pdf->stream($fileName);
             }
