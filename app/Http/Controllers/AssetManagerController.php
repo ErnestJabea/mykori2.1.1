@@ -61,7 +61,18 @@ class AssetManagerController extends Controller
         ]);
 
         // 1. Recherche ou Création de l'Utilisateur Maître
-        $user = User::where('email', $request->email)->first();
+        // Distinction entre Humains (0,1) et Entreprises (2) pour permettre le partage d'email entre types différents
+        $isCompany = ($request->genre == 2);
+        
+        $user = User::where('email', $request->email)
+            ->where(function($q) use ($isCompany) {
+                if ($isCompany) {
+                    $q->where('genre', 2);
+                } else {
+                    $q->whereIn('genre', [0, 1]);
+                }
+            })->first();
+
         if (!$user) {
             $user = User::create([
                 'name' => $request->name,
@@ -130,7 +141,21 @@ class AssetManagerController extends Controller
                 'string',
                 'email',
                 'max:255',
-                \Illuminate\Validation\Rule::unique('users')->ignore($customer->id),
+                function ($attribute, $value, $fail) use ($customer, $request) {
+                    $isCompany = ($request->genre == 2);
+                    $exists = User::where('email', $value)
+                        ->where('id', '!=', $customer->id)
+                        ->where(function($q) use ($isCompany) {
+                            if ($isCompany) {
+                                $q->where('genre', 2);
+                            } else {
+                                $q->whereIn('genre', [0, 1]);
+                            }
+                        })->exists();
+                    if ($exists) {
+                        $fail("Cette adresse email est déjà utilisée par un autre client de type " . ($isCompany ? "Entreprise" : "Particulier (Monsieur/Madame)") . ".");
+                    }
+                },
             ],
             'genre' => 'required|integer|in:0,1,2',
             'localisation' => 'required|string|max:255',
