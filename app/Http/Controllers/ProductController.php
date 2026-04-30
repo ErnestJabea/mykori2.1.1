@@ -135,6 +135,12 @@ class ProductController extends Controller
                 ->get();
 
             $allPmgTrans = $transactions->merge($additionalTransactions);
+            
+            // FILTRE : On ne prend que les transactions non échues (ou sans date d'échéance)
+            $allPmgTrans = $allPmgTrans->filter(function($t) use ($currentDate) {
+                if (!$t->date_echeance) return true;
+                return Carbon::parse($t->date_echeance)->startOfDay()->gte($currentDate->copy()->startOfDay());
+            });
 
             if ($allPmgTrans->isEmpty()) continue;
 
