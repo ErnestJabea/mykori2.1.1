@@ -230,10 +230,9 @@ public function previewPmg(int $clientId)
             }
 
             // --- FILTRE D'ACTIVITÉ ---
-            // Si le produit est échu avant le début du mois précédent (N-1) ET que son gain est nul
-            // cela signifie qu'il est inactif ou a été basculé. On l'ignore.
+            // On enlève les placements échus avant le début du mois du relevé
             $expiryDate = Carbon::parse($trans->date_echeance);
-            if ($expiryDate->lt($dateN1->copy()->startOfMonth()) && round($currentTransGain, 0) <= 0) {
+            if ($expiryDate->lt($dateN->copy()->startOfMonth())) {
                 continue;
             }
 
@@ -254,19 +253,21 @@ public function previewPmg(int $clientId)
         $totalValoN += $productValoN;
         $totalValoN1 += $productValoN1;
 
-        $produitsAffiches[] = (object)[
-            'nom' => $productRecord->title,
-            'capital' => $productCapitalTotal,
-            'taux' => $productTrans->first()->vl_buy,
-            'valo_n' => $productValoN,
-            'valo_n1' => $productValoN1,
-            'gain_mensuel' => max(0, round($productGainMensuelTotal, 0)),
-            'perte_mensuelle' => round($productPertesMensuelles, 0),
-            'gain_total' => max(0, $productValoN - $capNetTotal),
-            'souscription' => $firstDateVal->format('d/m/Y'),
-            'date_echeance' => $maxExpiryDate ? Carbon::parse($maxExpiryDate)->format('d/m/Y') : '-',
-            'produit_jeune' => $firstDateVal->gt($dateN1) ? 1 : 0,
-        ];
+        if ($productCapitalTotal > 0) {
+            $produitsAffiches[] = (object)[
+                'nom' => $productRecord->title,
+                'capital' => $productCapitalTotal,
+                'taux' => $productTrans->first()->vl_buy,
+                'valo_n' => $productValoN,
+                'valo_n1' => $productValoN1,
+                'gain_mensuel' => max(0, round($productGainMensuelTotal, 0)),
+                'perte_mensuelle' => round($productPertesMensuelles, 0),
+                'gain_total' => max(0, $productValoN - $capNetTotal),
+                'souscription' => $firstDateVal->format('d/m/Y'),
+                'date_echeance' => $maxExpiryDate ? Carbon::parse($maxExpiryDate)->format('d/m/Y') : '-',
+                'produit_jeune' => $firstDateVal->gt($dateN1) ? 1 : 0,
+            ];
+        }
     }
 
     return view('front-end.releves.releve-preview', [
@@ -351,6 +352,11 @@ public function previewFcp(int $clientId)
         $vlN = \App\Models\AssetValue::where('product_id', $productId)->where('date_vl', '<=', $dateN->toDateString())->orderBy('date_vl', 'desc')->value('vl') ?? (float)$product->vl;
         $vlN1 = \App\Models\AssetValue::where('product_id', $productId)->where('date_vl', '<=', $dateN1->toDateString())->orderBy('date_vl', 'desc')->value('vl') ?? (float)$product->vl;
 
+        // --- FILTRE D'ACTIVITÉ FCP ---
+        if ($partsN <= 0.0001 && $partsN1 <= 0.0001 && $partsSouscritesMois <= 0.0001 && $partsRacheteesMois <= 0.0001) {
+            continue;
+        }
+
         $valoN = (float)$partsN * (float)$vlN;
         $valoN1 = (float)$partsN1 * (float)$vlN1;
 
@@ -389,22 +395,24 @@ public function previewFcp(int $clientId)
         $totalValoN += $valoN;
         $totalValoN1 += $valoN1;
 
-        $produitsAffiches[] = [
-            'nom'               => $product->title,
-            'parts_n'           => (float)$partsN,
-            'parts_n1'          => (float)$partsN1,
-            'parts_souscrites'  => (float)$partsSouscritesMois,
-            'parts_rachetees'    => (float)$partsRacheteesMois,
-            'montant_souscrit'  => (float)$montantSouscritMois,
-            'frais_souscription' => (float)$fraisSouscriptionMois,
-            'vl_n'              => (float)$vlN,
-            'vl_n1'             => (float)$vlN1,
-            'valo_n'            => (float)$valoN,
-            'valo_n1'           => (float)$valoN1,
-            'cumul_investi'     => (float)$cumulInvestiBrut,
-            'plus_value'        => (float)($valoN - $cumulInvestiBrut),
-            'gain_mensuel'      => (float)($valoN - $valoN1),
-        ];
+        if ($partsN > 0 || $partsSouscritesMois > 0 || $partsRacheteesMois > 0) {
+            $produitsAffiches[] = [
+                'nom'               => $product->title,
+                'parts_n'           => (float)$partsN,
+                'parts_n1'          => (float)$partsN1,
+                'parts_souscrites'  => (float)$partsSouscritesMois,
+                'parts_rachetees'    => (float)$partsRacheteesMois,
+                'montant_souscrit'  => (float)$montantSouscritMois,
+                'frais_souscription' => (float)$fraisSouscriptionMois,
+                'vl_n'              => (float)$vlN,
+                'vl_n1'             => (float)$vlN1,
+                'valo_n'            => (float)$valoN,
+                'valo_n1'           => (float)$valoN1,
+                'cumul_investi'     => (float)$cumulInvestiBrut,
+                'plus_value'        => (float)($valoN - $cumulInvestiBrut),
+                'gain_mensuel'      => (float)($valoN - $valoN1),
+            ];
+        }
     }
 
     return view('front-end.releves.releve-preview-fcp', [
@@ -653,10 +661,9 @@ private function genererPdfPmg(int $clientId): string
             }
 
             // --- FILTRE D'ACTIVITÉ ---
-            // Si le produit est échu avant le début du mois précédent (N-1) ET que son gain est nul
-            // cela signifie qu'il est inactif ou a été basculé. On l'ignore.
+            // On enlève les placements échus avant le début du mois du relevé
             $expiryDate = Carbon::parse($trans->date_echeance);
-            if ($expiryDate->lt($dateN1->copy()->startOfMonth()) && round($currentTransGain, 0) <= 0) {
+            if ($expiryDate->lt($dateN->copy()->startOfMonth())) {
                 continue;
             }
 
@@ -675,21 +682,23 @@ private function genererPdfPmg(int $clientId): string
 
         $capNetTotal = $productCapitalTotal - $productPrecompteTotal;
         $totalValoN += $productValoN;
-        $totalValoN1 += $productValoN1;
+        $totalValoN1 += ($productValoN - $productGainMensuelTotal);
 
-        $produitsPreparees[] = (object)[
-            'nom' => $productRecord->title,
-            'capital' => $productCapitalTotal,
-            'taux' => $productTrans->first()->vl_buy,
-            'valo_n' => $productValoN,
-            'valo_n1' => $productValoN1,
-            'gain_mensuel' => max(0, round($productGainMensuelTotal, 0)),
-            'perte_mensuelle' => round($productPertesMensuelles, 0),
-            'gain_total' => max(0, $productValoN - $capNetTotal),
-            'souscription' => $firstDateVal->format('d/m/Y'),
-            'date_echeance' => $maxExpiryDate ? Carbon::parse($maxExpiryDate)->format('d/m/Y') : '-',
-            'produit_jeune' => $firstDateVal->gt($dateN1) ? 1 : 0,
-        ];
+        if ($productCapitalTotal > 0) {
+            $produitsPreparees[] = (object)[
+                'nom' => $productRecord->title,
+                'capital' => $productCapitalTotal,
+                'taux' => $productTrans->first()->vl_buy,
+                'valo_n' => $productValoN,
+                'valo_n1' => ($productValoN - $productGainMensuelTotal),
+                'gain_mensuel' => max(0, round($productGainMensuelTotal, 0)),
+                'perte_mensuelle' => round($productPertesMensuelles, 0),
+                'gain_total' => max(0, $productValoN - $capNetTotal),
+                'souscription' => $firstDateVal->format('d/m/Y'),
+                'date_echeance' => $maxExpiryDate ? Carbon::parse($maxExpiryDate)->format('d/m/Y') : '-',
+                'produit_jeune' => $firstDateVal->gt($dateN1) ? 1 : 0,
+            ];
+        }
     }
 
     $periode = ucfirst($dateN->translatedFormat('F Y'));
@@ -803,6 +812,11 @@ private function genererPdfFcp(int $clientId): string
             $vlN = \App\Models\AssetValue::where('product_id', $productId)->where('date_vl', '<=', $dateN->toDateString())->orderBy('date_vl', 'desc')->value('vl') ?? $product->vl;
             $vlN1 = \App\Models\AssetValue::where('product_id', $productId)->where('date_vl', '<=', $dateN1->toDateString())->orderBy('date_vl', 'desc')->value('vl') ?? $product->vl;
 
+            // --- FILTRE D'ACTIVITÉ FCP ---
+            if ($partsN <= 0.0001 && $partsN1 <= 0.0001 && $partsSouscritesMois <= 0.0001 && $partsRacheteesMois <= 0.0001) {
+                continue;
+            }
+
             $valoN = (float)$partsN * (float)$vlN;
             $valoN1 = (float)$partsN1 * (float)$vlN1;
             
@@ -840,22 +854,24 @@ private function genererPdfFcp(int $clientId): string
             $totalValoN += $valoN;
             $totalValoN1 += $valoN1;
 
-            $produitsAffiches[] = [
-                'nom'               => $product->title,
-                'parts_n'           => (float)$partsN,
-                'parts_n1'          => (float)$partsN1,
-                'parts_souscrites'  => (float)$partsSouscritesMois,
-                'parts_rachetees'    => (float)$partsRacheteesMois,
-                'montant_souscrit'  => (float)$montantSouscritMois,
-                'frais_souscription' => (float)$fraisSouscriptionMois,
-                'vl_n'              => (float)$vlN,
-                'vl_n1'             => (float)$vlN1,
-                'valo_n'            => (float)$valoN,
-                'valo_n1'           => (float)$valoN1,
-                'cumul_investi'     => (float)$cumulInvestiBrut,
-                'plus_value'        => (float)($valoN - $cumulInvestiBrut),
-                'gain_mensuel'      => (float)($valoN - $valoN1),
-            ];
+            if ($partsN > 0 || $partsSouscritesMois > 0 || $partsRacheteesMois > 0) {
+                $produitsAffiches[] = [
+                    'nom'               => $product->title,
+                    'parts_n'           => (float)$partsN,
+                    'parts_n1'          => (float)$partsN1,
+                    'parts_souscrites'  => (float)$partsSouscritesMois,
+                    'parts_rachetees'    => (float)$partsRacheteesMois,
+                    'montant_souscrit'  => (float)$montantSouscritMois,
+                    'frais_souscription' => (float)$fraisSouscriptionMois,
+                    'vl_n'              => (float)$vlN,
+                    'vl_n1'             => (float)$vlN1,
+                    'valo_n'            => (float)$valoN,
+                    'valo_n1'           => (float)$valoN1,
+                    'cumul_investi'     => (float)$cumulInvestiBrut,
+                    'plus_value'        => (float)($valoN - $cumulInvestiBrut),
+                    'gain_mensuel'      => (float)($valoN - $valoN1),
+                ];
+            }
     }
 
     $periode = ucfirst($dateN->translatedFormat('F Y'));

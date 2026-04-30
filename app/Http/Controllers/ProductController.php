@@ -1813,6 +1813,13 @@ class ProductController extends Controller
                 $maxExpiryDate = $productTrans->max('date_echeance');
 
                 foreach ($productTrans as $trans) {
+                    // --- FILTRE D'ACTIVITÉ ---
+                    // On enlève les placements échus avant le début du mois du relevé
+                    $expiryDate = Carbon::parse($trans->date_echeance);
+                    if ($expiryDate->lt($dateN->copy()->startOfMonth())) {
+                        continue;
+                    }
+
                     $vN = $this->calculatePMGValorization($trans, $dateN);
                     $vN1 = $this->calculatePMGValorization($trans, $dateN1);
 
@@ -1854,18 +1861,20 @@ class ProductController extends Controller
                 $totalValoN += $productValoN;
                 $totalValoN1 += ($productValoN - $productGainMensuelTotal);
 
-                $produitsAffiches[] = (object)[
-                    'nom' => $productRecord->title,
-                    'capital' => $productCapitalTotal,
-                    'taux' => $productTrans->first()->vl_buy, // On prend le taux du bloc (généralement identique)
-                    'valo_n' => $productValoN,
-                    'valo_n1' => ($productValoN - $productGainMensuelTotal),
-                    'gain_mensuel' => max(0, round($productGainMensuelTotal, 0)),
-                    'gain_total' => max(0, $productValoN - $capNetTotal),
-                    'souscription' => $firstDateVal->format('d/m/Y'),
-                    'date_echeance' => $maxExpiryDate ? Carbon::parse($maxExpiryDate)->format('d/m/Y') : '-',
-                    'produit_jeune' => $firstDateVal->gt($dateN1) ? 1 : 0,
-                ];
+                if ($productCapitalTotal > 0) {
+                    $produitsAffiches[] = (object)[
+                        'nom' => $productRecord->title,
+                        'capital' => $productCapitalTotal,
+                        'taux' => $productTrans->first()->vl_buy, // On prend le taux du bloc (généralement identique)
+                        'valo_n' => $productValoN,
+                        'valo_n1' => ($productValoN - $productGainMensuelTotal),
+                        'gain_mensuel' => max(0, round($productGainMensuelTotal, 0)),
+                        'gain_total' => max(0, $productValoN - $capNetTotal),
+                        'souscription' => $firstDateVal->format('d/m/Y'),
+                        'date_echeance' => $maxExpiryDate ? Carbon::parse($maxExpiryDate)->format('d/m/Y') : '-',
+                        'produit_jeune' => $firstDateVal->gt($dateN1) ? 1 : 0,
+                    ];
+                }
             }
 
             $pdf = Pdf::loadView('front-end.releves.releve-preview', [
@@ -1985,28 +1994,35 @@ class ProductController extends Controller
                      $cumulInvestiNet = $cumulInvestiBrut - (float)$totalFees;
                 }
 
+                // --- FILTRE D'ACTIVITÉ FCP ---
+                if ($partsN <= 0.0001 && $partsN1 <= 0.0001 && $partsSouscritesMois <= 0.0001 && $partsRacheteesMois <= 0.0001) {
+                    continue;
+                }
+
                 $valoN = (float)$partsN * (float)$vlN;
                 $valoN1 = (float)$partsN1 * (float)$vlN1;
                 
                 $totalValoN += $valoN;
                 $totalValoN1 += $valoN1;
 
-                $produitsAffiches[] = [
-                    'nom' => $product->title,
-                    'parts_n' => (float)$partsN,
-                    'parts_n1' => (float)$partsN1,
-                    'parts_souscrites' => (float)$partsSouscritesMois,
-                    'parts_rachetees' => (float)$partsRacheteesMois,
-                    'montant_souscrit' => (float)$montantSouscritMois,
-                    'frais_souscription' => (float)$fraisSouscriptionMois,
-                    'vl_n' => (float)$vlN,
-                    'vl_n1' => (float)$vlN1,
-                    'valo_n' => (float)$valoN,
-                    'valo_n1' => (float)$valoN1,
-                    'cumul_investi' => (float)$cumulInvestiBrut,
-                    'plus_value' => (float)($valoN - $cumulInvestiBrut),
-                    'gain_mensuel' => (float)($valoN - $valoN1),
-                ];
+                if ($partsN > 0 || $partsSouscritesMois > 0 || $partsRacheteesMois > 0) {
+                    $produitsAffiches[] = [
+                        'nom' => $product->title,
+                        'parts_n' => (float)$partsN,
+                        'parts_n1' => (float)$partsN1,
+                        'parts_souscrites' => (float)$partsSouscritesMois,
+                        'parts_rachetees' => (float)$partsRacheteesMois,
+                        'montant_souscrit' => (float)$montantSouscritMois,
+                        'frais_souscription' => (float)$fraisSouscriptionMois,
+                        'vl_n' => (float)$vlN,
+                        'vl_n1' => (float)$vlN1,
+                        'valo_n' => (float)$valoN,
+                        'valo_n1' => (float)$valoN1,
+                        'cumul_investi' => (float)$cumulInvestiBrut,
+                        'plus_value' => (float)($valoN - $cumulInvestiBrut),
+                        'gain_mensuel' => (float)($valoN - $valoN1),
+                    ];
+                }
             }
 
             $pdf = Pdf::loadView('front-end.releves.releve-preview-fcp', [

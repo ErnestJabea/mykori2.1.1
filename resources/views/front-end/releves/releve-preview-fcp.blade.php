@@ -209,6 +209,7 @@
                                 <th class="text-center">Nombre de Parts Cumulé</th>
                                 <th class="text-right">Valorisation Portefeuille</th>
                                 <th class="text-right">Plus-Value</th>
+                                <th class="text-right">Gain Mensuel</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -224,6 +225,10 @@
                                 <td class="text-right"
                                     style="color: {{ data_get($p, 'plus_value', 0) >= 0 ? 'green' : 'red' }}; font-weight: bold;">
                                     XAF {{ number_format(data_get($p, 'plus_value', 0), 0, ' ', ' ') }}
+                                </td>
+                                <td class="text-right"
+                                    style="color: {{ data_get($p, 'gain_mensuel', 0) >= 0 ? 'green' : 'red' }}; font-weight: bold;">
+                                    XAF {{ number_format(data_get($p, 'gain_mensuel', 0), 0, ' ', ' ') }}
                                 </td>
                             </tr>
                         </tbody>
