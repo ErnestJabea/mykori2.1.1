@@ -140,8 +140,7 @@ public function previewPmg(int $clientId)
     $client = User::findOrFail($clientId);
     $productController = app(ProductController::class);
     
-    $dateN  = Carbon::now()->subMonth()->endOfMonth(); // 31/01/2026
-    $dateN1 = Carbon::now()->subMonths(2)->endOfMonth(); // 31/12/2025 
+    $dateN  = Carbon::today()->startOfMonth()->subDay(); 
 
     $transactions = Transaction::where('user_id', $client->id)
         ->where('status', 'Succès')
@@ -174,6 +173,7 @@ public function previewPmg(int $clientId)
     if (!$anyActivePastMonth && $maxExpiryInMonth) {
         $dateN = Carbon::parse($maxExpiryInMonth);
     }
+    $dateN1 = $dateN->copy()->startOfMonth()->subDay(); 
     $grouped = $merged->groupBy('product_id');
 
     $produitsAffiches = [];
@@ -286,8 +286,8 @@ public function previewFcp(int $clientId)
     $client = User::findOrFail($clientId);
     $service = new \App\Services\InvestmentService();
     
-    $dateN  = Carbon::now()->subMonth()->endOfMonth(); // Fin du mois dernier
-    $dateN1 = Carbon::now()->subMonths(2)->endOfMonth(); // Fin du mois d'avant
+    $dateN  = Carbon::today()->startOfMonth()->subDay(); 
+    $dateN1 = $dateN->copy()->startOfMonth()->subDay(); 
 
     // Récupération des IDs des produits FCP possédés par le client
     $productIds = DB::table('fcp_movements')
@@ -576,8 +576,7 @@ private function genererPdfPmg(int $clientId): string
     $currentDate = Carbon::now();
 
     // 📅 Dates de calcul (Arrêté au mois clos)
-    $dateN  = now()->subMonth()->endOfMonth(); // Ex: 31 Janvier 2026
-    $dateN1 = now()->subMonths(2)->endOfMonth(); // Ex: 31 Décembre 2025
+    $dateN  = now()->startOfMonth()->subDay(); 
 
     // 🔍 Récupération des transactions PMG (Catégorie 2)
     $allTransactions = Transaction::where('user_id', $client->id)
@@ -605,6 +604,7 @@ private function genererPdfPmg(int $clientId): string
     if (!$anyActivePastMonth && $maxExpiryInMonth) {
         $dateN = Carbon::parse($maxExpiryInMonth);
     }
+    $dateN1 = $dateN->copy()->startOfMonth()->subDay();
     $grouped = $merged->groupBy('product_id');
 
     $totalValoN = 0;
@@ -747,8 +747,8 @@ private function genererPdfFcp(int $clientId): string
     $client = User::findOrFail($clientId);
     $service = new \App\Services\InvestmentService();
     
-    $dateN  = now()->subMonth()->endOfMonth(); // 31/01/2026
-    $dateN1 = now()->subMonths(2)->endOfMonth(); // 31/12/2025 
+    $dateN  = now()->startOfMonth()->subDay(); 
+    $dateN1 = $dateN->copy()->startOfMonth()->subDay(); 
 
     $productIds = DB::table('fcp_movements')
         ->where('user_id', $client->id)

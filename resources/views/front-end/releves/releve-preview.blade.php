@@ -390,7 +390,7 @@
                             Total Placements : XAF {{ number_format($total_placement, 0, ' ', ' ') }} |
                             Total gains : XAF {{ number_format($total_gains, 0, ' ', ' ') }}
                         </th>
-                        <th colspan="2" class="text-center">Rendement mensuel (XAF)</th>
+                        <th colspan="2" class="text-center">Rendement du mois (XAF)</th>
                         <th class="text-center">Valeur Totale</th>
                     </tr>
                     <tr>
@@ -428,7 +428,13 @@
                                     @endif
                                 </span>
                             </td>
-                             <td class="text-right">0</td>
+                             <td class="text-right">
+                                @if(isset($p->perte_mensuelle) && $p->perte_mensuelle > 0)
+                                    {{ number_format($p->perte_mensuelle, 0, ' ', ' ') }}
+                                @else
+                                    0
+                                @endif
+                             </td>
                             <td class="text-right"></td>
                         </tr>
                     @endforeach

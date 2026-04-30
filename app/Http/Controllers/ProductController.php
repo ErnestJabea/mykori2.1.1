@@ -1840,6 +1840,13 @@ class ProductController extends Controller
                         ->whereBetween('date_operation', [$dateN1->copy()->addDay()->toDateString(), $dateN->toDateString()])
                         ->first();
 
+                    // Sorties du mois (Rachats partiels, Paiement intérêts)
+                    $mensualOutflows = DB::table('financial_movements')
+                        ->where('transaction_id', $trans->id)
+                        ->whereIn('type', ['rachat_partiel', 'paiement_interets', 'precompte_interets', 'dividende_interets'])
+                        ->whereBetween('date_operation', [$dateN1->copy()->addDay()->toDateString(), $dateN->toDateString()])
+                        ->sum('amount') ?? 0;
+
                     if ($mvtCap) {
                         $dateCap = Carbon::parse($mvtCap->date_operation);
                         $joursAvant = $dateN1->diffInDays($dateCap->copy()->subDay()) + 1;
@@ -1850,9 +1857,9 @@ class ProductController extends Controller
                     } else {
                         // Cas produit jeune ou normal
                         if (Carbon::parse($trans->date_validation)->gt($dateN1)) {
-                             $productGainMensuelTotal += ($vN - ((float)$trans->amount - (float)$prec));
+                             $productGainMensuelTotal += (($vN + $mensualOutflows) - ((float)$trans->amount - (float)$prec));
                         } else {
-                             $productGainMensuelTotal += ($vN - $vN1);
+                             $productGainMensuelTotal += (($vN + $mensualOutflows) - $vN1);
                         }
                     }
                 }
@@ -1869,6 +1876,7 @@ class ProductController extends Controller
                         'valo_n' => $productValoN,
                         'valo_n1' => ($productValoN - $productGainMensuelTotal),
                         'gain_mensuel' => max(0, round($productGainMensuelTotal, 0)),
+                        'perte_mensuelle' => 0, // Les mandats PMG n'ont généralement pas de perte de capital sauf rachat
                         'gain_total' => max(0, $productValoN - $capNetTotal),
                         'souscription' => $firstDateVal->format('d/m/Y'),
                         'date_echeance' => $maxExpiryDate ? Carbon::parse($maxExpiryDate)->format('d/m/Y') : '-',
@@ -2020,7 +2028,7 @@ class ProductController extends Controller
                         'valo_n1' => (float)$valoN1,
                         'cumul_investi' => (float)$cumulInvestiBrut,
                         'plus_value' => (float)($valoN - $cumulInvestiBrut),
-                        'gain_mensuel' => (float)($valoN - $valoN1),
+                        'gain_mensuel' => (float)($valoN + (float)$partsRacheteesMois * (float)$vlN) - ((float)$valoN1 + (float)$montantSouscritMois),
                     ];
                 }
             }
