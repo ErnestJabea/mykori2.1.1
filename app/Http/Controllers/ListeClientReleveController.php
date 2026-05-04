@@ -356,12 +356,16 @@ public function previewFcp(int $clientId)
                 ->where('nb_parts_change', '>', 0)
                 ->sum('fees') ?? 0;
 
-        $vlRecordN = \App\Models\AssetValue::where('product_id', $productId)->where('date_vl', '<=', $dateN->toDateString())->orderBy('date_vl', 'desc')->first();
-        $vlN = $vlRecordN ? $vlRecordN->vl : (float)$product->vl;
-        $vlDateN = $vlRecordN ? Carbon::parse($vlRecordN->date_vl)->format('d/m/Y') : '-';
+        $vlN = \App\Models\AssetValue::where('product_id', $productId)->where('date_vl', '<=', $dateN->toDateString())->orderBy('date_vl', 'desc')->value('vl') ?? (float)$product->vl;
+        $vlN1 = \App\Models\AssetValue::where('product_id', $productId)->where('date_vl', '<=', $dateN1->toDateString())->orderBy('date_vl', 'desc')->value('vl') ?? (float)$product->vl;
 
-        $vlRecordN1 = \App\Models\AssetValue::where('product_id', $productId)->where('date_vl', '<=', $dateN1->toDateString())->orderBy('date_vl', 'desc')->first();
-        $vlN1 = $vlRecordN1 ? $vlRecordN1->vl : (float)$product->vl;
+        $montantRacheteeMois = abs(\DB::table('fcp_movements')
+            ->where('user_id', $client->id)
+            ->where('product_id', $productId)
+            ->whereDate('date_operation', '>=', $dateN1->copy()->addDay()->toDateString())
+            ->whereDate('date_operation', '<=', $dateN->toDateString())
+            ->where('nb_parts_change', '<', 0)
+            ->sum('amount_xaf')) ?? 0;
 
         // --- FILTRE D'ACTIVITÉ FCP ---
         if ($partsN <= 0.0001 && $partsN1 <= 0.0001 && $partsSouscritesMois <= 0.0001 && $partsRacheteesMois <= 0.0001) {
@@ -421,7 +425,7 @@ public function previewFcp(int $clientId)
                 'valo_n1'           => (float)$valoN1,
                 'cumul_investi'     => (float)$cumulInvestiBrut,
                 'plus_value'        => (float)($valoN - $cumulInvestiBrut),
-                'gain_mensuel'      => (float)($valoN - $valoN1),
+                'gain_mensuel'      => (float)(($valoN + $montantRacheteeMois) - ($valoN1 + $montantSouscritMois)),
             ];
         }
     }
@@ -827,12 +831,16 @@ private function genererPdfFcp(int $clientId): string
                     ->where('nb_parts_change', '>', 0)
                     ->sum('fees') ?? 0;
 
-            $vlRecordN = \App\Models\AssetValue::where('product_id', $productId)->where('date_vl', '<=', $dateN->toDateString())->orderBy('date_vl', 'desc')->first();
-            $vlN = $vlRecordN ? $vlRecordN->vl : $product->vl;
-            $vlDateN = $vlRecordN ? Carbon::parse($vlRecordN->date_vl)->format('d/m/Y') : '-';
+            $vlN = \App\Models\AssetValue::where('product_id', $productId)->where('date_vl', '<=', $dateN->toDateString())->orderBy('date_vl', 'desc')->value('vl') ?? $product->vl;
+            $vlN1 = \App\Models\AssetValue::where('product_id', $productId)->where('date_vl', '<=', $dateN1->toDateString())->orderBy('date_vl', 'desc')->value('vl') ?? $product->vl;
 
-            $vlRecordN1 = \App\Models\AssetValue::where('product_id', $productId)->where('date_vl', '<=', $dateN1->toDateString())->orderBy('date_vl', 'desc')->first();
-            $vlN1 = $vlRecordN1 ? $vlRecordN1->vl : $product->vl;
+            $montantRacheteeMois = abs(\DB::table('fcp_movements')
+                ->where('user_id', $client->id)
+                ->where('product_id', $productId)
+                ->whereDate('date_operation', '>=', $dateN1->copy()->addDay()->toDateString())
+                ->whereDate('date_operation', '<=', $dateN->toDateString())
+                ->where('nb_parts_change', '<', 0)
+                ->sum('amount_xaf')) ?? 0;
 
             // --- FILTRE D'ACTIVITÉ FCP ---
             if ($partsN <= 0.0001 && $partsN1 <= 0.0001 && $partsSouscritesMois <= 0.0001 && $partsRacheteesMois <= 0.0001) {
@@ -891,7 +899,7 @@ private function genererPdfFcp(int $clientId): string
                     'valo_n1'           => (float)$valoN1,
                     'cumul_investi'     => (float)$cumulInvestiBrut,
                     'plus_value'        => (float)($valoN - $cumulInvestiBrut),
-                    'gain_mensuel'      => (float)($valoN - $valoN1),
+                    'gain_mensuel'      => (float)(($valoN + $montantRacheteeMois) - ($valoN1 + $montantSouscritMois)),
                 ];
             }
     }
