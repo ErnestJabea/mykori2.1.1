@@ -356,8 +356,12 @@ public function previewFcp(int $clientId)
                 ->where('nb_parts_change', '>', 0)
                 ->sum('fees') ?? 0;
 
-        $vlN = \App\Models\AssetValue::where('product_id', $productId)->where('date_vl', '<=', $dateN->toDateString())->orderBy('date_vl', 'desc')->value('vl') ?? (float)$product->vl;
-        $vlN1 = \App\Models\AssetValue::where('product_id', $productId)->where('date_vl', '<=', $dateN1->toDateString())->orderBy('date_vl', 'desc')->value('vl') ?? (float)$product->vl;
+        $vlRecordN = \App\Models\AssetValue::where('product_id', $productId)->where('date_vl', '<=', $dateN->toDateString())->orderBy('date_vl', 'desc')->first();
+        $vlN = $vlRecordN ? $vlRecordN->vl : (float)$product->vl;
+        $vlDateN = $vlRecordN ? Carbon::parse($vlRecordN->date_vl)->format('d/m/Y') : '-';
+
+        $vlRecordN1 = \App\Models\AssetValue::where('product_id', $productId)->where('date_vl', '<=', $dateN1->toDateString())->orderBy('date_vl', 'desc')->first();
+        $vlN1 = $vlRecordN1 ? $vlRecordN1->vl : (float)$product->vl;
 
         // --- FILTRE D'ACTIVITÉ FCP ---
         if ($partsN <= 0.0001 && $partsN1 <= 0.0001 && $partsSouscritesMois <= 0.0001 && $partsRacheteesMois <= 0.0001) {
@@ -412,6 +416,7 @@ public function previewFcp(int $clientId)
                 'montant_souscrit'  => (float)$montantSouscritMois,
                 'frais_souscription' => (float)$fraisSouscriptionMois,
                 'vl_n'              => (float)$vlN,
+                'vl_date_n'         => $vlDateN,
                 'vl_n1'             => (float)$vlN1,
                 'valo_n'            => (float)$valoN,
                 'valo_n1'           => (float)$valoN1,
@@ -823,8 +828,12 @@ private function genererPdfFcp(int $clientId): string
                     ->where('nb_parts_change', '>', 0)
                     ->sum('fees') ?? 0;
 
-            $vlN = \App\Models\AssetValue::where('product_id', $productId)->where('date_vl', '<=', $dateN->toDateString())->orderBy('date_vl', 'desc')->value('vl') ?? $product->vl;
-            $vlN1 = \App\Models\AssetValue::where('product_id', $productId)->where('date_vl', '<=', $dateN1->toDateString())->orderBy('date_vl', 'desc')->value('vl') ?? $product->vl;
+            $vlRecordN = \App\Models\AssetValue::where('product_id', $productId)->where('date_vl', '<=', $dateN->toDateString())->orderBy('date_vl', 'desc')->first();
+            $vlN = $vlRecordN ? $vlRecordN->vl : $product->vl;
+            $vlDateN = $vlRecordN ? Carbon::parse($vlRecordN->date_vl)->format('d/m/Y') : '-';
+
+            $vlRecordN1 = \App\Models\AssetValue::where('product_id', $productId)->where('date_vl', '<=', $dateN1->toDateString())->orderBy('date_vl', 'desc')->first();
+            $vlN1 = $vlRecordN1 ? $vlRecordN1->vl : $product->vl;
 
             // --- FILTRE D'ACTIVITÉ FCP ---
             if ($partsN <= 0.0001 && $partsN1 <= 0.0001 && $partsSouscritesMois <= 0.0001 && $partsRacheteesMois <= 0.0001) {
@@ -878,6 +887,7 @@ private function genererPdfFcp(int $clientId): string
                     'montant_souscrit'  => (float)$montantSouscritMois,
                     'frais_souscription' => (float)$fraisSouscriptionMois,
                     'vl_n'              => (float)$vlN,
+                    'vl_date_n'         => $vlDateN,
                     'vl_n1'             => (float)$vlN1,
                     'valo_n'            => (float)$valoN,
                     'valo_n1'           => (float)$valoN1,
