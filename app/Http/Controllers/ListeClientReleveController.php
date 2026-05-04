@@ -198,8 +198,15 @@ public function previewPmg(int $clientId)
             $vN = $productController->calculatePMGValorization($trans, $dateN);
             $vN1 = $productController->calculatePMGValorization($trans, $dateN1);
 
-            // Sorties du mois (Rachats partiels, Paiement intérêts)
-            $mensualOutflows = DB::table('financial_movements')
+            // Sorties du mois pour le calcul du gain (inclut les intérêts payés)
+            $totalOutflowsForGain = DB::table('financial_movements')
+                ->where('transaction_id', $trans->id)
+                ->whereIn('type', ['rachat_partiel', 'paiement_interets', 'precompte_interets', 'dividende_interets'])
+                ->whereBetween('date_operation', [$dateN1->copy()->addDay()->toDateString(), $dateN->toDateString()])
+                ->sum('amount') ?? 0;
+
+            // Sorties affichées en "Pertes" (exclut paiement_interets selon demande)
+            $displayedOutflows = DB::table('financial_movements')
                 ->where('transaction_id', $trans->id)
                 ->whereIn('type', ['rachat_partiel', 'precompte_interets', 'dividende_interets'])
                 ->whereBetween('date_operation', [$dateN1->copy()->addDay()->toDateString(), $dateN->toDateString()])
@@ -221,7 +228,7 @@ public function previewPmg(int $clientId)
                 $gB = ($mvtCap->capital_after * ($trans->vl_buy/100) * $joursB) / 360;
                 $currentTransGain = ($gA + $gB);
             } else {
-                $currentTransGain = ($vN + $mensualOutflows) - $vN1;
+                $currentTransGain = ($vN + $totalOutflowsForGain) - $vN1;
                 
                 // Si c'est un nouveau produit (N-1 = 0), on déduit le capital pour ne montrer que les intérêts
                 if ($vN1 <= 0 && $vN > 0) {
@@ -245,7 +252,7 @@ public function previewPmg(int $clientId)
             $productValoN1 += $vN1;
             $productCapitalTotal += (float)$trans->amount;
             $productPrecompteTotal += (float)$prec;
-            $productPertesMensuelles += $mensualOutflows;
+            $productPertesMensuelles += $displayedOutflows;
             $productGainMensuelTotal += $currentTransGain;
         }
 
@@ -629,8 +636,15 @@ private function genererPdfPmg(int $clientId): string
             $vN = $productController->calculatePMGValorization($trans, $dateN);
             $vN1 = $productController->calculatePMGValorization($trans, $dateN1);
 
-            // Sorties du mois (Rachats partiels, Paiement intérêts)
-            $mensualOutflows = DB::table('financial_movements')
+            // Sorties du mois pour le calcul du gain (inclut les intérêts payés)
+            $totalOutflowsForGain = DB::table('financial_movements')
+                ->where('transaction_id', $trans->id)
+                ->whereIn('type', ['rachat_partiel', 'paiement_interets', 'precompte_interets', 'dividende_interets'])
+                ->whereBetween('date_operation', [$dateN1->copy()->addDay()->toDateString(), $dateN->toDateString()])
+                ->sum('amount') ?? 0;
+
+            // Sorties affichées en "Pertes" (exclut paiement_interets selon demande)
+            $displayedOutflows = DB::table('financial_movements')
                 ->where('transaction_id', $trans->id)
                 ->whereIn('type', ['rachat_partiel', 'precompte_interets', 'dividende_interets'])
                 ->whereBetween('date_operation', [$dateN1->copy()->addDay()->toDateString(), $dateN->toDateString()])
@@ -652,7 +666,7 @@ private function genererPdfPmg(int $clientId): string
                 $gB = ($mvtCap->capital_after * ($trans->vl_buy/100) * $joursB) / 360;
                 $currentTransGain = ($gA + $gB);
             } else {
-                $currentTransGain = ($vN + $mensualOutflows) - $vN1;
+                $currentTransGain = ($vN + $totalOutflowsForGain) - $vN1;
 
                 // Si c'est un nouveau produit (N-1 = 0), on déduit le capital pour ne montrer que les intérêts
                 if ($vN1 <= 0 && $vN > 0) {
@@ -676,7 +690,7 @@ private function genererPdfPmg(int $clientId): string
             $productValoN1 += $vN1;
             $productCapitalTotal += (float)$trans->amount;
             $productPrecompteTotal += (float)$prec;
-            $productPertesMensuelles += $mensualOutflows;
+            $productPertesMensuelles += $displayedOutflows;
             $productGainMensuelTotal += $currentTransGain;
         }
 
