@@ -201,7 +201,7 @@ public function previewPmg(int $clientId)
             // Sorties du mois (Rachats partiels, Paiement intérêts)
             $mensualOutflows = DB::table('financial_movements')
                 ->where('transaction_id', $trans->id)
-                ->whereIn('type', ['rachat_partiel', 'paiement_interets', 'precompte_interets', 'dividende_interets'])
+                ->whereIn('type', ['rachat_partiel', 'precompte_interets', 'dividende_interets'])
                 ->whereBetween('date_operation', [$dateN1->copy()->addDay()->toDateString(), $dateN->toDateString()])
                 ->sum('amount') ?? 0;
 
@@ -632,7 +632,7 @@ private function genererPdfPmg(int $clientId): string
             // Sorties du mois (Rachats partiels, Paiement intérêts)
             $mensualOutflows = DB::table('financial_movements')
                 ->where('transaction_id', $trans->id)
-                ->whereIn('type', ['rachat_partiel', 'paiement_interets', 'precompte_interets', 'dividende_interets'])
+                ->whereIn('type', ['rachat_partiel', 'precompte_interets', 'dividende_interets'])
                 ->whereBetween('date_operation', [$dateN1->copy()->addDay()->toDateString(), $dateN->toDateString()])
                 ->sum('amount') ?? 0;
 
