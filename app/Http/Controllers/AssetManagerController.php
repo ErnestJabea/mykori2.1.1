@@ -693,6 +693,10 @@ class AssetManagerController extends Controller
      */
     public function vlHistory(Request $request)
     {
+        if (!\App\Services\AccessControlService::can('view_asset_manager')) {
+            abort(403, 'Accès non autorisé.');
+        }
+
         $products = Product::where('products_category_id', 1)->get();
         $selectedProductId = $request->get('product_id', $products->first()?->id);
         
@@ -707,6 +711,10 @@ class AssetManagerController extends Controller
 
     public function storeVl(Request $request)
     {
+        if (!\App\Services\AccessControlService::can('view_asset_manager')) {
+            abort(403, 'Accès non autorisé.');
+        }
+
         $request->validate([
             'product_id' => 'required|exists:products,id',
             'vl' => 'required|numeric|min:0',
@@ -744,6 +752,10 @@ class AssetManagerController extends Controller
      */
     public function deleteVl($id)
     {
+        if (!\App\Services\AccessControlService::can('view_asset_manager')) {
+            abort(403, 'Accès non autorisé.');
+        }
+
         $vl = \App\Models\AssetValue::findOrFail($id);
         $productName = $vl->product->title ?? 'N/A';
         $dateVl = $vl->date_vl;

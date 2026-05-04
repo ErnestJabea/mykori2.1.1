@@ -464,6 +464,11 @@ Route::middleware('auth')->group(function () {
 
             Route::post('/releves/send', [ListeClientReleveController::class, 'sendSelected'])->name('releves.send');
 
+            // Gestion des Valeurs Liquidatives (VL)
+            Route::get('/vls', [AssetManagerController::class, 'vlHistory'])->name('asset-manager.vls');
+            Route::post('/vls', [AssetManagerController::class, 'storeVl'])->name('asset-manager.vls.store');
+            Route::delete('/vls/{id}', [AssetManagerController::class, 'deleteVl'])->name('asset-manager.vl.delete');
+
             });
 
     /*
@@ -724,10 +729,7 @@ Route::group(['prefix' => 'admin'], function () {
     Voyager::routes();
     
     Route::group(['middleware' => ['admin.user']], function () {
-        // Valeurs Liquidatives
-        Route::get('/vls', [AssetManagerController::class, 'vlHistory'])->name('asset-manager.vls');
-        Route::post('/vls', [AssetManagerController::class, 'storeVl'])->name('asset-manager.vls.store');
-        Route::delete('/vls/{id}', [AssetManagerController::class, 'deleteVl'])->name('asset-manager.vl.delete');
+        // Voyager routes are handled here
     });
 });
 

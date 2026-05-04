@@ -273,7 +273,7 @@ class AdminFrontendController extends Controller
                 'icon' => 'las la-chart-area',
                 'section' => 'asset_manager',
                 'order' => 4,
-                'roles_json' => [1, 3, 8],
+                'roles_json' => [1, 3, 4, 8],
                 'is_active' => true
             ],
             [
