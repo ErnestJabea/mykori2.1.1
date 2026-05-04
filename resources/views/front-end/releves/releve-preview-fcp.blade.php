@@ -214,7 +214,7 @@
                         </thead>
                         <tbody>
                             <tr>
-                                <td class="text-center">{{ data_get($p, 'vl_date_n', $date_releve) }}</td>
+                                <td class="text-center">{{ $date_releve }}</td>
                                 <td class="text-center">{{ number_format(data_get($p, 'vl_n', 0), 2, ',', ' ') }}</td>
                                  <td class="text-right">XAF
                                      {{ number_format(data_get($p, 'cumul_investi', 0), 0, ' ', ' ') }}</td>
