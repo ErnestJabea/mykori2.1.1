@@ -854,26 +854,22 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                 $('#edit-interest-container').addClass('hidden');
                 $('#edit-vl').prop('readonly', true).addClass('bg-gray-100');
 
-                // RESTRICTION DATE : Aujourd'hui (max) et -30 jours (min)
+                // RESTRICTION DATE : Aujourd'hui (max) uniquement pour la modification
                 if (window.pickerEditVal) {
                     const today = new Date();
-                    const minDate = new Date();
-                    minDate.setDate(today.getDate() - 30);
-                    window.pickerEditVal.setMin(minDate);
                     window.pickerEditVal.setMax(today);
+                    window.pickerEditVal.setMin(null); // Pas de limite dans le passé pour les corrections
                 }
             } else { // PMG
                 $('#edit-date-ech').parent().show();
                 $('#edit-vl').prop('readonly', false).removeClass('bg-gray-100');
                 $('#edit-interest-container').removeClass('hidden');
 
-                // RESTRICTION DATE : Aujourd'hui (max) et -30 jours (min)
+                // RESTRICTION DATE : Aujourd'hui (max) uniquement pour la modification
                 if (window.pickerEditVal) {
                     const today = new Date();
-                    const minDate = new Date();
-                    minDate.setDate(today.getDate() - 30);
-                    window.pickerEditVal.setMin(minDate);
                     window.pickerEditVal.setMax(today);
+                    window.pickerEditVal.setMin(null); // Pas de limite dans le passé pour les corrections
                 }
             }
 
