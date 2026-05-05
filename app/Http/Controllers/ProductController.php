@@ -159,16 +159,25 @@ class ProductController extends Controller
                 $totalCapitalInvested += $amount;
                 
                 // Mouvements sur cette transaction spécifique (Paiements, Rachats, Précomptes)
-                $payouts = DB::table('financial_movements')
-                    ->where('transaction_id', $transaction->id)
-                    ->whereIn('type', ['rachat_partiel', 'precompte_interets', 'paiement_interets'])
-                    ->sum('amount');
-                $totalPayoutsSum += $payouts;
+                // IMPORTANT : Les transactions supplémentaires n'ont pas de mouvements financiers directs dans cette table
+                $isSupplementaire = ($transaction instanceof \App\Models\TransactionSupplementaire);
+                
+                $payouts = 0;
+                $capitalized = 0;
 
-                $capitalized = DB::table('financial_movements')
-                    ->where('transaction_id', $transaction->id)
-                    ->where('type', 'capitalisation_interets')
-                    ->sum('amount');
+                if (!$isSupplementaire) {
+                    $payouts = DB::table('financial_movements')
+                        ->where('transaction_id', $transaction->id)
+                        ->whereIn('type', ['rachat_partiel', 'precompte_interets', 'paiement_interets'])
+                        ->sum('amount');
+
+                    $capitalized = DB::table('financial_movements')
+                        ->where('transaction_id', $transaction->id)
+                        ->where('type', 'capitalisation_interets')
+                        ->sum('amount');
+                }
+                
+                $totalPayoutsSum += $payouts;
                 $totalCapitalizedBonus += $capitalized;
                     
                 // Valorisation individuelle incluant déjà capitalisation et rachats dans sa logique
@@ -610,25 +619,29 @@ class ProductController extends Controller
     $rate = (float)$trans->vl_buy / 100;
 
     // 0. Sécurité Rachat Total
-    $totalRedemption = DB::table('financial_movements')
-        ->where('transaction_id', $trans->id)
-        ->where('type', 'rachat_total')
-        ->where('date_operation', '<=', $targetDate->toDateString())
-        ->exists();
-    // 0. Sécurité temporelle : Si la transaction n'existe pas encore à la date demandée
-    if ($targetDate->lt(Carbon::parse($trans->date_validation))) {
-        return 0;
+    // NOTE : Les transactions supplémentaires n'ont pas de mouvements financiers dans cette table
+    $isSupplementaire = ($trans instanceof \App\Models\TransactionSupplementaire);
+    
+    $totalRedemption = false;
+    $lastMovement = null;
+
+    if (!$isSupplementaire) {
+        $totalRedemption = DB::table('financial_movements')
+            ->where('transaction_id', $trans->id)
+            ->where('type', 'rachat_total')
+            ->where('date_operation', '<=', $targetDate->toDateString())
+            ->exists();
+
+        if ($totalRedemption) return 0;
+
+        // 1. On cherche le capital effectif à la date cible (ignore les capitalisations futures)
+        $lastMovement = DB::table('financial_movements')
+            ->where('transaction_id', $trans->id)
+            ->whereIn('type', ['capitalisation_interets', 'rachat_partiel'])
+            ->where('date_operation', '<=', $targetDate->toDateString())
+            ->orderBy('date_operation', 'desc')
+            ->first();
     }
-
-    if ($totalRedemption) return 0;
-
-    // 1. On cherche le capital effectif à la date cible (ignore les capitalisations futures)
-    $lastMovement = DB::table('financial_movements')
-        ->where('transaction_id', $trans->id)
-        ->whereIn('type', ['capitalisation_interets', 'rachat_partiel'])
-        ->where('date_operation', '<=', $targetDate->toDateString())
-        ->orderBy('date_operation', 'desc')
-        ->first();
 
     $baseCapital = $lastMovement ? (float)$lastMovement->capital_after : (float)$trans->amount;
     $startDate = $lastMovement ? Carbon::parse($lastMovement->date_operation) : Carbon::parse($trans->date_validation);
@@ -2089,28 +2102,34 @@ class ProductController extends Controller
         $mergedMovements = collect();
 
         // 2. Mouvements financiers PMG (financial_movements)
-        $txIds = $transactions->pluck('id')->merge($supplementalTx->pluck('id'));
-        
-        DB::table('financial_movements')
-            ->whereIn('transaction_id', $txIds)
-            ->orderBy('created_at', 'desc')
-            ->get()
-            ->each(function ($m) use ($transactions, $supplementalTx, &$mergedMovements) {
-                $tx = $transactions->firstWhere('id', $m->transaction_id) 
-                      ?? $supplementalTx->firstWhere('id', $m->transaction_id);
-                $productTitle = $tx
-                    ? optional(Product::find($tx->product_id))->title
-                    : 'PMG';
-                $mergedMovements->push((object)[
-                    'date'               => $m->created_at ?? $m->date_operation,
-                    'date_souscription'  => $m->date_operation,
-                    'libelle'            => strtoupper(str_replace('_', ' ', $m->type)),
-                    'ref'                => $tx->ref ?? '-',
-                    'produit'            => $productTitle,
-                    'montant'            => (float)$m->amount,
-                    'sens'               => in_array($m->type, ['rachat_partiel', 'rachat_total', 'precompte_interets', 'paiement_interets', 'remboursement']) ? 'sortant' : 'entrant',
-                ]);
-            });
+        // On JOIN avec la table transactions pour filtrer STRICTEMENT par user_id
+        // Cela évite les fuites de données si des IDs de transactions supplémentaires (non gérées ici)
+        // entrent en collision avec des IDs de transactions régulières d'autres clients.
+        $movements = DB::table('financial_movements')
+            ->join('transactions', 'financial_movements.transaction_id', '=', 'transactions.id')
+            ->where('transactions.user_id', $userId)
+            ->where('financial_movements.type', '!=', 'paiement_interets') // Exclure les paiements d'intérêts
+            ->select('financial_movements.*')
+            ->orderBy('date_operation', 'asc')
+            ->get();
+            
+        $movements->each(function ($m) use ($transactions, $supplementalTx, &$mergedMovements) {
+            $tx = $transactions->firstWhere('id', $m->transaction_id) 
+                  ?? $supplementalTx->firstWhere('id', $m->transaction_id);
+            if (!$tx) return;
+            $productTitle = $tx
+                ? optional(Product::find($tx->product_id))->title
+                : 'PMG';
+            $mergedMovements->push((object)[
+                'date'               => $m->created_at ?? $m->date_operation,
+                'date_souscription'  => $m->date_operation,
+                'libelle'            => strtoupper(str_replace('_', ' ', $m->type)),
+                'ref'                => $tx->ref ?? '-',
+                'produit'            => $productTitle,
+                'montant'            => (float)$m->amount,
+                'sens'               => in_array($m->type, ['rachat_partiel', 'rachat_total', 'precompte_interets', 'paiement_interets', 'remboursement']) ? 'sortant' : 'entrant',
+            ]);
+        });
 
         // 3. Mouvements FCP (fcp_movements)
         DB::table('fcp_movements')
@@ -2204,7 +2223,8 @@ class ProductController extends Controller
                 "Téléchargement de l'historique complet des transactions"
             );
 
-            return $pdf->download('historique_transactions_' . Carbon::now()->format('Y-m-d') . '.pdf');
+        // On utilise stream() au lieu de download() pour permettre l'aperçu dans un nouvel onglet
+        return $pdf->stream("historique_transactions_{$user->name}.pdf");
     }
 
     /**

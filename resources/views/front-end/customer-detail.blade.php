@@ -35,7 +35,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
 
             <div class="col-span-12 md:col-span-8 lg:col-span-7">
                 <div class="flex flex-wrap justify-end gap-3">
-                    <a href="{{ route('customer-history.pdf', ['customer_id' => $customer->id]) }}" class="btn buy shadow-sm"
+                    <a href="{{ route('customer-history.pdf', ['customer_id' => $customer->id]) }}" target="_blank" class="btn buy shadow-sm"
                         style="background-color: #00466a; color:white; border-radius: 12px; padding: 12px 20px;">
                         <i class="las la-file-invoice-doll"></i> HISTORIQUE DE TRANSACTIONS
                     </a>
