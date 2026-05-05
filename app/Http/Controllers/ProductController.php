@@ -1350,6 +1350,7 @@ class ProductController extends Controller
         if ($transaction->product->products_category_id == 2) {
             // Relevé PMG : Historique des flux financiers (capitalisation/rachats)
             $movements = FinancialMovement::where('transaction_id', $transaction_id)
+                ->where('type', '!=', 'paiement_interets') // Exclure les paiements d'intérêts du relevé
                 ->orderBy('date_operation', 'asc')
                 ->get();
             $view = 'front-end.releves.releve-history';
@@ -1368,7 +1369,8 @@ class ProductController extends Controller
             'client' => $transaction->user
         ]);
 
-        return $pdf->download("releve_{$transaction->ref}.pdf");
+        // On utilise stream() pour permettre l'aperçu dans le navigateur
+        return $pdf->stream("releve_{$transaction->ref}.pdf");
     }
 
 
