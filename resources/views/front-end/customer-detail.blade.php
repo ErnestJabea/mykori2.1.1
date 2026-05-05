@@ -1273,7 +1273,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                             // RESTRICTION DATE : Aujourd'hui (max) et -7 jours (min)
                             const today = new Date();
                             const minDate = new Date();
-                            minDate.setDate(today.getDate() - 7);
+                            minDate.setDate(today.getDate() - 30);
 
                             pickerValeur.setMin(minDate);
                             pickerValeur.setMax(today);
