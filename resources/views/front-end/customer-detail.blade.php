@@ -1106,6 +1106,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                 });
 
                 window.pickerEditVal = datepicker('#edit-date-val', {
+                    maxDate: new Date(),
                     formatter: (i, d) => {
                         i.value = d.toISOString().split('T')[0];
                     },
@@ -1140,6 +1141,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
             }
 
             const pickerValeur = datepicker('#datepicker_valeur', {
+                maxDate: new Date(),
                 formatter: (input, date, instance) => {
                     const value = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2,
                         '0') + '-' + String(date.getDate()).padStart(2, '0');
