@@ -208,7 +208,7 @@
         </div>
         <div class="summary-box box-blue">
             <div class="label">Opérations</div>
-            <div class="value color-blue">{{ $allMovements->count() }}</div>
+            <div class="value color-blue">{{ $allMovements->where('sens', '!=', 'frais')->count() }}</div>
         </div>
     </div>
 
