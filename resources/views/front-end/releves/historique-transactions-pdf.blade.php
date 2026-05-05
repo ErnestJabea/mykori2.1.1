@@ -128,8 +128,18 @@
             font-size: 10px;
             font-weight: bold;
         }
+        .badge-frais {
+            display: inline-block;
+            background-color: #f0f4ff;
+            color: #531d09;
+            border-radius: 20px;
+            padding: 2px 8px;
+            font-size: 10px;
+            font-weight: bold;
+        }
         .amount-entrant { color: #16a34a; font-weight: bold; }
         .amount-sortant { color: #dc2626; font-weight: bold; }
+        .amount-frais { color: #531d09; font-weight: bold; opacity: 0.8; }
 
         .product-badge {
             display: inline-block;
@@ -228,14 +238,25 @@
                         {{ $mvt->ref ?? '-' }}
                     </td>
                     <td class="center">
-                        @if ($isEntrant)
+                        @if ($mvt->sens === 'entrant')
                             <span class="badge-entrant">↓ Entrant</span>
-                        @else
+                        @elseif ($mvt->sens === 'sortant')
                             <span class="badge-sortant">↑ Sortant</span>
+                        @else
+                            <span class="badge-frais">○ Frais</span>
                         @endif
                     </td>
-                    <td class="right {{ $isEntrant ? 'amount-entrant' : 'amount-sortant' }}" style="font-size: 11px;">
-                        {{ $isEntrant ? '+' : '-' }}{{ number_format(abs($mvt->montant), 0, ' ', ' ') }}
+                    @php
+                        $amountClass = 'amount-frais';
+                        if($mvt->sens === 'entrant') $amountClass = 'amount-entrant';
+                        if($mvt->sens === 'sortant') $amountClass = 'amount-sortant';
+                        
+                        $prefix = '';
+                        if($mvt->sens === 'entrant') $prefix = '+';
+                        if($mvt->sens === 'sortant') $prefix = '-';
+                    @endphp
+                    <td class="right {{ $amountClass }}" style="font-size: 11px;">
+                        {{ $prefix }}{{ number_format(abs($mvt->montant), 0, ' ', ' ') }}
                     </td>
                 </tr>
             @empty

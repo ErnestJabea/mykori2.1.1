@@ -2177,7 +2177,7 @@ class ProductController extends Controller
                     'ref'                => $tx->ref,
                     'produit'            => $productTitle,
                     'montant'            => (float)$tx->fees,
-                    'sens'               => 'sortant',
+                    'sens'               => 'frais',
                 ]);
             }
         }
@@ -2205,7 +2205,7 @@ class ProductController extends Controller
                     'ref'                => $tx->ref,
                     'produit'            => $productTitle,
                     'montant'            => (float)$tx->fees,
-                    'sens'               => 'sortant',
+                    'sens'               => 'frais',
                 ]);
             }
         }
