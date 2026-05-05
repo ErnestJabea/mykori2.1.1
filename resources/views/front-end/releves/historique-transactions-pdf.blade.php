@@ -71,7 +71,7 @@
         }
         .summary-box {
             display: table-cell;
-            width: 33%;
+            width: 25%;
             padding: 10px 14px;
             border-radius: 6px;
             vertical-align: middle;
@@ -82,9 +82,11 @@
         .box-green  { background-color: #edfdf5; border-left: 4px solid #22c55e; }
         .box-red    { background-color: #fff1f2; border-left: 4px solid #ef4444; }
         .box-blue   { background-color: #f0f4ff; border-left: 4px solid #531d09; }
+        .box-gold   { background-color: #fdfce8; border-left: 4px solid #ebb008; }
         .color-green { color: #16a34a; }
         .color-red   { color: #dc2626; }
         .color-blue  { color: #531d09; }
+        .color-gold  { color: #a16207; }
 
         /* ── Table ── */
         table {
@@ -199,6 +201,10 @@
         <div class="summary-box box-red">
             <div class="label">Total sortant</div>
             <div class="value color-red">- {{ number_format($totalSortant, 0, ' ', ' ') }} XAF</div>
+        </div>
+        <div class="summary-box box-gold">
+            <div class="label">Valorisation actuelle</div>
+            <div class="value color-gold">{{ number_format($valuation, 0, ' ', ' ') }} XAF</div>
         </div>
         <div class="summary-box box-blue">
             <div class="label">Opérations</div>

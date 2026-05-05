@@ -2210,11 +2210,43 @@ class ProductController extends Controller
             }
         }
 
+        // 5. Calcul de la valorisation actuelle (Portfolio Value)
+        $valuation = 0;
+        $refDate = Carbon::now();
+
+        // PMG
+        foreach ($transactions as $tx) {
+            if ($tx->type == 2) {
+                $valuation += $this->calculatePMGValorization($tx, $refDate);
+            }
+        }
+        foreach ($supplementalTx as $tx) {
+            if ($tx->type == 2) {
+                $valuation += $this->calculatePMGValorization($tx, $refDate);
+            }
+        }
+
+        // FCP
+        $fcpProducts = DB::table('fcp_movements')
+            ->where('user_id', $userId)
+            ->select('product_id', DB::raw('SUM(nb_parts_change) as total_parts'))
+            ->groupBy('product_id')
+            ->get();
+
+        foreach ($fcpProducts as $fcp) {
+            if ($fcp->total_parts > 0.001) {
+                $lastVl = AssetValue::where('product_id', $fcp->product_id)->orderBy('date_vl', 'desc')->value('vl') 
+                         ?? Product::where('id', $fcp->product_id)->value('vl');
+                $valuation += ($fcp->total_parts * $lastVl);
+            }
+        }
+
         $allMovements = $mergedMovements->sortByDesc('date')->values();
 
         $pdf = Pdf::loadView('front-end.releves.historique-transactions-pdf', [
             'user'         => $user,
             'allMovements' => $allMovements,
+            'valuation'    => $valuation,
             'generated_at' => Carbon::now()->format('d/m/Y H:i'),
         ]);
         $pdf->setPaper('A4', 'portrait');
