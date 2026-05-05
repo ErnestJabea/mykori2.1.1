@@ -2234,10 +2234,11 @@ class ProductController extends Controller
             ->get();
 
         foreach ($fcpProducts as $fcp) {
-            if ($fcp->total_parts > 0.001) {
+            // Précision à 10 décimales pour le calcul
+            if ((double)$fcp->total_parts > 0.0000000001) {
                 $lastVl = AssetValue::where('product_id', $fcp->product_id)->orderBy('date_vl', 'desc')->value('vl') 
                          ?? Product::where('id', $fcp->product_id)->value('vl');
-                $valuation += ($fcp->total_parts * $lastVl);
+                $valuation += ((double)$fcp->total_parts * (double)$lastVl);
             }
         }
 
