@@ -2164,7 +2164,7 @@ class ProductController extends Controller
                 'libelle'            => $tx->title ?? 'SOUSCRIPTION',
                 'ref'                => $tx->ref,
                 'produit'            => $productTitle,
-                'montant'            => (float)$tx->amount + (float)$tx->fees,
+                'montant'            => (float)$tx->amount,
                 'sens'               => 'entrant',
             ]);
 
@@ -2192,7 +2192,7 @@ class ProductController extends Controller
                 'libelle'            => $tx->title ?? 'VERSEMENT LIBRE',
                 'ref'                => $tx->ref,
                 'produit'            => $productTitle,
-                'montant'            => (float)$tx->amount + (float)$tx->fees,
+                'montant'            => (float)$tx->amount,
                 'sens'               => 'entrant',
             ]);
 
