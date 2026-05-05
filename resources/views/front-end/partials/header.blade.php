@@ -224,19 +224,6 @@
                             </li>
                             <li class="menu-li">
                                 <button class="menu-btn group bg-n0 dark:!border-n500 dark:!bg-bg4">
-                                    <a href="{{ route('my-history') }}"
-                                        class="flex items-center justify-center gap-2">
-                                        <span class="menu-icon">
-                                            <i class="las la-exchange-alt"></i>
-                                        </span>
-                                        <span class="menu-title font-medium">Historique</span>
-                                    </a>
-                                </button>
-                                <ul class="submenu-hide submenu">
-                                </ul>
-                            </li>
-                            <li class="menu-li">
-                                <button class="menu-btn group bg-n0 dark:!border-n500 dark:!bg-bg4">
                                     <a href="{{ route('my-statements') }}"
                                         class="flex items-center justify-center gap-2">
                                         <span class="menu-icon">

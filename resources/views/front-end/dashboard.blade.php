@@ -319,11 +319,6 @@
                         @endif
                     </table>
                     <div class="content-btn-see-all">
-                        <a class="group mt-6 inline-flex items-center gap-1 font-semibold text-primary"
-                            href="{{ route('my-history') }}">
-                            Voir +
-                            <i class="las la-arrow-right duration-300 group-hover:pl-2"></i>
-                        </a>
                     </div>
                 </div>
             </div>
@@ -561,13 +556,6 @@
                     popover: {
                         title: 'Mes produits',
                         description: 'Consulter vos produits souscrits'
-                    }
-                },
-                {
-                    element: '#historique',
-                    popover: {
-                        title: 'Historque',
-                        description: 'Consulter l\'hsitorique de vos différentes transactions'
                     }
                 },
                 {
