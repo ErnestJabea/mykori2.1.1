@@ -32,12 +32,14 @@
 
                             <div class="round-fill round-full">
                                 @php
-                                    $user_ = App\Models\User::where('id', Auth::user()->id)->first();
+                                    $user_ = Auth::user();
                                 @endphp
-                                {{ mb_substr($user_->name, 0, 1) }}
+                                @if($user_)
+                                    {{ mb_substr($user_->name, 0, 1) }}
+                                @endif
                             </div>
                             <span class="hidden text-sm font-medium lg:block">
-                                {{ Auth::user()->name }}
+                                {{ $user_ ? $user_->name : 'Utilisateur' }}
                             </span>
                             <i class="las la-angle-down hidden text-lg lg:block"></i>
                         </button>
