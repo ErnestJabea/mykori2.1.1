@@ -53,7 +53,7 @@ class AchatActionCustomerController extends Controller
         if ($existing_transaction) {
             // Créer une nouvelle transaction avec une référence unique
             $new_transaction = new TransactionSupplementaire();
-            $new_transaction->title = "Souscription suppl. " . $type_souscription . " de " . $name_product->title;
+            $new_transaction->title = "Souscription de \"" . $name_product->title . "\"";
             $new_transaction->ref = "Kori-" . $existing_transaction->ref . "-" . $unique_id;
             $new_transaction->payment_mode = "A définir";
             $new_transaction->amount = $montantTotal;
@@ -72,7 +72,7 @@ class AchatActionCustomerController extends Controller
         } else {
             // Créer une nouvelle transaction avec une référence unique
             $transaction = new Transaction();
-            $transaction->title = "Souscription " . $type_souscription . " de " . $name_product->title;
+            $transaction->title = "Souscription de \"" . $name_product->title . "\"";
             $transaction->ref = "Kori-" . $unique_id;
             $transaction->payment_mode = "A définir";
             $transaction->amount = $montantTotal;
@@ -137,7 +137,7 @@ class AchatActionCustomerController extends Controller
 
         if ($existing_transaction) {
             $new_transaction = new TransactionSupplementaire();
-            $new_transaction->title = "Souscription suppl. " . $type_souscription . " de " . $name_product->title;
+            $new_transaction->title = "Souscription de \"" . $name_product->title . "\"";
             $new_transaction->ref = $existing_transaction->ref . "-" . $unique_id;
             $new_transaction->payment_mode = "A définir";
             
@@ -165,7 +165,7 @@ class AchatActionCustomerController extends Controller
             $new_transaction->save();
         } else {
             $transaction = new Transaction();
-            $transaction->title = "Souscription " . $type_souscription . " de " . $name_product->title;
+            $transaction->title = "Souscription de \"" . $name_product->title . "\"";
             $transaction->ref = "Kori-" . $unique_id;
             $transaction->payment_mode = "A définir";
             

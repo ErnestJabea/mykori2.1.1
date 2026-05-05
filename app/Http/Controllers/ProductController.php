@@ -2161,7 +2161,7 @@ class ProductController extends Controller
             $mergedMovements->push((object)[
                 'date'               => $tx->created_at,
                 'date_souscription'  => $tx->date_validation ?? $tx->created_at,
-                'libelle'            => $tx->title ?? 'SOUSCRIPTION',
+                'libelle'            => "Souscription de \"{$productTitle}\"",
                 'ref'                => $tx->ref,
                 'produit'            => $productTitle,
                 'montant'            => (float)$tx->amount,
@@ -2189,7 +2189,7 @@ class ProductController extends Controller
              $mergedMovements->push((object)[
                 'date'               => $tx->created_at,
                 'date_souscription'  => $tx->date_validation ?? $tx->created_at,
-                'libelle'            => $tx->title ?? 'VERSEMENT LIBRE',
+                'libelle'            => "Souscription de \"{$productTitle}\"",
                 'ref'                => $tx->ref,
                 'produit'            => $productTitle,
                 'montant'            => (float)$tx->amount,
