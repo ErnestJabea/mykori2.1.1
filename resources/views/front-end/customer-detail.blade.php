@@ -407,9 +407,9 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                                     class="font-semibold text-n600">{{ \Carbon\Carbon::parse($my_product['souscription'])->format('d/m/Y') }}</span>
                                             </td>
                                             <td class="text-right">
-                                                <div class="flex flex-col">
+                                                <div class="flex flex-col" style="white-space: nowrap;">
                                                     <span
-                                                        class="brut-val">{{ number_format($my_product['capital_investi'], 0, ' ', ' ') }}</span>
+                                                        class="brut-val">XAF {{ number_format($my_product['capital_investi'], 0, ' ', ' ') }}</span>
                                                 </div>
                                             </td>
                                             <td class="text-right font-medium">
@@ -417,10 +417,10 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                             </td>
                                             <td class="text-right">
                                                 <span
-                                                    class="gold-text">{{ number_format($my_product['nb_part'], 6, ',', ' ') }}</span>
+                                                    class="gold-text">{{ number_format(floor($my_product['nb_part'] * 100) / 100, 2, ',', ' ') }}</span>
                                             </td>
-                                            <td class="text-right text-marron">
-                                                XAF {{ number_format($my_product['portfolio_valeur'], 0, ' ', ' ') }}
+                                            <td class="text-right text-marron" style="white-space: nowrap;">
+                                                XAF {{ number_format(floor($my_product['portfolio_valeur']), 0, ' ', ' ') }}
                                             </td>
                                             <td class="text-right">
                                                 @php
@@ -432,9 +432,9 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                                                 ? 'gain-badge-negative'
                                                                 : 'gain-badge-neutral');
                                                 @endphp
-                                                <span class="gain-badge {{ $fcpClass }}">
+                                                <span class="gain-badge {{ $fcpClass }}" style="white-space: nowrap;">
                                                     {{ $gainFcp > 0 ? '+' : '' }}
-                                                    {{ number_format($gainFcp, 0, ' ', ' ') }}
+                                                    XAF {{ number_format(floor($gainFcp), 0, ' ', ' ') }}
                                                 </span>
                                             </td>
                                             <td class="text-center">
@@ -475,7 +475,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                             <thead
                                 class="bg-n10 text-[10px] uppercase font-bold text-n500 tracking-widest border-b border-n30">
                                 <tr>
-                                    <th class="px-5 py-4">Réf</th>
+                                    <th class="px-5 py-4">Type d'Opération</th>
                                     <th class="px-5 py-4">Produit</th>
                                     <th class="px-5 py-4">Montant placement</th>
                                     <th class="px-5 py-4">VL / Taux</th>
@@ -487,27 +487,37 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                 @foreach ($allTransactionsHistory as $th)
                                     <tr class="hover:bg-n10/50 transition-all italic">
                                         <td class="px-5 py-4">
-                                            <span class="text-xs font-bold text-n800">{{ $th->ref }}</span>
-                                            @if ($th->is_supp)
-                                                <br><span
-                                                    class="bg-primary/10 text-primary text-[8px] px-2 py-0.5 rounded-full ml-1 font-bold">Ajout</span>
+                                            @if(($th->op_type ?? 'souscription') == 'rachat')
+                                                <span class="bg-red-100 text-red-700 text-[10px] px-2 py-1 rounded-full font-bold uppercase">Rachat</span>
+                                            @else
+                                                <span class="bg-blue-100 text-blue-700 text-[10px] px-2 py-1 rounded-full font-bold uppercase">Souscription</span>
                                             @endif
                                         </td>
                                         <td class="px-5 py-4 text-sm font-bold text-n900">
                                             {{ optional($th->product)->title }}</td>
-                                        <td class="px-5 py-4 text-sm font-bold text-n700">
-                                            {{ number_format($th->amount, 0, ' ', ' ') }} XAF</td>
-                                        <td class="px-5 py-4 text-xs">{{ $th->vl_buy }}
-                                            {{ optional($th->product)->products_category_id == 1 ? 'XAF' : '%' }}</td>
+                                        <td class="px-5 py-4 text-sm font-bold {{ ($th->op_type ?? 'souscription') == 'rachat' ? 'text-red-600' : 'text-n700' }}">
+                                            {{ ($th->op_type ?? 'souscription') == 'rachat' ? '-' : '' }} {{ number_format($th->amount, 0, ' ', ' ') }} XAF</td>
+                                        <td class="px-5 py-4 text-xs">
+                                            @if($th->vl_buy > 0)
+                                                {{ number_format($th->vl_buy, 2, ',', ' ') }}
+                                                {{ optional($th->product)->products_category_id == 1 ? 'XAF' : '%' }}
+                                            @else
+                                                -
+                                            @endif
+                                        </td>
                                         <td class="px-5 py-4 text-xs">
                                             {{ \Carbon\Carbon::parse($th->date_validation ?? $th->created_at)->format('d/m/Y') }}
                                         </td>
                                         <td class="px-5 py-4 text-center">
-                                            <button type="button"
-                                                onclick="openEditModal('{{ $th->id }}', '{{ $th->is_supp ? 'true' : 'false' }}', '{{ $th->ref }}', '{{ $th->amount }}', '{{ $th->vl_buy }}', '{{ \Carbon\Carbon::parse($th->date_validation ?? $th->created_at)->toDateString() }}', '{{ $th->date_echeance }}', '{{ $th->product_id }}', '{{ optional($th->product)->products_category_id }}', '{{ $th->interest_management }}')"
-                                                class="w-8 h-8 rounded-lg bg-orange-100 text-orange-600 hover:bg-orange-200 transition-all flex items-center justify-center mx-auto">
-                                                <i class="las la-edit"></i>
-                                            </button>
+                                            @if(!($th->is_rachat_virtual ?? false))
+                                                <button type="button"
+                                                    onclick="openEditModal('{{ $th->id }}', '{{ $th->is_supp ? 'true' : 'false' }}', '{{ $th->ref }}', '{{ $th->amount }}', '{{ $th->vl_buy }}', '{{ \Carbon\Carbon::parse($th->date_validation ?? $th->created_at)->toDateString() }}', '{{ $th->date_echeance ?? '' }}', '{{ $th->product_id }}', '{{ optional($th->product)->products_category_id }}', '{{ $th->interest_management ?? '' }}', '{{ $th->op_type ?? 'souscription' }}')"
+                                                    class="w-8 h-8 rounded-lg bg-orange-100 text-orange-600 hover:bg-orange-200 transition-all flex items-center justify-center mx-auto">
+                                                    <i class="las la-edit"></i>
+                                                </button>
+                                            @else
+                                                <span class="text-[9px] opacity-40 italic uppercase">Archives</span>
+                                            @endif
                                         </td>
                                     </tr>
                                 @endforeach
@@ -535,7 +545,12 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                                 <td class="px-4 py-3 font-bold">
                                                     {{ \Carbon\Carbon::parse($fm->date_operation)->format('d/m/Y') }}</td>
                                                 <td class="px-4 py-3 opacity-60 uppercase">
-                                                    {{ str_replace('_', ' ', $fm->type) }}</td>
+                                                    @if(str_contains(strtolower($fm->type), 'rachat') || str_contains(strtolower($fm->type), 'payout'))
+                                                        Rachat
+                                                    @else
+                                                        Souscription
+                                                    @endif
+                                                </td>
                                                 <td
                                                     class="px-4 py-3 text-right font-bold {{ $fm->amount < 0 ? 'text-red-500' : 'text-green-500' }}">
                                                     {{ number_format($fm->amount, 0, '.', ' ') }}
@@ -571,7 +586,12 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                                 <td class="px-3 py-3 font-bold text-n800">
                                                     {{ \Carbon\Carbon::parse($fcm->date_operation)->format('d/m/Y') }}</td>
                                                 <td class="px-3 py-3 opacity-60 uppercase text-[9px]">
-                                                    {{ str_replace('_', ' ', $fcm->type) }}</td>
+                                                    @if(str_contains(strtolower($fcm->type), 'rachat'))
+                                                        Rachat
+                                                    @else
+                                                        Souscription
+                                                    @endif
+                                                </td>
                                                 <td class="px-3 py-3 text-right font-medium text-n600">
                                                     {{ $fcm->amount_xaf > 0 ? number_format($fcm->amount_xaf + ($fcm->fees ?? 0), 0, ' ', ' ') : '-' }}
                                                 </td>
@@ -648,6 +668,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                     @csrf
                     <input type="hidden" name="trans_id" id="edit-trans-id">
                     <input type="hidden" name="is_supp" id="edit-is-supp">
+                    <input type="hidden" name="op_type" id="edit-op-type">
                     <input type="hidden" id="edit-prod-id">
                     <input type="hidden" id="edit-cat-id">
 
@@ -821,7 +842,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
         let pickerEditEch = null;
         let pickerEcheance = null;
 
-        function openEditModal(id, isSupp, ref, amount, vl, dateVal, dateEch, prodId, catId, interestMgmt = null) {
+        function openEditModal(id, isSupp, ref, amount, vl, dateVal, dateEch, prodId, catId, interestMgmt = null, opType = 'souscription') {
             console.log("Opening edit modal for:", ref);
             const modal = $('#modal-edit-transaction');
             if (!modal.length) {
@@ -839,6 +860,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
             $('#edit-date-val').val(dateVal);
             $('#edit-date-ech').val(dateEch);
             $('#edit-interest-management').val(interestMgmt || "");
+            $('#edit-op-type').val(opType);
 
             // SYNC picker min date on open
             if (pickerEditEch && dateVal) {
@@ -907,10 +929,10 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                             const prefix = row.plus_value > 0 ? '+' : '';
                             html += `<tr class="text-[11px] hover:bg-n10 transition-all italic">
                                 <td class="px-5 py-4 font-bold border-b border-n30">${row.date}</td>
-                                <td class="px-5 py-4 border-b border-n30">${Number(row.vl).toLocaleString('fr-FR')} XAF</td>
+                                <td class="px-5 py-4 border-b border-n30">${Number(row.vl).toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 6})} XAF</td>
                                 <td class="px-5 py-4 font-bold text-primary border-b border-n30">${Number(row.parts).toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 6})}</td>
-                                <td class="px-5 py-4 font-bold text-n900 border-b border-n30">${Number(row.valuation).toLocaleString('fr-FR')} XAF</td>
-                                <td class="px-5 py-4 text-right font-bold ${plusValueClass} border-b border-n30">${prefix}${Number(row.plus_value).toLocaleString('fr-FR')} XAF</td>
+                                <td class="px-5 py-4 font-bold text-n900 border-b border-n30">${Number(row.valuation).toLocaleString('fr-FR', {minimumFractionDigits: 2})} XAF</td>
+                                <td class="px-5 py-4 text-right font-bold ${plusValueClass} border-b border-n30">${prefix}${Number(row.plus_value).toLocaleString('fr-FR', {minimumFractionDigits: 2})} XAF</td>
                             </tr>`;
                         });
                     }
@@ -960,9 +982,9 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                             html += `<tr class="text-[11px] hover:bg-n10 transition-all italic">
                                 <td class="px-5 py-4 font-bold border-b border-n30">${row.date}</td>
                                 <td class="px-5 py-4 border-b border-n30 text-primary font-bold">${row.taux}</td>
-                                <td class="px-5 py-4 font-bold text-n900 border-b border-n30">${Number(row.capital).toLocaleString('fr-FR')} XAF</td>
-                                <td class="px-5 py-4 font-bold text-marron border-b border-n30">${Number(row.valuation).toLocaleString('fr-FR')} XAF</td>
-                                <td class="px-5 py-4 text-right font-bold ${interestsClass} border-b border-n30">${prefix}${Number(row.interests).toLocaleString('fr-FR')} XAF</td>
+                                <td class="px-5 py-4 font-bold text-n900 border-b border-n30">${Number(row.capital).toLocaleString('fr-FR', {minimumFractionDigits: 2})} XAF</td>
+                                <td class="px-5 py-4 font-bold text-marron border-b border-n30">${Number(row.valuation).toLocaleString('fr-FR', {minimumFractionDigits: 2})} XAF</td>
+                                <td class="px-5 py-4 text-right font-bold ${interestsClass} border-b border-n30">${prefix}${Number(row.interests).toLocaleString('fr-FR', {minimumFractionDigits: 2})} XAF</td>
                             </tr>`;
                         });
                     }

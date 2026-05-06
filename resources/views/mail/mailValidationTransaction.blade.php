@@ -22,9 +22,9 @@
             </p>
 
             <p>Produit : <strong>{{ $nom_produit }}</strong></p>
-            <p>Valeur liquidative à l'initiation de la transaction : <strong>{{ $vl }}</strong></p>
+            <p>Valeur liquidative à l'initiation de la transaction : <strong>{{ number_format($vl, 2, ',', ' ') }}</strong></p>
             <p>Référence de transaction: <strong>{{ $ref_transaction }}</strong></p>
-            <p>Nombre de part : <strong>{{ $nbpart }}</strong></p>
+            <p>Nombre de part : <strong>{{ number_format($nbpart, 2, ',', ' ') }}</strong></p>
             <p>Montant transaction: <strong> XAF {{ number_format($montantTransaction, 0, ' ', ' ') }}</strong></p>
             <p>Status de la transaction: <strong> {{ $status_ }}</strong>
 

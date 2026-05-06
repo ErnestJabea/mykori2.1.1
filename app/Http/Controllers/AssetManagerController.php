@@ -697,7 +697,9 @@ class AssetManagerController extends Controller
             abort(403, 'Accès non autorisé.');
         }
 
-        $products = Product::where('products_category_id', 1)->get();
+        $products = Product::where('products_category_id', 1)
+            ->where('title', 'LIKE', '%KORI SERENITE%')
+            ->get();
         $selectedProductId = $request->get('product_id', $products->first()?->id);
         
         $vls = AssetValue::with('product')
@@ -721,14 +723,28 @@ class AssetManagerController extends Controller
             'date_vl' => 'required|date',
         ]);
 
-        // Vérifier si une VL existe déjà à cette date pour ce produit
-        $exists = AssetValue::where('product_id', $request->product_id)
-            ->whereDate('date_vl', $request->date_vl)
-            ->first();
+        // Vérifier si une VL existe déjà à cette date pour ce produit (en excluant l'ID actuel si modification)
+        $query = AssetValue::where('product_id', $request->product_id)
+            ->whereDate('date_vl', $request->date_vl);
+        
+        if ($request->vl_id) {
+            $query->where('id', '!=', $request->vl_id);
+        }
+
+        $exists = $query->first();
 
         if ($exists) {
-            $exists->update(['vl' => $request->vl]);
-            $msg = "Valeur Liquidative mise à jour pour le " . Carbon::parse($request->date_vl)->format('d/m/Y');
+            return back()->with('error', "Une Valeur Liquidative existe déjà pour ce produit à la date du " . \Carbon\Carbon::parse($request->date_vl)->format('d/m/Y') . ". Veuillez modifier l'entrée existante.");
+        }
+
+        if ($request->vl_id) {
+            $vlEntry = AssetValue::findOrFail($request->vl_id);
+            $vlEntry->update([
+                'product_id' => $request->product_id,
+                'vl' => $request->vl,
+                'date_vl' => $request->date_vl,
+            ]);
+            $msg = "Valeur Liquidative mise à jour avec succès.";
         } else {
             AssetValue::create([
                 'product_id' => $request->product_id,

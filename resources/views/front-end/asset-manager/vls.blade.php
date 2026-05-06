@@ -4,6 +4,21 @@
     <main class="kad-main main-content has-sidebar">
         <div class="kad-inner">
 
+            {{-- ── ALERTS ────────────────────────────────────────── --}}
+            @if (session('success'))
+                <div class="mb-4 p-4 bg-green-100 text-green-700 rounded-2xl border border-green-200 flex items-center gap-3">
+                    <i class="las la-check-circle text-xl"></i>
+                    <span class="text-sm font-bold">{{ session('success') }}</span>
+                </div>
+            @endif
+
+            @if (session('error'))
+                <div class="mb-4 p-4 bg-red-100 text-red-700 rounded-2xl border border-red-200 flex items-center gap-3">
+                    <i class="las la-exclamation-circle text-xl"></i>
+                    <span class="text-sm font-bold">{{ session('error') }}</span>
+                </div>
+            @endif
+
             {{-- ── HEADER ─────────────────────────────────────────── --}}
             <div class="kad-topbar">
                 <div class="kad-topbar-left">
@@ -68,7 +83,7 @@
                                         <td class="kad-td-name text-primary uppercase text-[11px]">
                                             {{ $vl->product->title ?? 'N/A' }}</td>
                                         <td class="text-right font-black text-n800">
-                                            {{ number_format($vl->vl, 2, ',', ' ') }}
+                                            {{ number_format($vl->vl, 6, ',', ' ') }}
                                         </td>
                                         <td class="text-center">
                                             <span class="kad-action-badge"
@@ -127,6 +142,7 @@
 
             <form action="{{ route('asset-manager.vls.store') }}" method="POST" class="vlm-body">
                 @csrf
+                <input type="hidden" name="vl_id" id="vl_id_input">
                 <div class="vlm-field">
                     <label class="vlm-label">Produit</label>
                     <select name="product_id" required class="vlm-input">
@@ -148,10 +164,10 @@
                 <div class="vlm-amount-wrap">
                     <span class="vlm-amount-lbl">Valeur liquidative (VL)</span>
                     <div class="vlm-amount-row">
-                        <input type="number" step="0.000001" name="vl" required placeholder="0.000000" class="vlm-amount-input">
+                        <input type="number" step="any" name="vl" required placeholder="0.0000000000" class="vlm-amount-input">
                         <span class="vlm-amount-unit">XAF</span>
                     </div>
-                    <span class="vlm-amount-hint">6 décimales autorisées · ex : 11 293,512400</span>
+                    <span class="vlm-amount-hint">Précision totale autorisée · ex : 11 293,51240825</span>
                 </div>
 
                 <div class="vlm-actions">
@@ -185,6 +201,7 @@
                 overlay.style.display = 'none';
                 overlay.classList.add('vlm-hidden');
                 overlay.querySelector('form').reset();
+                document.getElementById('vl_id_input').value = '';
             }, 260);
         }
 
@@ -194,6 +211,7 @@
             form.querySelector('[name="product_id"]').value = data.product_id;
             form.querySelector('[name="date_vl"]').value = data.date_vl;
             form.querySelector('[name="vl"]').value = data.vl;
+            form.querySelector('[name="vl_id"]').value = data.id;
             openVlModal();
         }
 

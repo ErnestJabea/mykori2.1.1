@@ -97,7 +97,7 @@
                             <div>
                                 <p class="mb-4 font-medium">VALEUR LIQUIDATIVE</p>
                                 <div class="flex items-center gap-2">
-                                    <h4 class="h4">XAF {{ number_format($asset_value->vl, 0, ' ', ' ') }}</h4>
+                                    <h4 class="h4">XAF {{ number_format($asset_value->vl, 2, ',', ' ') }}</h4>
                                 </div>
                             </div>
                         </div>

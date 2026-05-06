@@ -47,7 +47,7 @@
                                                             @if ($product->products_category_id == 2)
                                                                 <span class="price text-secondary1 font-bold">{{ $product->vl }}%</span>
                                                             @else
-                                                                <span class="price text-primary font-bold">{{ number_format($product->recent_vl, 0, ' ', ' ') }}</span>
+                                                                <span class="price text-primary font-bold">{{ number_format($product->recent_vl, 2, ',', ' ') }}</span>
                                                                 <sup class="text-[10px]">Fcfa</sup>
                                                             @endif
                                                         </div>

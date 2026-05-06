@@ -44,7 +44,7 @@
                                                                 <span class="price">{{ $product->vl }}%</span>
                                                             @else
                                                                 <span
-                                                                    class="price">{{ number_format($asset_value->vl, 0, ' ', ' ') }}</span>
+                                                                    class="price">{{ number_format($asset_value->vl, 2, ',', ' ') }}</span>
                                                                 <sup>Fcfa</sup>
                                                             @endif
                                                         </div>

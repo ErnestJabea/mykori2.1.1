@@ -1140,34 +1140,33 @@ class ProductController extends Controller
     {
         $id = $request->input('trans_id');
         $isSupp = $request->input('is_supp') == 'true';
-        $item = $isSupp ? TransactionSupplementaire::findOrFail($id) : Transaction::findOrFail($id);
+        $opType = $request->input('op_type') ?? 'souscription';
+
+        // Si c'est un rachat qui vient d'un mouvement direct (ID virtuel), on cherche la transaction liée
+        if ($opType == 'rachat') {
+            // On essaie de trouver une transaction de type rachat ou liée au mouvement
+            $item = Transaction::where('id', $id)->first();
+            if (!$item) {
+                // Si on ne trouve pas par ID direct, c'est peut-être un mouvement FCP/PMG qui n'a pas encore de transaction
+                // Dans ce cas, on crée une transaction de rachat "fantôme" pour porter la validation
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Ce rachat est un mouvement historique direct et ne peut pas être modifié via ce formulaire. Contactez l\'administrateur.'
+                ], 422);
+            }
+        } else {
+            $item = $isSupp ? TransactionSupplementaire::findOrFail($id) : Transaction::findOrFail($id);
+        }
 
         $oldAmount = $item->amount;
-        $oldVl = $item->vl_buy;
-        $oldEcheance = $item->date_echeance;
         $wasValidated = $item->is_compliance_validated == 1;
 
-        // Mise à jour des valeurs de base
+        // Mise à jour des valeurs
         $item->amount = $request->input('amount');
         $item->vl_buy = $request->input('vl_buy');
         $item->date_validation = $request->input('date_validation');
-        $item->date_echeance = $item->date_echeance != null ? $request->input('date_echeance') : null;
         
-        // Recalculer les frais (basé sur le même taux qu'à l'origine)
-        $product = Product::find($item->product_id);
-        $feeRate = (float)($product->free ?? 0);
-        $item->fees = ($item->amount * $feeRate) / 100;
-
-        // Recalculer le nombre de parts pour les FCP (Catégorie 1)
-        if ($product->products_category_id == 1) {
-            $amountNet = (float)$item->amount - (float)$item->fees;
-            $vl = (float)$item->vl_buy;
-            if ($vl > 0) {
-                $item->nb_part = $amountNet / $vl;
-            }
-        }
-
-        // SÉCURITÉ : Si l'Asset Manager modifie, on reset les validations
+        // SÉCURITÉ : Reset des validations
         $item->status = 'En attente';
         $item->is_compliance_validated = 0;
         $item->is_backoffice_validated = 0;
@@ -1178,26 +1177,23 @@ class ProductController extends Controller
         
         $item->save();
 
-        // SÉCURITÉ : On supprime les mouvements financiers pour qu'ils ne comptent plus dans le portefeuille
-        // Ils seront recréés lors de la prochaine validation Compliance (via syncFcpMovements ou process direct)
+        // On supprime les mouvements financiers liés pour forcer la re-validation
+        $product = Product::find($item->product_id);
         if ($product->products_category_id == 1) {
             DB::table('fcp_movements')->where('transaction_id', $item->id)->delete();
         } else {
             DB::table('financial_movements')->where('transaction_id', $item->id)->delete();
         }
 
-        // LOG ACTION
         \App\Models\UserActivityLog::log(
-            "MODIFICATION_TRANSACTION",
+            "MODIFICATION_OPERATION",
             $item->user,
-            "Modification par Asset Manager de la transaction #{$item->ref}. Statut réinitialisé. " .
-            "Ancien: $oldAmount -> Nv: {$item->amount} | " .
-            ($wasValidated ? "ATTENTION: Transaction précédemment validée, nécessite une nouvelle validation Compliance." : "")
+            "Modification de l'opération #{$item->ref} (Type: $opType). En attente de validation Compliance."
         );
 
         return response()->json([
             'status' => 'success', 
-            'message' => 'Transaction mise à jour. Elle doit être à nouveau validée par la Compliance pour apparaître dans le portefeuille.'
+            'message' => 'Opération mise à jour. Elle doit être à nouveau validée par la Compliance.'
         ]);
     }
     public function customersDetail($customer_id)
@@ -1215,6 +1211,7 @@ class ProductController extends Controller
             ->get()
             ->map(function($t) { 
                 $t->is_supp = false; 
+                $t->op_type = 'souscription';
                 return $t; 
             });
 
@@ -1224,10 +1221,56 @@ class ProductController extends Controller
             ->get()
             ->map(function($t) { 
                 $t->is_supp = true; 
+                $t->op_type = 'souscription';
                 return $t; 
             });
 
+        // 2b. Historique des Rachats (FCP & PMG)
+        $fcpRachats = DB::table('fcp_movements')
+            ->where('user_id', $customer_id)
+            ->where('type', 'rachat')
+            ->get()
+            ->map(function($r) {
+                return (object)[
+                    'id' => $r->transaction_id ?? $r->id,
+                    'ref' => 'RACHAT-FCP-'.$r->id,
+                    'amount' => abs($r->amount_xaf),
+                    'vl_buy' => $r->vl_applied,
+                    'date_validation' => $r->date_operation,
+                    'created_at' => $r->created_at,
+                    'product_id' => $r->product_id,
+                    'product' => \App\Models\Product::find($r->product_id),
+                    'is_supp' => false,
+                    'op_type' => 'rachat',
+                    'is_rachat_virtual' => ($r->transaction_id == null)
+                ];
+            });
+
+        $pmgRachats = DB::table('financial_movements')
+            ->join('transactions', 'financial_movements.transaction_id', '=', 'transactions.id')
+            ->where('transactions.user_id', $customer_id)
+            ->whereIn('financial_movements.type', ['rachat_partiel', 'rachat_total', 'payout'])
+            ->select('financial_movements.*', 'transactions.product_id', 'transactions.id as trans_id')
+            ->get()
+            ->map(function($r) {
+                return (object)[
+                    'id' => $r->trans_id ?? $r->id,
+                    'ref' => 'RACHAT-PMG-'.$r->id,
+                    'amount' => abs($r->amount),
+                    'vl_buy' => 0, 
+                    'date_validation' => $r->date_operation,
+                    'created_at' => $r->created_at,
+                    'product_id' => $r->product_id,
+                    'product' => \App\Models\Product::find($r->product_id),
+                    'is_supp' => false,
+                    'op_type' => 'rachat',
+                    'is_rachat_virtual' => false
+                ];
+            });
+
         $allTransactionsHistory = $officialTrans->concat($supplementalTrans)
+            ->concat($fcpRachats)
+            ->concat($pmgRachats)
             ->sortByDesc(function($t) {
                 return $t->date_validation ?? $t->created_at;
             });
