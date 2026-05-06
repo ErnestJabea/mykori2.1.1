@@ -109,15 +109,20 @@
         </thead>
         <tbody>
             @foreach($history as $m)
+            @php
+                $isRachat = str_contains(strtolower($m->type), 'rachat');
+            @endphp
             <tr>
                 <td>{{ Carbon::parse($m->date_operation)->format('d/m/Y') }}</td>
                 <td>{{ strtoupper(str_replace('_', ' ', $m->type)) }}</td>
                 <td class="text-right">{{ number_format($m->vl_applied, 2, ',', ' ') }}</td>
-                <td class="text-right {{ $m->nb_parts_change >= 0 ? 'positive' : 'negative' }}">
-                    {{ $m->nb_parts_change >= 0 ? '+' : '' }}{{ number_format($m->nb_parts_change, 2, ',', ' ') }}
+                <td class="text-right {{ ($isRachat || $m->nb_parts_change < 0) ? 'negative' : 'positive' }}">
+                    {{ ($isRachat || $m->nb_parts_change < 0) ? '-' : '+' }}{{ number_format(abs($m->nb_parts_change), 2, ',', ' ') }}
                 </td>
                 <td class="text-right bold">{{ number_format($m->nb_parts_total, 2, ',', ' ') }}</td>
-                <td class="text-right">{{ number_format($m->amount_xaf, 0, ',', ' ') }}</td>
+                <td class="text-right {{ $isRachat ? 'negative' : '' }}">
+                    {{ $isRachat ? '-' : '' }}{{ number_format(abs($m->amount_xaf), 0, ',', ' ') }}
+                </td>
             </tr>
             @endforeach
         </tbody>
