@@ -1276,10 +1276,15 @@ class ProductController extends Controller
             });
 
         // 3. Historique des Operations Financieres (PMG)
+        // On récupère les mouvements liés aux transactions normales ET supplémentaires
         $financialMovements = DB::table('financial_movements')
-            ->join('transactions', 'financial_movements.transaction_id', '=', 'transactions.id')
-            ->where('transactions.user_id', $customer_id)
-            ->select('financial_movements.*', 'transactions.ref as trans_ref')
+            ->leftJoin('transactions', 'financial_movements.transaction_id', '=', 'transactions.id')
+            ->leftJoin('transaction_supplementaires', 'financial_movements.transaction_id', '=', 'transaction_supplementaires.id')
+            ->where(function($q) use ($customer_id) {
+                $q->where('transactions.user_id', $customer_id)
+                  ->orWhere('transaction_supplementaires.user_id', $customer_id);
+            })
+            ->select('financial_movements.*', DB::raw('COALESCE(transactions.ref, transaction_supplementaires.ref) as trans_ref'))
             ->orderBy('date_operation', 'desc')
             ->get();
 
