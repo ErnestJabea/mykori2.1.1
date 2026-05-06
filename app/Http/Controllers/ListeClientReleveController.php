@@ -377,35 +377,31 @@ public function previewFcp(int $clientId)
 
         // Logic de cumul BRUT
         // Logic de cumul BRUT
-        $mainAmount = DB::table('transactions')
+        $cumulInvestiBrut = DB::table('fcp_movements')
             ->where('user_id', $client->id)
             ->where('product_id', $productId)
-            ->where('status', 'Succès')
-            ->whereDate('date_validation', '<=', $dateN->toDateString())
-            ->sum('amount');
-
-        $suppAmount = DB::table('transaction_supplementaires')
+            ->where('nb_parts_change', '>', 0)
+            ->whereDate('date_operation', '<=', $dateN->toDateString())
+            ->sum('amount_xaf');
+            
+        $totalRachats = abs(DB::table('fcp_movements')
             ->where('user_id', $client->id)
             ->where('product_id', $productId)
-            ->where('status', 'Succès')
-            ->whereDate('date_validation', '<=', $dateN->toDateString())
-            ->sum('amount');
+            ->where('nb_parts_change', '<', 0)
+            ->whereDate('date_operation', '<=', $dateN->toDateString())
+            ->sum('amount_xaf'));
 
-        $cumulInvestiBrut = (float)$mainAmount + (float)$suppAmount;
+        $cumulInvestiBrut = (float)$cumulInvestiBrut; // Gross is sum of all subscriptions
+        $cumulInvestiNet = $cumulInvestiBrut - $totalRachats; // Net is Gross - Rachats
         
-        $mainFees = DB::table('transactions')
+        $cumulFees = DB::table('fcp_movements')
             ->where('user_id', $client->id)
             ->where('product_id', $productId)
-            ->where('status', 'Succès')
-            ->whereDate('date_validation', '<=', $dateN->toDateString())
+            ->where('nb_parts_change', '>', 0)
+            ->whereDate('date_operation', '<=', $dateN->toDateString())
             ->sum('fees');
-        $suppFees = DB::table('transaction_supplementaires')
-            ->where('user_id', $client->id)
-            ->where('product_id', $productId)
-            ->where('status', 'Succès')
-            ->whereDate('date_validation', '<=', $dateN->toDateString())
-            ->sum('fees');
-        $cumulInvestiNet = $cumulInvestiBrut - ((float)$mainFees + (float)$suppFees);
+
+        $cumulInvestiNet = $cumulInvestiBrut - (float)$cumulFees - $totalRachats;
 
         $totalValoN += $valoN;
         $totalValoN1 += $valoN1;
@@ -414,11 +410,11 @@ public function previewFcp(int $clientId)
             $produitsAffiches[] = [
                 'nom'               => $product->title,
                 'parts_n'           => (float)$partsN,
-                'parts_n1'          => (float)$partsN1,
-                'parts_souscrites'  => (float)$partsSouscritesMois,
-                'parts_rachetees'    => (float)$partsRacheteesMois,
-                'montant_souscrit'  => (float)$montantSouscritMois,
-                'frais_souscription' => (float)$fraisSouscriptionMois,
+                'parts_n_1'         => (float)$partsN1,
+                'parts_achetees'    => (float)$partsSouscritesMois,
+                'parts_rachetees'   => (float)$partsRacheteesMois,
+                'total_montant_brut'=> (float)$montantSouscritMois,
+                'total_frais'       => (float)$fraisSouscriptionMois,
                 'vl_n'              => (float)$vlN,
                 'vl_n1'             => (float)$vlN1,
                 'valo_n'            => (float)$valoN,
