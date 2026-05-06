@@ -1127,9 +1127,9 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                             }
                         }
 
-                        const catId = $('#edit-cat-id').val();
+                        const catId = parseInt($('#edit-cat-id').val());
                         const prodId = $('#edit-prod-id').val();
-                        if (catId == 1 && prodId) {
+                        if (catId === 1 && prodId && val) {
                             fetchVlForEdit(prodId, val);
                         }
                     }
