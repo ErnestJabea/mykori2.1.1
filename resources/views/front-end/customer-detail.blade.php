@@ -569,8 +569,8 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                 <table class="w-full text-left kori-fcp-table">
                                     <thead class="bg-n10 text-[9px] uppercase font-bold text-n500 border-b border-n30">
                                         <tr>
-                                            <th class="px-3 py-2">Date Opé.</th>
-                                            <th class="px-3 py-2">Date Souscr.</th>
+                                            <th class="px-3 py-2">Date Valeur</th>
+                                            <th class="px-3 py-2">Date Saisie</th>
                                             <th class="px-3 py-2">Opération</th>
                                             <th class="px-3 py-2 text-right">Brut (Invest)</th>
                                             <th class="px-3 py-2 text-right">Net (Invest.)</th>
@@ -581,10 +581,10 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                     <tbody class="divide-y divide-n30">
                                         @foreach ($fcpMovements as $fcm)
                                             <tr class="text-[10px] hover:bg-n10 transition-all">
-                                                <td class="px-3 py-3 opacity-60">
-                                                    {{ \Carbon\Carbon::parse($fcm->created_at)->format('d/m/Y') }}</td>
                                                 <td class="px-3 py-3 font-bold text-n800">
                                                     {{ \Carbon\Carbon::parse($fcm->date_operation)->format('d/m/Y') }}</td>
+                                                <td class="px-3 py-3 opacity-60">
+                                                    {{ \Carbon\Carbon::parse($fcm->created_at)->format('d/m/Y') }}</td>
                                                 <td class="px-3 py-3 opacity-60 uppercase text-[9px]">
                                                     @if(str_contains(strtolower($fcm->type), 'rachat'))
                                                         Rachat
@@ -593,17 +593,25 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                                     @endif
                                                 </td>
                                                 <td class="px-3 py-3 text-right font-medium text-n600">
-                                                    {{ $fcm->amount_xaf > 0 ? number_format($fcm->amount_xaf + ($fcm->fees ?? 0), 0, ' ', ' ') : '-' }}
+                                                    @if(str_contains(strtolower($fcm->type), 'rachat'))
+                                                        - {{ number_format(abs($fcm->amount_xaf + ($fcm->fees ?? 0)), 0, ' ', ' ') }}
+                                                    @else
+                                                        {{ $fcm->amount_xaf > 0 ? number_format($fcm->amount_xaf + ($fcm->fees ?? 0), 0, ' ', ' ') : '-' }}
+                                                    @endif
                                                 </td>
                                                 <td class="px-3 py-3 text-right font-bold text-n700">
-                                                    {{ $fcm->amount_xaf > 0 ? number_format($fcm->amount_xaf, 0, ' ', ' ') : '-' }}
+                                                    @if(str_contains(strtolower($fcm->type), 'rachat'))
+                                                        - {{ number_format(abs($fcm->amount_xaf), 0, ' ', ' ') }}
+                                                    @else
+                                                        {{ $fcm->amount_xaf > 0 ? number_format($fcm->amount_xaf, 0, ' ', ' ') : '-' }}
+                                                    @endif
                                                 </td>
                                                 <td class="px-3 py-3 text-right font-medium text-n600">
                                                     {{ number_format($fcm->vl_applied, 2, ',', ' ') }}
                                                 </td>
                                                 <td
-                                                    class="px-3 py-3 text-right font-bold {{ $fcm->nb_parts_change < 0 ? 'text-red-500' : 'text-primary' }}">
-                                                    {{ ($fcm->nb_parts_change >= 0 ? '+' : '') . number_format($fcm->nb_parts_change, 4, ',', ' ') }}
+                                                    class="px-3 py-3 text-right font-bold {{ (str_contains(strtolower($fcm->type), 'rachat') || $fcm->nb_parts_change < 0) ? 'text-red-500' : 'text-primary' }}">
+                                                    {{ (str_contains(strtolower($fcm->type), 'rachat') || $fcm->nb_parts_change < 0) ? '-' : '+' }}{{ number_format(abs($fcm->nb_parts_change), 4, ',', ' ') }}
                                                 </td>
                                             </tr>
                                         @endforeach
