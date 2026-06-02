@@ -164,15 +164,6 @@ public function previewPmg(int $clientId)
 
     $merged = $allTransactions->merge($supplemental);
 
-    // Ajustement de la date du relevé si tous les mandats sont échus dans le mois
-    $maxExpiryInMonth = $merged->where('date_echeance', '<=', $dateN->toDateString())
-                               ->where('date_echeance', '>=', $dateN->copy()->startOfMonth()->toDateString())
-                               ->max('date_echeance');
-    $anyActivePastMonth = $merged->where('date_echeance', '>', $dateN->toDateString())->isNotEmpty();
-    
-    if (!$anyActivePastMonth && $maxExpiryInMonth) {
-        $dateN = Carbon::parse($maxExpiryInMonth);
-    }
     $dateN1 = $dateN->copy()->startOfMonth()->subDay(); 
     $grouped = $merged->groupBy('product_id');
 
@@ -198,25 +189,33 @@ public function previewPmg(int $clientId)
             $vN = $productController->calculatePMGValorization($trans, $dateN);
             $vN1 = $productController->calculatePMGValorization($trans, $dateN1);
 
+            // Déterminer le bon ID parent pour les requêtes de mouvements financiers
+            $isSupplementaire = ($trans instanceof \App\Models\TransactionSupplementaire);
+            $parentId = $isSupplementaire ? $trans->transaction_id : $trans->id;
+
+            // Plage de dates incluant l'heure pour capturer tout le dernier jour du mois clos
+            $startDatePeriod = $dateN1->copy()->addDay()->startOfDay()->toDateTimeString();
+            $endDatePeriod = $dateN->copy()->endOfDay()->toDateTimeString();
+
             // Sorties du mois pour le calcul du gain (inclut les intérêts payés)
             $totalOutflowsForGain = DB::table('financial_movements')
-                ->where('transaction_id', $trans->id)
+                ->where('transaction_id', $parentId)
                 ->whereIn('type', ['rachat_partiel', 'paiement_interets', 'precompte_interets', 'dividende_interets'])
-                ->whereBetween('date_operation', [$dateN1->copy()->addDay()->toDateString(), $dateN->toDateString()])
+                ->whereBetween('date_operation', [$startDatePeriod, $endDatePeriod])
                 ->sum('amount') ?? 0;
 
             // Sorties affichées en "Pertes" (exclut paiement_interets selon demande)
             $displayedOutflows = DB::table('financial_movements')
-                ->where('transaction_id', $trans->id)
+                ->where('transaction_id', $parentId)
                 ->whereIn('type', ['rachat_partiel', 'precompte_interets', 'dividende_interets'])
-                ->whereBetween('date_operation', [$dateN1->copy()->addDay()->toDateString(), $dateN->toDateString()])
+                ->whereBetween('date_operation', [$startDatePeriod, $endDatePeriod])
                 ->sum('amount') ?? 0;
 
             // Calcul du gain mensuel de cette transaction
             $mvtCap = DB::table('financial_movements')
-                ->where('transaction_id', $trans->id)
+                ->where('transaction_id', $parentId)
                 ->where('type', 'capitalisation_interets')
-                ->whereBetween('date_operation', [$dateN1->copy()->addDay()->toDateString(), $dateN->toDateString()])
+                ->whereBetween('date_operation', [$startDatePeriod, $endDatePeriod])
                 ->first();
 
             $currentTransGain = 0;
@@ -244,7 +243,7 @@ public function previewPmg(int $clientId)
             }
 
             $prec = DB::table('financial_movements')
-                ->where('transaction_id', $trans->id)
+                ->where('transaction_id', $parentId)
                 ->where('type', 'precompte_interets')
                 ->value('amount') ?? 0;
 
@@ -606,15 +605,6 @@ private function genererPdfPmg(int $clientId): string
 
     $merged = $allTransactions->merge($supplemental);
 
-    // Ajustement de la date du relevé si tous les mandats sont échus dans le mois
-    $maxExpiryInMonth = $merged->where('date_echeance', '<=', $dateN->toDateString())
-                               ->where('date_echeance', '>=', $dateN->copy()->startOfMonth()->toDateString())
-                               ->max('date_echeance');
-    $anyActivePastMonth = $merged->where('date_echeance', '>', $dateN->toDateString())->isNotEmpty();
-    
-    if (!$anyActivePastMonth && $maxExpiryInMonth) {
-        $dateN = Carbon::parse($maxExpiryInMonth);
-    }
     $dateN1 = $dateN->copy()->startOfMonth()->subDay();
     $grouped = $merged->groupBy('product_id');
 
@@ -640,25 +630,33 @@ private function genererPdfPmg(int $clientId): string
             $vN = $productController->calculatePMGValorization($trans, $dateN);
             $vN1 = $productController->calculatePMGValorization($trans, $dateN1);
 
+            // Déterminer le bon ID parent pour les requêtes de mouvements financiers
+            $isSupplementaire = ($trans instanceof \App\Models\TransactionSupplementaire);
+            $parentId = $isSupplementaire ? $trans->transaction_id : $trans->id;
+
+            // Plage de dates incluant l'heure pour capturer tout le dernier jour du mois clos
+            $startDatePeriod = $dateN1->copy()->addDay()->startOfDay()->toDateTimeString();
+            $endDatePeriod = $dateN->copy()->endOfDay()->toDateTimeString();
+
             // Sorties du mois pour le calcul du gain (inclut les intérêts payés)
             $totalOutflowsForGain = DB::table('financial_movements')
-                ->where('transaction_id', $trans->id)
+                ->where('transaction_id', $parentId)
                 ->whereIn('type', ['rachat_partiel', 'paiement_interets', 'precompte_interets', 'dividende_interets'])
-                ->whereBetween('date_operation', [$dateN1->copy()->addDay()->toDateString(), $dateN->toDateString()])
+                ->whereBetween('date_operation', [$startDatePeriod, $endDatePeriod])
                 ->sum('amount') ?? 0;
 
             // Sorties affichées en "Pertes" (exclut paiement_interets selon demande)
             $displayedOutflows = DB::table('financial_movements')
-                ->where('transaction_id', $trans->id)
+                ->where('transaction_id', $parentId)
                 ->whereIn('type', ['rachat_partiel', 'precompte_interets', 'dividende_interets'])
-                ->whereBetween('date_operation', [$dateN1->copy()->addDay()->toDateString(), $dateN->toDateString()])
+                ->whereBetween('date_operation', [$startDatePeriod, $endDatePeriod])
                 ->sum('amount') ?? 0;
 
             // Calcul du gain mensuel de cette transaction
             $mvtCap = DB::table('financial_movements')
-                ->where('transaction_id', $trans->id)
+                ->where('transaction_id', $parentId)
                 ->where('type', 'capitalisation_interets')
-                ->whereBetween('date_operation', [$dateN1->copy()->addDay()->toDateString(), $dateN->toDateString()])
+                ->whereBetween('date_operation', [$startDatePeriod, $endDatePeriod])
                 ->first();
 
             $currentTransGain = 0;
@@ -686,7 +684,7 @@ private function genererPdfPmg(int $clientId): string
             }
 
             $prec = DB::table('financial_movements')
-                ->where('transaction_id', $trans->id)
+                ->where('transaction_id', $parentId)
                 ->where('type', 'precompte_interets')
                 ->value('amount') ?? 0;
 
@@ -700,7 +698,7 @@ private function genererPdfPmg(int $clientId): string
 
         $capNetTotal = $productCapitalTotal - $productPrecompteTotal;
         $totalValoN += $productValoN;
-        $totalValoN1 += ($productValoN - $productGainMensuelTotal);
+        $totalValoN1 += $productValoN1;
 
         if ($productCapitalTotal > 0) {
             $produitsPreparees[] = (object)[
@@ -708,7 +706,7 @@ private function genererPdfPmg(int $clientId): string
                 'capital' => $productCapitalTotal,
                 'taux' => $productTrans->first()->vl_buy,
                 'valo_n' => $productValoN,
-                'valo_n1' => ($productValoN - $productGainMensuelTotal),
+                'valo_n1' => $productValoN1,
                 'gain_mensuel' => max(0, round($productGainMensuelTotal, 0)),
                 'perte_mensuelle' => round($productPertesMensuelles, 0),
                 'gain_total' => max(0, $productValoN - $capNetTotal),
