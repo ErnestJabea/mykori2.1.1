@@ -382,8 +382,7 @@ public function previewFcp(int $clientId)
             ->where('product_id', $productId)
             ->where('nb_parts_change', '>', 0)
             ->whereDate('date_operation', '<=', $dateN->toDateString())
-            ->select(DB::raw('SUM(amount_xaf + COALESCE(fees, 0)) as total_gross'))
-            ->value('total_gross') ?? 0;
+            ->sum('amount_xaf');
             
         $totalRachats = abs(DB::table('fcp_movements')
             ->where('user_id', $client->id)

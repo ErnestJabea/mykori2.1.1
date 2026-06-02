@@ -1578,70 +1578,99 @@ class ProductController extends Controller
 
     public function syncAnniversaryMovements()
     {
-        // On ne récupère que les produits PMG actifs
-        $transactions = Transaction::where('status', 'Succès')
+        $today = Carbon::now();
+
+        // 1. Récupérer toutes les transactions principales PMG réussies
+        $mainTransactions = Transaction::where('status', 'Succès')
             ->whereHas('product', function ($q) {
                 $q->where('products_category_id', 2);
             })->get();
 
-        $today = Carbon::now();
+        // 2. Récupérer toutes les transactions supplémentaires PMG réussies
+        $suppTransactions = TransactionSupplementaire::where('status', 'Succès')
+            ->whereHas('product', function ($q) {
+                $q->where('products_category_id', 2);
+            })->get();
 
-        foreach ($transactions as $trans) {
-            // Point de départ : 1 an après la validation
-            $anniversary = Carbon::parse($trans->date_validation)->addYear();
+        // Fusionner les collections pour un traitement uniforme
+        $allTrans = $mainTransactions->concat($suppTransactions);
 
-            while ($anniversary->lte($today)) {
-                $formattedDate = $anniversary->toDateString();
+        foreach ($allTrans as $trans) {
+            // Sécuriser chaque transaction dans un bloc try-catch individuel
+            try {
+                if (!$trans->date_validation) {
+                    Log::warning("Anniversary Sync : Transaction {$trans->id} ignorée car la date de validation est manquante.");
+                    continue;
+                }
 
-                // ✅ Sécurité : Normaliser l'anniversaire à minuit pour la comparaison
-                $anniversaryMidnight = $anniversary->copy()->startOfDay();
+                $isSupplementaire = ($trans instanceof TransactionSupplementaire);
+                $parentId = $isSupplementaire ? $trans->transaction_id : $trans->id;
 
-                $exists = DB::table('financial_movements')
-                    ->where('transaction_id', $trans->id)
-                    ->where('type', 'capitalisation_interets')
-                    // On vérifie sur la date uniquement
-                    ->whereDate('date_operation', $formattedDate)
-                    ->exists();
+                // Point de départ : 1 an après la validation
+                $anniversary = Carbon::parse($trans->date_validation)->addYear();
 
-                if (!$exists) {
-                    try {
-                        // ✅ Utilise votre nouvelle fonction de calcul hybride
+                while ($anniversary->lte($today)) {
+                    $formattedDate = $anniversary->toDateString();
+                    $anniversaryMidnight = $anniversary->copy()->startOfDay();
+
+                    // Vérifier l'existence de la capitalisation avec des commentaires ciblés pour éviter les conflits
+                    $query = DB::table('financial_movements')
+                        ->where('transaction_id', $parentId)
+                        ->where('type', 'capitalisation_interets')
+                        ->whereDate('date_operation', $formattedDate);
+
+                    if ($isSupplementaire) {
+                        $query->where('comments', 'LIKE', "%versement complémentaire ID {$trans->id}%");
+                    } else {
+                        $query->where('comments', 'NOT LIKE', "%versement complémentaire ID %");
+                    }
+
+                    $exists = $query->exists();
+
+                    if (!$exists) {
+                        // Calcul de la valorisation exacte à cette date anniversaire
                         $valeurPortefeuille = $this->calculatePMGValorization($trans, $anniversaryMidnight);
 
-                        // Récupération du capital juste avant cet anniversaire
-                        $capitalAvant = DB::table('financial_movements')
-                            ->where('transaction_id', $trans->id)
-                            ->where('date_operation', '<', $anniversaryMidnight)
-                            ->orderBy('date_operation', 'desc')
-                            ->value('capital_after') ?? (float)$trans->amount;
+                        // Calcul du capital précédent
+                        if ($isSupplementaire) {
+                            $capitalAvant = (float)$trans->amount;
+                        } else {
+                            $capitalAvant = DB::table('financial_movements')
+                                ->where('transaction_id', $trans->id)
+                                ->where('date_operation', '<', $anniversaryMidnight)
+                                ->orderBy('date_operation', 'desc')
+                                ->value('capital_after') ?? (float)$trans->amount;
+                        }
 
                         $interetAdd = $valeurPortefeuille - $capitalAvant;
 
-                        // On ne crée un mouvement que si l'intérêt est positif
                         if ($interetAdd > 0) {
                             DB::table('financial_movements')->insert([
-                                'transaction_id' => $trans->id,
+                                'transaction_id' => $parentId,
                                 'user_id'        => $trans->user_id,
                                 'date_operation' => $anniversaryMidnight->toDateTimeString(),
                                 'type'           => 'capitalisation_interets',
-                                'amount'         => $interetAdd,
-                                'capital_before' => $capitalAvant,
-                                'capital_after'  => $valeurPortefeuille,
-                                'comments'       => 'Capitalisation automatique anniversaire ' . $anniversary->diffInYears(Carbon::parse($trans->date_validation)) . ' an(s)',
+                                'amount'         => round($interetAdd, 0),
+                                'capital_before' => round($capitalAvant, 0),
+                                'capital_after'  => round($valeurPortefeuille, 0),
+                                'comments'       => $isSupplementaire
+                                    ? 'Capitalisation versement complémentaire ID ' . $trans->id . ' - anniversaire ' . $anniversary->diffInYears(Carbon::parse($trans->date_validation)) . ' an(s)'
+                                    : 'Capitalisation automatique anniversaire ' . $anniversary->diffInYears(Carbon::parse($trans->date_validation)) . ' an(s)',
                                 'created_at'     => now(),
                                 'updated_at'     => now()
                             ]);
 
-                            // ✅ Optionnel : Mettre à jour le montant principal de la transaction pour le suivi rapide
-                            $trans->update(['amount' => $valeurPortefeuille]);
+                            // Mise à jour du capital de la transaction / versement complémentaire
+                            $trans->update(['amount' => round($valeurPortefeuille, 0)]);
+                            
+                            Log::info("SYNC OK : " . ($isSupplementaire ? "Supp" : "Main") . " Trans {$trans->id} capitalisée pour le {$formattedDate}");
                         }
-
-                        Log::info("SYNC OK : Trans {$trans->id} capitalisée pour le {$formattedDate}");
-                    } catch (\Exception $e) {
-                        Log::error("SYNC FAIL Trans {$trans->id} : " . $e->getMessage());
                     }
+
+                    $anniversary->addYear(); // Année suivante
                 }
-                $anniversary->addYear(); // Passer à l'anniversaire suivant (si contrat de 2 ans ou plus)
+            } catch (\Exception $e) {
+                Log::error("SYNC FAIL : Erreur lors du traitement de la transaction ID {$trans->id} (" . ($trans instanceof TransactionSupplementaire ? "Supp" : "Main") . ") : " . $e->getMessage());
             }
         }
     }
