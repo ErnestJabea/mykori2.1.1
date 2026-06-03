@@ -600,7 +600,13 @@ class MovementController extends Controller
             ->orderBy('id', 'asc')
             ->get();
 
-        $currentCapital = (float)($transaction->montant_initiale ?? $transaction->amount);
+        $firstMvt = $movements->first();
+        if ($firstMvt && in_array($firstMvt->type, ['souscription', 'versement_libre'])) {
+            $currentCapital = 0;
+        } else {
+            $currentCapital = $firstMvt ? (float)$firstMvt->capital_before : (float)$transaction->amount;
+        }
+
         $lastCapDate = Carbon::parse($transaction->date_validation)->toDateString();
         $rate = (float)$transaction->vl_buy;
         $payoutsAccumulated = 0;
