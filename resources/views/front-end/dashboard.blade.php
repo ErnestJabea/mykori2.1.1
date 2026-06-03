@@ -153,6 +153,9 @@
                         <div class="swiper walletSwiper " dir="ltr">
                             <div class="swiper-wrapper">
                                 @foreach ($userProducts as $my_product)
+                                    @if (!($my_product['is_active'] ?? true))
+                                        @continue
+                                    @endif
                                     <div class="swiper-slide">
                                         <div class="flex justify-center">
                                             <div class="content-product @if ($my_product['type_product'] == 1) border-secondary3 @else border-primary @endif"

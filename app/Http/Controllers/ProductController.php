@@ -210,6 +210,7 @@ class ProductController extends Controller
                 'souscription' => $firstDate, // Date visuelle stable
                 'slug' => $product->slug,
                 'days_months' => $this->calculateMonthsAndDaysBetweenDates($firstDate, $maxExpiry),
+                'is_active' => ($totalCurrentValuation > 0)
             ];
         }
 
@@ -243,7 +244,8 @@ class ProductController extends Controller
                 'date_vl_actuel' => $p['latest_vl_date'] ?? null,
                 'slug' => $p['slug'] ?? '',
                 'date_echeance' => Carbon::now()->addYears(10)->toDateString(),
-                'souscription' => $p['first_subscription_date'] ?? Carbon::now()->toDateString()
+                'souscription' => $p['first_subscription_date'] ?? Carbon::now()->toDateString(),
+                'is_active' => (($p['total_parts'] ?? 0) > 0)
             ];
         }, $fcpPortfolio);
 

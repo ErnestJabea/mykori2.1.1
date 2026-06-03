@@ -16,6 +16,9 @@
                         <h3>MES SOUSCRIPTIONS PMG</h3>
                         @foreach ($productsWithGains as $my_product)
                             @if ($my_product['type_product'] == 2)
+                                @if (!($my_product['is_active'] ?? true))
+                                    @continue
+                                @endif
                                 @php
                                     $isExpired = \Carbon\Carbon::parse($my_product['date_echeance'])->isPast();
                                 @endphp
@@ -96,6 +99,9 @@
                         <h3>MES SOUSCRIPTIONS FCP</h3>
                         @foreach ($productsWithGains as $my_product)
                             @if ($my_product['type_product'] == 1)
+                                @if (!($my_product['is_active'] ?? true))
+                                    @continue
+                                @endif
                                 <div class="item-product">
                                     <div class="content-link-title">
                                         <a href="{{ route('product-detail-gain', ['slug' => $my_product['slug']]) }}"

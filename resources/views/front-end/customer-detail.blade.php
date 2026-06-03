@@ -276,6 +276,9 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                             <tbody>
                                 @foreach ($productsWithGains as $my_product)
                                     @if ($my_product['type_product'] == 2)
+                                        @if (!($my_product['is_active'] ?? true))
+                                            @continue
+                                        @endif
                                         @php
                                             $isExpired = \Carbon\Carbon::parse($my_product['date_echeance'])->isPast();
                                         @endphp
@@ -395,6 +398,9 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                             <tbody>
                                 @foreach ($productsWithGains as $my_product)
                                     @if ($my_product['type_product'] == 1)
+                                        @if (!($my_product['is_active'] ?? true))
+                                            @continue
+                                        @endif
                                         <tr>
                                             <td>
                                                 <div class="flex flex-col">
