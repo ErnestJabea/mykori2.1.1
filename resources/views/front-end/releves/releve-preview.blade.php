@@ -371,6 +371,9 @@
                 </thead>
                 <tbody>
                     @foreach ($produits as $p)
+                        @if (($p->valo_n ?? 0) <= 0)
+                            @continue
+                        @endif
                         <tr>
                             <td class="nom-cell">{{ $p->nom }}</td>
                             <td class="center">{{ $p->souscription }}</td>

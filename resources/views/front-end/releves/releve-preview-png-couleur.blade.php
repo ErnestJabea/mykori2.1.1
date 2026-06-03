@@ -372,6 +372,9 @@
                 </thead>
                 <tbody>
                     @foreach ($produits as $p)
+                        @if (($p->valo_n ?? 0) <= 0)
+                            @continue
+                        @endif
                         <tr>
                             <td>{{ $p->nom }}</td>
                             <td>{{ Carbon::createFromFormat('d/m/Y', $p->souscription)->format('d/m/Y') }}</td>
