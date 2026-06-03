@@ -246,6 +246,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                     <th class="text-right">SOLDE APRÈS</th>
                                     <th class="text-right">PARTS (FCP)</th>
                                     <th>COMMENTAIRE</th>
+                                    <th class="text-center">ACTIONS</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -331,10 +332,18 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                     <td>
                                         <p class="text-xs opacity-70 italic max-w-[200px] truncate m-0" title="{{ $op->comment }}">{{ $op->comment ?? '-' }}</p>
                                     </td>
+
+                                    <td class="text-center">
+                                        <button type="button" 
+                                            class="w-8 h-8 rounded-lg bg-orange-100 text-orange-600 hover:bg-orange-200 transition-all flex items-center justify-center mx-auto"
+                                            onclick="openEditOpModal('{{ $op->id }}', '{{ $op->category }}', '{{ $op->type }}', '{{ $op->amount }}', '{{ $op->vl_applied ?? 0 }}', '{{ \Carbon\Carbon::parse($op->date_op)->toDateString() }}', '{{ rawurlencode($op->comment ?? "") }}')">
+                                            <i class="las la-edit"></i>
+                                        </button>
+                                    </td>
                                 </tr>
                                 @empty
                                 <tr>
-                                    <td colspan="10" class="text-center py-8 opacity-50">
+                                    <td colspan="11" class="text-center py-8 opacity-50">
                                         Aucun historique d'opération disponible pour ce client.
                                     </td>
                                 </tr>
@@ -512,6 +521,65 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                     </form>
                 </div>
             </div>
+
+    <!-- MODALE MODIFICATION OPERATION -->
+    <div id="modal-edit-operation"
+        class="ac-modal-overlay modalhide fixed inset-0 z-[100] bg-n900/50 backdrop-blur-sm flex items-center justify-center p-4" style="display:none;">
+        <div class="modal-inner bg-white dark:bg-bg4 w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-modal-in">
+            <div class="p-6 border-b border-n30 flex justify-between items-center bg-primary/10">
+                <h3 class="text-xl font-bold text-n900 dark:text-n0">Modifier l'Opération</h3>
+                <button type="button" onclick="closeEditOpModal()"
+                    class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white transition-all text-n500">
+                    <i class="las la-times text-xl"></i>
+                </button>
+            </div>
+            <div class="p-8">
+                <form id="edit-operation-form" class="space-y-5">
+                    @csrf
+                    <input type="hidden" name="op_id" id="edit-op-id">
+                    <input type="hidden" name="op_category" id="edit-op-category">
+                    <input type="hidden" name="op_type" id="edit-op-type">
+
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase text-n500 mb-2 font-Inter tracking-widest italic">Montant de l'Opération (XAF)</label>
+                        <input type="number" step="0.01" name="amount" id="edit-op-amount"
+                            class="w-full h-[50px] p-4 rounded-xl border border-n30 focus:border-primary outline-none text-sm font-bold bg-n10/50" required>
+                    </div>
+
+                    <div id="edit-op-vl-container">
+                        <label class="block text-[10px] font-bold uppercase text-n500 mb-2 font-Inter tracking-widest italic">Valeur Liquidative (VL)</label>
+                        <input type="number" step="0.000001" name="vl_applied" id="edit-op-vl"
+                            class="w-full h-[50px] p-4 rounded-xl border border-n30 focus:border-primary outline-none text-sm font-bold bg-n10/50">
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase text-n500 mb-2 font-Inter tracking-widest italic">Date d'effet</label>
+                        <input type="text" name="date_operation" id="edit-op-date"
+                            class="w-full h-[50px] p-4 rounded-xl border border-n30 focus:border-primary outline-none text-sm font-bold bg-n10/50" readonly required>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase text-n500 mb-2 font-Inter tracking-widest italic font-bold">Commentaire / Justification</label>
+                        <textarea name="comments" id="edit-op-comments" rows="3"
+                            class="w-full p-4 rounded-xl border border-n30 focus:border-primary outline-none text-sm font-bold bg-n10/50"></textarea>
+                    </div>
+
+                    <div id="edit-op-response-msg" class="hidden"></div>
+
+                    <div class="flex gap-4 pt-4">
+                        <button type="button" onclick="closeEditOpModal()"
+                            class="flex-1 h-[50px] rounded-xl border border-n30 text-n500 font-bold uppercase tracking-wider hover:bg-n10 transition-all">
+                            Annuler
+                        </button>
+                        <button type="submit" id="btn-save-edit-op"
+                            class="flex-1 h-[50px] rounded-xl bg-primary text-white font-bold uppercase tracking-wider hover:bg-primary/90 transition-all shadow-lg shadow-primary/20">
+                            Sauvegarder
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
     </main>
 @endsection
 
@@ -722,6 +790,87 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                     }
                 });
             });
+            // MODIFICATION OPERATION LOGIQUE
+            let pickerEditOpDate = null;
+
+            window.openEditOpModal = function(id, category, type, amount, vl, dateOp, commentEncoded) {
+                console.log("Opening edit op modal for ID:", id);
+                const modal = $('#modal-edit-operation');
+                if (!modal.length) {
+                    console.error("Modal #modal-edit-operation not found in DOM");
+                    return;
+                }
+
+                const comment = decodeURIComponent(commentEncoded);
+
+                $('#edit-op-id').val(id);
+                $('#edit-op-category').val(category);
+                $('#edit-op-type').val(type);
+                $('#edit-op-amount').val(amount);
+                $('#edit-op-vl').val(vl);
+                $('#edit-op-date').val(dateOp);
+                $('#edit-op-comments').val(comment);
+
+                if (category === 'PMG') {
+                    $('#edit-op-vl-container').hide();
+                } else {
+                    $('#edit-op-vl-container').show();
+                }
+
+                if (!pickerEditOpDate) {
+                    pickerEditOpDate = datepicker('#edit-op-date', {
+                        formatter: (input, date, instance) => {
+                            const value = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+                            input.value = value;
+                        },
+                        startDay: 1,
+                        customDays: ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'],
+                        customMonths: ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'],
+                        overlayButton: "Valider",
+                        overlayPlaceholder: "Année (4 chiffres)"
+                    });
+                }
+
+                modal.removeClass('modalhide').addClass('modalshow').css('display', 'flex');
+            };
+
+            window.closeEditOpModal = function() {
+                $('#modal-edit-operation').addClass('modalhide').removeClass('modalshow').hide();
+                $('#edit-op-response-msg').addClass('hidden').html('');
+            };
+
+            const editOpForm = document.getElementById('edit-operation-form');
+            if (editOpForm) {
+                editOpForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const btn = document.getElementById('btn-save-edit-op');
+                    const resp = document.getElementById('edit-op-response-msg');
+                    btn.disabled = true;
+                    btn.textContent = "Mise à jour...";
+
+                    $.ajax({
+                        url: "{{ route('financial-movement.edit') }}",
+                        method: 'POST',
+                        data: $(this).serialize(),
+                        success: function(data) {
+                            resp.textContent = data.message;
+                            resp.className = "block bg-green-100 text-green-700 p-3 rounded-xl text-xs font-bold uppercase italic mt-4";
+                            resp.classList.remove('hidden');
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 1000);
+                        },
+                        error: function(xhr) {
+                            const msg = xhr.responseJSON ? xhr.responseJSON.message : "Erreur lors de la modification.";
+                            resp.textContent = msg;
+                            resp.className = "block bg-red-100 text-red-700 p-3 rounded-xl text-xs font-bold uppercase italic mt-4";
+                            resp.classList.remove('hidden');
+                            btn.disabled = false;
+                            btn.textContent = "Sauvegarder";
+                        }
+                    });
+                });
+            }
         });
     </script>
 @endsection

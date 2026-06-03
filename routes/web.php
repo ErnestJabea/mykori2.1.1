@@ -370,6 +370,7 @@ Route::middleware('auth')->group(function () {
             Route::post('/modifier-client/{portfolio}', [AssetManagerController::class, 'updateCustomer'])->name('asset-manager.update-customer');
             Route::delete('/supprimer-dossier/{portfolio}', [AssetManagerController::class, 'deletePortfolio'])->name('asset-manager.delete-portfolio');
             Route::post('/store/transaction-manager', [MovementController::class, 'storeFinancialMovement'])->name('save-transactions-client');
+            Route::post('/store/transaction-manager/edit', [MovementController::class, 'editMovement'])->name('financial-movement.edit');
             Route::get('/customer/{customer}/transaction-manager', [MovementController::class, 'indexFinancialMovement'])->name('transactions-client');
 
             Route::get('/customer/releve-client/liste/{type?}', [ListeClientReleveController::class, 'index'])->name('releve-client');

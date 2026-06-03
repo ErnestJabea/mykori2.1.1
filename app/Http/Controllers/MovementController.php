@@ -50,7 +50,7 @@ class MovementController extends Controller
             ->join('transactions', 'financial_movements.transaction_id', '=', 'transactions.id')
             ->join('products', 'transactions.product_id', '=', 'products.id')
             ->where('transactions.user_id', $customerId)
-            ->select('financial_movements.*', 'products.title as product_title', 'transactions.ref as transaction_ref')
+            ->select('financial_movements.*', 'products.title as product_title', 'transactions.ref as transaction_ref', 'transactions.vl_buy as transaction_vl')
             ->orderBy('financial_movements.date_operation', 'desc')
             ->get();
 
@@ -102,6 +102,8 @@ class MovementController extends Controller
 
         foreach ($movements as $mvt) {
             $unifiedOperations->push((object)[
+                'id'             => $mvt->id,
+                'transaction_id' => $mvt->transaction_id,
                 'date_op'        => $mvt->date_operation,
                 'category'       => 'PMG',
                 'product_title'  => $mvt->product_title,
@@ -113,12 +115,15 @@ class MovementController extends Controller
                 'balance_before' => $mvt->capital_before,
                 'balance_after'  => $mvt->capital_after,
                 'parts_before'   => null,
-                'parts_after'    => null
+                'parts_after'    => null,
+                'vl_applied'     => $mvt->transaction_vl ?? 0
             ]);
         }
 
         foreach ($fcpMovements as $fcpMvt) {
             $unifiedOperations->push((object)[
+                'id'             => $fcpMvt->id,
+                'transaction_id' => $fcpMvt->transaction_id,
                 'date_op'        => $fcpMvt->date_operation,
                 'category'       => 'FCP',
                 'product_title'  => $fcpMvt->product_title,
@@ -130,7 +135,8 @@ class MovementController extends Controller
                 'balance_before' => $fcpMvt->balance_before,
                 'balance_after'  => $fcpMvt->balance_after,
                 'parts_before'   => $fcpMvt->parts_before,
-                'parts_after'    => $fcpMvt->parts_after
+                'parts_after'    => $fcpMvt->parts_after,
+                'vl_applied'     => $fcpMvt->vl_applied
             ]);
         }
 
@@ -513,4 +519,181 @@ class MovementController extends Controller
             return response()->json(['message' => "Erreur technique : " . $e->getMessage()], 500);
         }
     }
+
+    public function editMovement(Request $request)
+    {
+        $id = $request->input('op_id');
+        $category = $request->input('op_category');
+        $amount = (float)$request->input('amount');
+        $dateOp = $request->input('date_operation');
+        $comment = $request->input('comments');
+
+        if ($category === 'PMG') {
+            $mvt = DB::table('financial_movements')->where('id', $id)->first();
+            if (!$mvt) {
+                return response()->json(['status' => 'error', 'message' => 'Mouvement PMG introuvable.'], 404);
+            }
+
+            // Ensure date has a time part
+            if (strlen($dateOp) === 10) {
+                $origTime = date('H:i:s', strtotime($mvt->date_operation));
+                $dateOp .= ' ' . $origTime;
+            }
+
+            DB::table('financial_movements')->where('id', $id)->update([
+                'amount' => $amount,
+                'date_operation' => $dateOp,
+                'comments' => $comment,
+                'updated_at' => now(),
+            ]);
+
+            $this->recalculatePMGMovements($mvt->transaction_id);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Opération PMG mise à jour et soldes recalculés.'
+            ]);
+        } else {
+            $mvt = DB::table('fcp_movements')->where('id', $id)->first();
+            if (!$mvt) {
+                return response()->json(['status' => 'error', 'message' => 'Mouvement FCP introuvable.'], 404);
+            }
+
+            $vlApplied = (float)$request->input('vl_applied', $mvt->vl_applied);
+
+            $isRachat = str_contains(strtolower($mvt->type), 'rachat') || $mvt->nb_parts_change < 0;
+            $nbPartsChange = $amount / $vlApplied;
+            if ($isRachat) {
+                $nbPartsChange = -abs($nbPartsChange);
+            }
+
+            if (strlen($dateOp) === 10) {
+                $origTime = date('H:i:s', strtotime($mvt->date_operation));
+                $dateOp .= ' ' . $origTime;
+            }
+
+            DB::table('fcp_movements')->where('id', $id)->update([
+                'amount_xaf' => $amount,
+                'vl_applied' => $vlApplied,
+                'nb_parts_change' => $nbPartsChange,
+                'date_operation' => $dateOp,
+                'comment' => $comment,
+                'updated_at' => now(),
+            ]);
+
+            $this->recalculateFCPMovements($mvt->user_id, $mvt->product_id);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Opération FCP mise à jour et parts recalculées.'
+            ]);
+        }
+    }
+
+    private function recalculatePMGMovements($transactionId)
+    {
+        $transaction = Transaction::findOrFail($transactionId);
+        
+        $movements = DB::table('financial_movements')
+            ->where('transaction_id', $transactionId)
+            ->orderBy('date_operation', 'asc')
+            ->orderBy('id', 'asc')
+            ->get();
+
+        $currentCapital = (float)($transaction->montant_initiale ?? $transaction->amount);
+        $lastCapDate = Carbon::parse($transaction->date_validation)->toDateString();
+        $rate = (float)$transaction->vl_buy;
+        $payoutsAccumulated = 0;
+        
+        foreach ($movements as $mvt) {
+            $mvtDate = Carbon::parse($mvt->date_operation)->toDateString();
+            
+            // Calculate interest accrued since last anniversary or rachat date
+            $accrued = 0;
+            $startDate = Carbon::parse($lastCapDate);
+            $targetDate = Carbon::parse($mvtDate);
+            $annualRate = $rate / 100;
+            
+            if ($targetDate->gt($startDate)) {
+                $nextMonth = $startDate->copy()->addMonthNoOverflow()->startOfMonth();
+
+                if ($targetDate->lt($nextMonth)) {
+                    $accrued = ($currentCapital * $annualRate * ($startDate->diffInDays($targetDate))) / 360;
+                } else {
+                    $accrued = ($currentCapital * $annualRate * ($startDate->diffInDays($startDate->copy()->endOfMonth()))) / 360;
+                    $fullMonths = $nextMonth->diffInMonths($targetDate->copy()->addDay());
+                    $accrued += ($currentCapital * ($annualRate / 12)) * $fullMonths;
+                    $lastMonthStart = $nextMonth->copy()->addMonths($fullMonths);
+                    if ($lastMonthStart->lt($targetDate)) {
+                        $accrued += ($currentCapital * $annualRate * ($lastMonthStart->diffInDays($targetDate) + 1)) / 360;
+                    }
+                }
+                $accrued = round($accrued, 0);
+            }
+            
+            $valuationBefore = ($currentCapital - $payoutsAccumulated) + $accrued;
+            $capitalBefore = $currentCapital;
+
+            if ($mvt->type === 'souscription') {
+                $capitalBefore = 0;
+                $capitalAfter = (float)$mvt->amount;
+                $currentCapital = $capitalAfter;
+                $lastCapDate = $mvtDate;
+                $payoutsAccumulated = 0;
+            } elseif ($mvt->type === 'versement_libre') {
+                $capitalAfter = $currentCapital + (float)$mvt->amount;
+                $currentCapital = $capitalAfter;
+                $lastCapDate = $mvtDate;
+                $payoutsAccumulated = 0;
+            } elseif ($mvt->type === 'capitalisation_interets') {
+                $capitalAfter = $currentCapital + (float)$mvt->amount;
+                $currentCapital = $capitalAfter;
+                $lastCapDate = $mvtDate;
+                $payoutsAccumulated = 0;
+            } elseif (in_array($mvt->type, ['rachat_partiel', 'rachat_total'])) {
+                $capitalBefore = $valuationBefore;
+                $capitalAfter = $valuationBefore - (float)$mvt->amount;
+                $currentCapital = $capitalAfter;
+                $lastCapDate = $mvtDate;
+                $payoutsAccumulated = 0;
+            } elseif ($mvt->type === 'frais_gestion') {
+                $capitalAfter = $currentCapital - (float)$mvt->amount;
+                $currentCapital = $capitalAfter;
+            } elseif (in_array($mvt->type, ['precompte_interets', 'paiement_interets'])) {
+                $capitalAfter = $currentCapital;
+                $payoutsAccumulated += (float)$mvt->amount;
+            } else {
+                $capitalAfter = $currentCapital;
+            }
+
+            DB::table('financial_movements')->where('id', $mvt->id)->update([
+                'capital_before' => $capitalBefore,
+                'capital_after'  => $capitalAfter,
+            ]);
+        }
+
+        $transaction->update(['amount' => $currentCapital]);
+    }
+
+    private function recalculateFCPMovements($userId, $productId)
+    {
+        $movements = DB::table('fcp_movements')
+            ->where('user_id', $userId)
+            ->where('product_id', $productId)
+            ->orderBy('date_operation', 'asc')
+            ->orderBy('id', 'asc')
+            ->get();
+
+        $runningParts = 0.0;
+        foreach ($movements as $mvt) {
+            $partsBefore = $runningParts;
+            $runningParts += (float)$mvt->nb_parts_change;
+            $partsAfter = $runningParts;
+
+            DB::table('fcp_movements')->where('id', $mvt->id)->update([
+                'nb_parts_total' => $partsAfter,
+            ]);
+        }
+    }
 }
+
