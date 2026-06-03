@@ -175,6 +175,59 @@ public function previewPmg(int $clientId)
     }
 
     $dateN1 = $dateN->copy()->startOfMonth()->subDay(); 
+
+    // Filtrer et exclure les transactions totalement rachetées avant le début de ce mois clos
+    $merged = $merged->reject(function($trans) use ($dateN1) {
+        $isSupplementaire = ($trans instanceof \App\Models\TransactionSupplementaire);
+        $parentId = $isSupplementaire ? $trans->transaction_id : $trans->id;
+
+        // 1. Si le capital nominal de la transaction principale est déjà à 0
+        $parent = \App\Models\Transaction::find($parentId);
+        if ($parent && (float)$parent->amount <= 0) {
+            // Vérifier s'il a été racheté avant dateN1
+            $hasRachatBefore = DB::table('financial_movements')
+                ->where('transaction_id', $parentId)
+                ->where('type', 'rachat_total')
+                ->where('date_operation', '<=', $dateN1->toDateString())
+                ->exists();
+            if ($hasRachatBefore) {
+                return true;
+            }
+            
+            // Si le dernier mouvement avant/à dateN1 montre un capital nul
+            $lastM1 = DB::table('financial_movements')
+                ->where('transaction_id', $parentId)
+                ->where('date_operation', '<=', $dateN1->toDateString())
+                ->orderBy('date_operation', 'desc')
+                ->orderBy('id', 'desc')
+                ->first();
+            if ($lastM1 && (float)$lastM1->capital_after <= 0) {
+                return true;
+            }
+            
+            // Si aucun mouvement n'a eu lieu avant/à dateN1, et le capital actuel est 0
+            $hasMovementsBefore = DB::table('financial_movements')
+                ->where('transaction_id', $parentId)
+                ->where('date_operation', '<=', $dateN1->toDateString())
+                ->exists();
+            if (!$hasMovementsBefore) {
+                return true;
+            }
+        }
+
+        // 2. Si un rachat total explicite a été enregistré avant/à dateN1
+        $hasRachatTotalBefore = DB::table('financial_movements')
+            ->where('transaction_id', $parentId)
+            ->where('type', 'rachat_total')
+            ->where('date_operation', '<=', $dateN1->toDateString())
+            ->exists();
+        if ($hasRachatTotalBefore) {
+            return true;
+        }
+
+        return false;
+    });
+
     $grouped = $merged->groupBy('product_id');
 
     $produitsAffiches = [];
@@ -272,7 +325,7 @@ public function previewPmg(int $clientId)
                     ->first();
                 
                 if ($lastM) {
-                    if ($lastM->type === 'rachat_total') {
+                    if ($lastM->type === 'rachat_total' || (float)$lastM->capital_after <= 0) {
                         // Si racheté ce mois-ci, on garde le capital avant rachat pour affichage historique dans ce relevé
                         $startOfMonthStr = $dateN->copy()->startOfMonth()->toDateString();
                         if ($lastM->date_operation >= $startOfMonthStr) {
@@ -653,6 +706,59 @@ private function genererPdfPmg(int $clientId): string
     }
 
     $dateN1 = $dateN->copy()->startOfMonth()->subDay();
+
+    // Filtrer et exclure les transactions totalement rachetées avant le début de ce mois clos
+    $merged = $merged->reject(function($trans) use ($dateN1) {
+        $isSupplementaire = ($trans instanceof \App\Models\TransactionSupplementaire);
+        $parentId = $isSupplementaire ? $trans->transaction_id : $trans->id;
+
+        // 1. Si le capital nominal de la transaction principale est déjà à 0
+        $parent = \App\Models\Transaction::find($parentId);
+        if ($parent && (float)$parent->amount <= 0) {
+            // Vérifier s'il a été racheté avant dateN1
+            $hasRachatBefore = DB::table('financial_movements')
+                ->where('transaction_id', $parentId)
+                ->where('type', 'rachat_total')
+                ->where('date_operation', '<=', $dateN1->toDateString())
+                ->exists();
+            if ($hasRachatBefore) {
+                return true;
+            }
+            
+            // Si le dernier mouvement avant/à dateN1 montre un capital nul
+            $lastM1 = DB::table('financial_movements')
+                ->where('transaction_id', $parentId)
+                ->where('date_operation', '<=', $dateN1->toDateString())
+                ->orderBy('date_operation', 'desc')
+                ->orderBy('id', 'desc')
+                ->first();
+            if ($lastM1 && (float)$lastM1->capital_after <= 0) {
+                return true;
+            }
+            
+            // Si aucun mouvement n'a eu lieu avant/à dateN1, et le capital actuel est 0
+            $hasMovementsBefore = DB::table('financial_movements')
+                ->where('transaction_id', $parentId)
+                ->where('date_operation', '<=', $dateN1->toDateString())
+                ->exists();
+            if (!$hasMovementsBefore) {
+                return true;
+            }
+        }
+
+        // 2. Si un rachat total explicite a été enregistré avant/à dateN1
+        $hasRachatTotalBefore = DB::table('financial_movements')
+            ->where('transaction_id', $parentId)
+            ->where('type', 'rachat_total')
+            ->where('date_operation', '<=', $dateN1->toDateString())
+            ->exists();
+        if ($hasRachatTotalBefore) {
+            return true;
+        }
+
+        return false;
+    });
+
     $grouped = $merged->groupBy('product_id');
 
     $totalValoN = 0;
@@ -749,7 +855,7 @@ private function genererPdfPmg(int $clientId): string
                     ->first();
                 
                 if ($lastM) {
-                    if ($lastM->type === 'rachat_total') {
+                    if ($lastM->type === 'rachat_total' || (float)$lastM->capital_after <= 0) {
                         // Si racheté ce mois-ci, on garde le capital avant rachat pour affichage historique dans ce relevé
                         $startOfMonthStr = $dateN->copy()->startOfMonth()->toDateString();
                         if ($lastM->date_operation >= $startOfMonthStr) {
