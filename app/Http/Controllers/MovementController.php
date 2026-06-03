@@ -71,38 +71,66 @@ class MovementController extends Controller
 
         $ownedFcpProducts = \App\Models\Product::whereIn('id', $ownedFcpIds)->get();
 
-        // Récupérer les mouvements FCP
+        // Récupérer les mouvements FCP triés par ordre chronologique pour calculer le solde courant
         $fcpMovements = DB::table('fcp_movements')
             ->join('products', 'fcp_movements.product_id', '=', 'products.id')
             ->where('fcp_movements.user_id', $customerId)
             ->select('fcp_movements.*', 'products.title as product_title')
+            ->orderBy('fcp_movements.date_operation', 'asc')
+            ->orderBy('fcp_movements.id', 'asc')
             ->get();
+
+        // Calculer les soldes FCP par produit au fil de l'eau
+        $runningParts = [];
+        foreach ($fcpMovements as $fcpMvt) {
+            $pid = $fcpMvt->product_id;
+            if (!isset($runningParts[$pid])) {
+                $runningParts[$pid] = 0.0;
+            }
+
+            $partsBefore = $runningParts[$pid];
+            $runningParts[$pid] += (float)$fcpMvt->nb_parts_change;
+            $partsAfter = $runningParts[$pid];
+
+            $fcpMvt->parts_before = $partsBefore;
+            $fcpMvt->parts_after = $partsAfter;
+            $fcpMvt->balance_before = $partsBefore * (float)$fcpMvt->vl_applied;
+            $fcpMvt->balance_after = $partsAfter * (float)$fcpMvt->vl_applied;
+        }
 
         $unifiedOperations = collect();
 
         foreach ($movements as $mvt) {
             $unifiedOperations->push((object)[
-                'date_op' => $mvt->date_operation,
-                'category' => 'PMG',
-                'product_title' => $mvt->product_title,
-                'reference' => $mvt->transaction_ref,
-                'type' => $mvt->type,
-                'amount' => $mvt->amount,
-                'parts_change' => null,
-                'comment' => $mvt->comments
+                'date_op'        => $mvt->date_operation,
+                'category'       => 'PMG',
+                'product_title'  => $mvt->product_title,
+                'reference'      => $mvt->transaction_ref,
+                'type'           => $mvt->type,
+                'amount'         => $mvt->amount,
+                'parts_change'   => null,
+                'comment'        => $mvt->comments,
+                'balance_before' => $mvt->capital_before,
+                'balance_after'  => $mvt->capital_after,
+                'parts_before'   => null,
+                'parts_after'    => null
             ]);
         }
 
         foreach ($fcpMovements as $fcpMvt) {
             $unifiedOperations->push((object)[
-                'date_op' => $fcpMvt->date_operation,
-                'category' => 'FCP',
-                'product_title' => $fcpMvt->product_title,
-                'reference' => $fcpMvt->reference,
-                'type' => $fcpMvt->type,
-                'amount' => $fcpMvt->amount_xaf,
-                'parts_change' => $fcpMvt->nb_parts_change,
-                'comment' => $fcpMvt->comment
+                'date_op'        => $fcpMvt->date_operation,
+                'category'       => 'FCP',
+                'product_title'  => $fcpMvt->product_title,
+                'reference'      => $fcpMvt->reference,
+                'type'           => $fcpMvt->type,
+                'amount'         => $fcpMvt->amount_xaf,
+                'parts_change'   => $fcpMvt->nb_parts_change,
+                'comment'        => $fcpMvt->comment,
+                'balance_before' => $fcpMvt->balance_before,
+                'balance_after'  => $fcpMvt->balance_after,
+                'parts_before'   => $fcpMvt->parts_before,
+                'parts_after'    => $fcpMvt->parts_after
             ]);
         }
 

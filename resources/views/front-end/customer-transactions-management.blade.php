@@ -104,7 +104,9 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                     <th>PRODUIT</th>
                                     <th>RÉF. OPÉRATION</th>
                                     <th>TYPE</th>
+                                    <th class="text-right">SOLDE AVANT</th>
                                     <th class="text-right">MONTANT BRUT</th>
+                                    <th class="text-right">SOLDE APRÈS</th>
                                     <th class="text-right">PARTS (FCP)</th>
                                     <th>COMMENTAIRE</th>
                                 </tr>
@@ -144,7 +146,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                             <span class="badge bg-blue-100 text-blue-700 px-2 py-1 rounded">Précompte Int.</span>
                                         @elseif($op->type == 'paiement_interets')
                                             <span class="badge bg-green-100 text-green-700 px-2 py-1 rounded">Paiement Int.</span>
-                                        @elseif($op->type == 'rachat_partiel' || $op->type == 'rachat')
+                                        @elseif($op->type == 'rachat_partiel' || $op->type == 'rachat' || $op->type == 'rachat_total')
                                             <span class="badge bg-orange-100 text-orange-700 px-2 py-1 rounded">Rachat</span>
                                         @elseif($op->type == 'souscription')
                                             <span class="badge bg-green-100 text-green-700 px-2 py-1 rounded">Souscription</span>
@@ -154,8 +156,32 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                     </td>
                                     
                                     <td class="text-right">
+                                        <span class="font-mono text-xs opacity-80">
+                                            @if($op->category == 'PMG')
+                                                {{ number_format($op->balance_before, 0, ',', ' ') }} XAF
+                                            @else
+                                                {{ number_format($op->balance_before, 0, ',', ' ') }} XAF
+                                                <br>
+                                                <small class="opacity-60 text-[10px]">{{ number_format($op->parts_before, 4) }} parts</small>
+                                            @endif
+                                        </span>
+                                    </td>
+                                    
+                                    <td class="text-right">
                                         <span class="font-bold text-n900">
                                             {{ number_format($op->amount, 0, ',', ' ') }} XAF
+                                        </span>
+                                    </td>
+                                    
+                                    <td class="text-right">
+                                        <span class="font-mono text-xs font-bold text-n900">
+                                            @if($op->category == 'PMG')
+                                                {{ number_format($op->balance_after, 0, ',', ' ') }} XAF
+                                            @else
+                                                {{ number_format($op->balance_after, 0, ',', ' ') }} XAF
+                                                <br>
+                                                <small class="opacity-60 font-normal text-[10px]">{{ number_format($op->parts_after, 4) }} parts</small>
+                                            @endif
                                         </span>
                                     </td>
                                     
@@ -175,7 +201,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                 </tr>
                                 @empty
                                 <tr>
-                                    <td colspan="8" class="text-center py-8 opacity-50">
+                                    <td colspan="10" class="text-center py-8 opacity-50">
                                         Aucun historique d'opération disponible pour ce client.
                                     </td>
                                 </tr>
