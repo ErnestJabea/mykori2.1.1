@@ -8,6 +8,143 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
 @section('inner-head')
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/magnific-popup@1.2.0/dist/magnific-popup.css">
     <link rel="stylesheet" href="https://unpkg.com/js-datepicker/dist/datepicker.min.css">
+    <style>
+        /* ── KORI TABLE STYLING ── */
+        .kori-table-wrapper {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+            margin: 30px 0;
+            width: 100%;
+        }
+
+        .kori-fcp-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            background: white;
+            table-layout: auto;
+        }
+
+        .kori-fcp-table thead th {
+            background: #2a0e05 !important;
+            color: #ffffff !important;
+            text-align: left;
+            padding: 16px 20px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-size: 11px;
+            border-bottom: 4px solid #ebb009;
+        }
+
+        .kori-fcp-table tbody tr {
+            border-bottom: 1px solid #f1f5f9;
+            transition: all 0.2s ease;
+        }
+
+        .kori-fcp-table tbody tr:hover {
+            background: #fdf3f0;
+        }
+
+        .kori-fcp-table td {
+            padding: 16px 20px;
+            vertical-align: middle;
+            color: #334155;
+            line-height: 1.5;
+        }
+
+        .kori-fcp-table .text-right {
+            text-align: right;
+        }
+
+        .kori-fcp-table .text-center {
+            text-align: center;
+        }
+
+        /* Category Badges */
+        .kori-badge {
+            display: inline-block;
+            padding: 6px 10px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            border-radius: 8px;
+            letter-spacing: 0.05em;
+            text-align: center;
+            line-height: 1;
+        }
+
+        .kori-badge-pmg {
+            background-color: rgba(235, 176, 9, 0.12);
+            color: #c4890a;
+            border: 1px solid rgba(235, 176, 9, 0.3);
+        }
+
+        .kori-badge-fcp {
+            background-color: rgba(83, 29, 9, 0.1);
+            color: #531d09;
+            border: 1px solid rgba(83, 29, 9, 0.25);
+        }
+
+        /* Operation Type Badges */
+        .op-badge {
+            display: inline-block;
+            padding: 6px 10px;
+            font-size: 11px;
+            font-weight: 600;
+            border-radius: 8px;
+            line-height: 1;
+            text-align: center;
+        }
+
+        .op-precompte {
+            background-color: #eff6ff;
+            color: #1d4ed8;
+            border: 1px solid #bfdbfe;
+        }
+
+        .op-paiement {
+            background-color: #f0fdf4;
+            color: #15803d;
+            border: 1px solid #bbf7d0;
+        }
+
+        .op-rachat {
+            background-color: #fff7ed;
+            color: #c2410c;
+            border: 1px solid #ffedd5;
+        }
+
+        .op-souscription {
+            background-color: #f0fdf4;
+            color: #166534;
+            border: 1px solid #dcfce7;
+        }
+
+        .op-default {
+            background-color: #f8fafc;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+        }
+
+        /* Product Title */
+        .product-title {
+            font-weight: 700;
+            color: #1e293b;
+            font-size: 13px;
+        }
+
+        /* Subtexts */
+        .sub-info {
+            font-size: 10px;
+            color: #64748b;
+            margin-top: 2px;
+            display: block;
+        }
+    </style>
 @endsection
 
 @section('content')
@@ -123,18 +260,14 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                     
                                     <td class="text-center">
                                         @if($op->category == 'PMG')
-                                            <span class="badge bg-secondary/10 text-secondary px-2 py-1 rounded text-[10px] font-bold border border-secondary/20 shadow-sm">
-                                                PMG
-                                            </span>
+                                            <span class="kori-badge kori-badge-pmg">PMG</span>
                                         @else
-                                            <span class="badge bg-primary/10 text-primary px-2 py-1 rounded text-[10px] font-bold border border-primary/20 shadow-sm">
-                                                FCP
-                                            </span>
+                                            <span class="kori-badge kori-badge-fcp">FCP</span>
                                         @endif
                                     </td>
                                     
                                     <td>
-                                        <span class="font-bold text-n900">{{ $op->product_title }}</span>
+                                        <span class="product-title">{{ $op->product_title }}</span>
                                     </td>
                                     
                                     <td>
@@ -143,15 +276,15 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                     
                                     <td>
                                         @if($op->type == 'precompte_interets')
-                                            <span class="badge bg-blue-100 text-blue-700 px-2 py-1 rounded">Précompte Int.</span>
+                                            <span class="op-badge op-precompte">Précompte Int.</span>
                                         @elseif($op->type == 'paiement_interets')
-                                            <span class="badge bg-green-100 text-green-700 px-2 py-1 rounded">Paiement Int.</span>
+                                            <span class="op-badge op-paiement">Paiement Int.</span>
                                         @elseif($op->type == 'rachat_partiel' || $op->type == 'rachat' || $op->type == 'rachat_total')
-                                            <span class="badge bg-orange-100 text-orange-700 px-2 py-1 rounded">Rachat</span>
+                                            <span class="op-badge op-rachat">Rachat</span>
                                         @elseif($op->type == 'souscription')
-                                            <span class="badge bg-green-100 text-green-700 px-2 py-1 rounded">Souscription</span>
+                                            <span class="op-badge op-souscription">Souscription</span>
                                         @else
-                                            <span class="badge bg-gray-100 text-gray-700 px-2 py-1 rounded">{{ ucfirst(str_replace('_', ' ', $op->type)) }}</span>
+                                            <span class="op-badge op-default">{{ ucfirst(str_replace('_', ' ', $op->type)) }}</span>
                                         @endif
                                     </td>
                                     
