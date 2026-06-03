@@ -20,6 +20,8 @@ class Kernel extends ConsoleKernel
         $schedule->call(function () {
             (new \App\Http\Controllers\ProductController)->syncAnniversaryMovements();
         })->daily();
+
+        $schedule->command('pmg:notify-anniversaries')->dailyAt('08:00');
     }
 
     /**
