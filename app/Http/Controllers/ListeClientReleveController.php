@@ -164,6 +164,16 @@ public function previewPmg(int $clientId)
 
     $merged = $allTransactions->merge($supplemental);
 
+    // Ajustement de la date du relevé si tous les mandats sont échus dans le mois (exception demandée)
+    $maxExpiryInMonth = $merged->where('date_echeance', '<=', $dateN->toDateString())
+                               ->where('date_echeance', '>=', $dateN->copy()->startOfMonth()->toDateString())
+                               ->max('date_echeance');
+    $anyActivePastMonth = $merged->where('date_echeance', '>', $dateN->toDateString())->isNotEmpty();
+    
+    if (!$anyActivePastMonth && $maxExpiryInMonth) {
+        $dateN = Carbon::parse($maxExpiryInMonth);
+    }
+
     $dateN1 = $dateN->copy()->startOfMonth()->subDay(); 
     $grouped = $merged->groupBy('product_id');
 
@@ -604,6 +614,16 @@ private function genererPdfPmg(int $clientId): string
         })->get();
 
     $merged = $allTransactions->merge($supplemental);
+
+    // Ajustement de la date du relevé si tous les mandats sont échus dans le mois (exception demandée)
+    $maxExpiryInMonth = $merged->where('date_echeance', '<=', $dateN->toDateString())
+                               ->where('date_echeance', '>=', $dateN->copy()->startOfMonth()->toDateString())
+                               ->max('date_echeance');
+    $anyActivePastMonth = $merged->where('date_echeance', '>', $dateN->toDateString())->isNotEmpty();
+    
+    if (!$anyActivePastMonth && $maxExpiryInMonth) {
+        $dateN = Carbon::parse($maxExpiryInMonth);
+    }
 
     $dateN1 = $dateN->copy()->startOfMonth()->subDay();
     $grouped = $merged->groupBy('product_id');
