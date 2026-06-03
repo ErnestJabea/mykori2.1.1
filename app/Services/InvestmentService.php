@@ -217,6 +217,7 @@ class InvestmentService
             // 1. Trouver le dernier mouvement pour connaître le capital actuel
             $lastMovement = FinancialMovement::where('transaction_id', $transaction->id)
                 ->orderBy('date_operation', 'desc')
+                ->orderBy('id', 'desc')
                 ->first();
 
             $capitalBefore = $lastMovement ? $lastMovement->capital_after : $transaction->amount;
@@ -272,6 +273,7 @@ class InvestmentService
             // 1. Récupérer le dernier état du capital
             $lastMovement = FinancialMovement::where('transaction_id', $transactionId)
                 ->orderBy('date_operation', 'desc')
+                ->orderBy('id', 'desc')
                 ->first();
 
             $currentCapital = $lastMovement ? $lastMovement->capital_after : 0;
