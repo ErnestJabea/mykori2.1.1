@@ -1049,9 +1049,20 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                         overlayButton: "Valider",
                         overlayPlaceholder: "Année (4 chiffres)"
                     });
+
+                    // Ensure calendar opens explicitly when clicking the date input field
+                    $('#edit-op-date').on('click', function(e) {
+                        e.stopPropagation();
+                        pickerEditOpDate.show();
+                    });
                 }
 
                 modal.removeClass('modalhide').addClass('modalshow').css('display', 'flex');
+
+                // Force calendar to be hidden when the modal is opened
+                if (pickerEditOpDate) {
+                    pickerEditOpDate.hide();
+                }
             };
 
             window.closeEditOpModal = function() {
