@@ -144,6 +144,222 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
             margin-top: 2px;
             display: block;
         }
+
+        /* ── MODAL EDIT OPERATION PREMIUM STYLING ── */
+        #modal-edit-operation {
+            position: fixed !important;
+            inset: 0 !important;
+            z-index: 99999 !important; /* Ensure it is on top of EVERYTHING */
+            background: rgba(15, 23, 42, 0.65) !important; /* Dark blue/gray modern tint */
+            backdrop-filter: blur(8px) !important;
+            display: none;
+            align-items: center !important;
+            justify-content: center !important;
+            padding: 16px !important;
+            width: 100vw !important;
+            height: 100vh !important;
+        }
+
+        #modal-edit-operation.modalshow {
+            display: flex !important;
+        }
+
+        #modal-edit-operation.modalhide {
+            display: none !important;
+        }
+
+        #modal-edit-operation .modal-inner {
+            background: #ffffff !important;
+            border-radius: 24px !important;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+            width: 100% !important;
+            max-width: 520px !important;
+            overflow: hidden !important;
+            margin: auto !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            animation: modalScaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+        }
+
+        @keyframes modalScaleIn {
+            from {
+                transform: scale(0.95);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        #modal-edit-operation .bg-primary\/10 {
+            background-color: #531d09 !important; /* Deep Kori brown for header */
+            padding: 20px 24px !important;
+            border-bottom: 3px solid #ebb009 !important; /* Accent gold line */
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+        }
+
+        #modal-edit-operation h3.text-xl {
+            color: #ffffff !important;
+            font-size: 18px !important;
+            font-weight: 700 !important;
+            margin: 0 !important;
+            letter-spacing: 0.5px !important;
+        }
+
+        #modal-edit-operation button[onclick="closeEditOpModal()"] {
+            width: 36px !important;
+            height: 36px !important;
+            border-radius: 50% !important;
+            background: rgba(255, 255, 255, 0.1) !important;
+            border: none !important;
+            color: #ffffff !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            cursor: pointer !important;
+            transition: all 0.2s ease !important;
+        }
+
+        #modal-edit-operation button[onclick="closeEditOpModal()"]:hover {
+            background: rgba(255, 255, 255, 0.2) !important;
+            transform: rotate(90deg) !important;
+        }
+
+        #modal-edit-operation button[onclick="closeEditOpModal()"] i {
+            font-size: 20px !important;
+            color: #ffffff !important;
+        }
+
+        #modal-edit-operation .p-8 {
+            padding: 24px 28px !important;
+        }
+
+        #edit-operation-form {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 18px !important;
+        }
+
+        #edit-operation-form div {
+            display: flex !important;
+            flex-direction: column !important;
+        }
+
+        #edit-operation-form label {
+            font-family: 'Inter', sans-serif !important;
+            font-size: 11px !important;
+            font-weight: 700 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.8px !important;
+            color: #64748b !important;
+            margin-bottom: 6px !important;
+        }
+
+        #edit-operation-form input,
+        #edit-operation-form textarea {
+            width: 100% !important;
+            padding: 12px 16px !important;
+            border-radius: 12px !important;
+            border: 1.5px solid #e2e8f0 !important;
+            background-color: #f8fafc !important;
+            color: #1e293b !important;
+            font-size: 14px !important;
+            font-weight: 600 !important;
+            outline: none !important;
+            transition: all 0.2s ease !important;
+            height: auto !important; /* Reset any potential height constraints */
+        }
+
+        #edit-operation-form input {
+            height: 48px !important;
+        }
+
+        #edit-operation-form input:focus,
+        #edit-operation-form textarea:focus {
+            border-color: #531d09 !important;
+            background-color: #ffffff !important;
+            box-shadow: 0 0 0 3px rgba(83, 29, 9, 0.12) !important;
+        }
+
+        #edit-operation-form input[readonly] {
+            background-color: #e2e8f0 !important;
+            color: #475569 !important;
+            cursor: not-allowed !important;
+        }
+
+        #edit-operation-form textarea {
+            min-height: 90px !important;
+            resize: vertical !important;
+        }
+
+        /* Response message spacing and design */
+        #edit-op-response-msg {
+            margin-top: 10px !important;
+            margin-bottom: 10px !important;
+        }
+
+        /* Footer Buttons Container */
+        #edit-operation-form .flex.gap-4 {
+            display: flex !important;
+            flex-direction: row !important;
+            gap: 14px !important;
+            padding-top: 10px !important;
+        }
+
+        /* Individual Buttons override */
+        #edit-operation-form button[onclick="closeEditOpModal()"],
+        #btn-save-edit-op {
+            flex: 1 !important;
+            height: 48px !important;
+            border-radius: 12px !important;
+            font-size: 13px !important;
+            font-weight: 700 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.5px !important;
+            cursor: pointer !important;
+            transition: all 0.2s ease !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            margin: 0 !important; /* Reset any margins */
+            padding: 0 !important;
+        }
+
+        /* Annuler Button style */
+        #edit-operation-form button[onclick="closeEditOpModal()"] {
+            background-color: #ffffff !important;
+            border: 1.5px solid #cbd5e1 !important;
+            color: #475569 !important;
+        }
+
+        #edit-operation-form button[onclick="closeEditOpModal()"]:hover {
+            background-color: #f1f5f9 !important;
+            color: #1e293b !important;
+            border-color: #94a3b8 !important;
+            transform: none !important; /* cancel rotation */
+        }
+
+        /* Sauvegarder Button style */
+        #btn-save-edit-op {
+            background-color: #ebb009 !important; /* Kori Gold */
+            border: none !important;
+            color: #ffffff !important;
+            box-shadow: 0 4px 12px rgba(235, 176, 9, 0.25) !important;
+        }
+
+        #btn-save-edit-op:hover {
+            background-color: #d99e04 !important;
+            box-shadow: 0 6px 16px rgba(235, 176, 9, 0.35) !important;
+        }
+
+        #btn-save-edit-op:disabled {
+            background-color: #cbd5e1 !important;
+            color: #94a3b8 !important;
+            cursor: not-allowed !important;
+            box-shadow: none !important;
+        }
     </style>
 @endsection
 
