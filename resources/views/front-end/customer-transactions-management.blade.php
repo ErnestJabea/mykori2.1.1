@@ -246,7 +246,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
             gap: 18px !important;
         }
 
-        #edit-operation-form div {
+        #edit-operation-form > div {
             display: flex !important;
             flex-direction: column !important;
         }
