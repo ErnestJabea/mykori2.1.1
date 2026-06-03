@@ -160,52 +160,69 @@ class MovementController extends Controller
         $request->validate([
             'transaction_id' => 'required|exists:transactions,id',
             'amount_brut' => 'required|numeric|min:1',
+            'amount_frais' => 'nullable|numeric|min:0',
         ]);
+
+        $transaction = Transaction::findOrFail($request->transaction_id);
+        $amountBrut = (float)$request->amount_brut;
+        $amountFrais = (float)($request->amount_frais ?? 0);
+        $totalRequested = $amountBrut + $amountFrais;
+
+        $productController = app(\App\Http\Controllers\ProductController::class);
+        $dateOp = now();
+        $valuationBefore = $productController->calculatePMGValorization($transaction, $dateOp);
+
+        if ($totalRequested > $valuationBefore) {
+            return response()->json([
+                'message' => 'Le montant saisi (avec les frais) dépasse la valorisation actuelle (' . number_format($valuationBefore, 0, ',', ' ') . ' XAF).'
+            ], 422);
+        }
+
+        $capitalApres = max(0, $valuationBefore - $totalRequested);
 
         DB::beginTransaction();
         try {
-            $transaction = Transaction::findOrFail($request->transaction_id);
-
-            if ($request->amount_brut > $transaction->amount) {
-                return response()->json(['message' => 'Le montant dépasse le capital.'], 422);
-            }
-
-            $capitalAvant = $transaction->amount;
-            $capitalApres = $capitalAvant - $request->amount_brut;
-
+            // 1. Mettre à jour le montant nominal de la transaction
             $transaction->update(['amount' => $capitalApres]);
 
+            // 2. Déterminer le type (rachat_total si solde nul, rachat_partiel sinon)
+            $movementType = ($capitalApres <= 0) ? 'rachat_total' : 'rachat_partiel';
+
+            // 3. Créer le mouvement de rachat
             FinancialMovement::create([
                 'transaction_id' => $transaction->id,
-                'type' => 'rachat_partiel',
-                'amount' => $request->amount_brut,
-                'capital_before' => $capitalAvant,
-                'capital_after' => $capitalApres,
-                'date_operation' => now(),
-                'comments'    => 'Rachat partiel de ' . number_format($request->amount_brut) . ' XAF',
+                'type'           => $movementType,
+                'amount'         => $amountBrut,
+                'capital_before' => $valuationBefore,
+                'capital_after'  => $valuationBefore - $amountBrut,
+                'date_operation' => $dateOp,
+                'comments'       => 'Rachat de ' . number_format($amountBrut) . ' XAF',
             ]);
-            DB::commit();
-            FinancialMovement::create([
-                'transaction_id' => $transaction->id,
-                'type' => 'frais_gestion',
-                'amount' => $request->amount_frais,
-                'capital_before' => $capitalAvant,
-                'capital_after' => $capitalApres,
-                'date_operation' => now(),
-                'comments'    => 'Frais de gestion de ' . number_format($request->amount_frais) . ' XAF',
-            ]);
+
+            // 4. Créer le mouvement de frais si applicable
+            if ($amountFrais > 0) {
+                FinancialMovement::create([
+                    'transaction_id' => $transaction->id,
+                    'type'           => 'frais_gestion',
+                    'amount'         => $amountFrais,
+                    'capital_before' => $valuationBefore - $amountBrut,
+                    'capital_after'  => $capitalApres,
+                    'date_operation' => $dateOp,
+                    'comments'       => 'Frais de gestion de ' . number_format($amountFrais) . ' XAF',
+                ]);
+            }
 
             DB::commit();
 
             \App\Models\UserActivityLog::log(
-                "RACHAT_PARTIEL_PMG",
+                "RACHAT_PMG",
                 $transaction,
-                "Rachat partiel de " . number_format($request->amount_brut) . " XAF validé."
+                "Rachat PMG de " . number_format($amountBrut) . " XAF (Frais: " . number_format($amountFrais) . " XAF) validé."
             );
 
-            // ✅ Retourner du JSON pour AJAX
             return response()->json([
-                'success' => 'Rachat de ' . number_format($request->amount_brut) . ' XAF validé.'
+                'success' => 'Rachat de ' . number_format($amountBrut) . ' XAF validé.',
+                'message' => 'Rachat de ' . number_format($amountBrut) . ' XAF validé avec succès.'
             ]);
         } catch (\Exception $e) {
             DB::rollback();

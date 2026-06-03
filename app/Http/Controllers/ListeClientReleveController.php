@@ -207,17 +207,17 @@ public function previewPmg(int $clientId)
             $startDatePeriod = $dateN1->copy()->addDay()->startOfDay()->toDateTimeString();
             $endDatePeriod = $dateN->copy()->endOfDay()->toDateTimeString();
 
-            // Sorties du mois pour le calcul du gain (inclut les intérêts payés)
+            // Sorties du mois pour le calcul du gain (inclut les intérêts payés, les rachats et les frais)
             $totalOutflowsForGain = DB::table('financial_movements')
                 ->where('transaction_id', $parentId)
-                ->whereIn('type', ['rachat_partiel', 'paiement_interets', 'precompte_interets', 'dividende_interets'])
+                ->whereIn('type', ['rachat_partiel', 'rachat_total', 'frais_gestion', 'paiement_interets', 'precompte_interets', 'dividende_interets'])
                 ->whereBetween('date_operation', [$startDatePeriod, $endDatePeriod])
                 ->sum('amount') ?? 0;
 
-            // Sorties affichées en "Pertes" (exclut paiement_interets selon demande)
+            // Sorties affichées en "Pertes" (exclut les rachats et les frais de gestion selon demande)
             $displayedOutflows = DB::table('financial_movements')
                 ->where('transaction_id', $parentId)
-                ->whereIn('type', ['rachat_partiel', 'precompte_interets', 'dividende_interets'])
+                ->whereIn('type', ['precompte_interets', 'dividende_interets'])
                 ->whereBetween('date_operation', [$startDatePeriod, $endDatePeriod])
                 ->sum('amount') ?? 0;
 
@@ -658,17 +658,17 @@ private function genererPdfPmg(int $clientId): string
             $startDatePeriod = $dateN1->copy()->addDay()->startOfDay()->toDateTimeString();
             $endDatePeriod = $dateN->copy()->endOfDay()->toDateTimeString();
 
-            // Sorties du mois pour le calcul du gain (inclut les intérêts payés)
+            // Sorties du mois pour le calcul du gain (inclut les intérêts payés, les rachats et les frais)
             $totalOutflowsForGain = DB::table('financial_movements')
                 ->where('transaction_id', $parentId)
-                ->whereIn('type', ['rachat_partiel', 'paiement_interets', 'precompte_interets', 'dividende_interets'])
+                ->whereIn('type', ['rachat_partiel', 'rachat_total', 'frais_gestion', 'paiement_interets', 'precompte_interets', 'dividende_interets'])
                 ->whereBetween('date_operation', [$startDatePeriod, $endDatePeriod])
                 ->sum('amount') ?? 0;
 
-            // Sorties affichées en "Pertes" (exclut paiement_interets selon demande)
+            // Sorties affichées en "Pertes" (exclut les rachats et les frais de gestion selon demande)
             $displayedOutflows = DB::table('financial_movements')
                 ->where('transaction_id', $parentId)
-                ->whereIn('type', ['rachat_partiel', 'precompte_interets', 'dividende_interets'])
+                ->whereIn('type', ['precompte_interets', 'dividende_interets'])
                 ->whereBetween('date_operation', [$startDatePeriod, $endDatePeriod])
                 ->sum('amount') ?? 0;
 
