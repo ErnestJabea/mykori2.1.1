@@ -175,6 +175,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
             width: 100% !important;
             max-width: 520px !important;
+            max-height: none !important; /* Prevent the white card from being limited by global max-height */
             overflow: visible !important; /* Allow the datepicker popover to render outside modal boundaries */
             margin: auto !important; /* Center the modal card */
             border: 1px solid rgba(255, 255, 255, 0.1) !important;
