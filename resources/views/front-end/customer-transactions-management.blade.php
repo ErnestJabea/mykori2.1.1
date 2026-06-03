@@ -155,9 +155,10 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
             display: none;
             align-items: center !important;
             justify-content: center !important;
-            padding: 16px !important;
+            padding: 40px 16px !important; /* Provide top and bottom margin for scrolling */
             width: 100vw !important;
             height: 100vh !important;
+            overflow-y: auto !important; /* Allow modal container to scroll if contents exceed viewport */
         }
 
         #modal-edit-operation.modalshow {
@@ -174,10 +175,11 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
             width: 100% !important;
             max-width: 520px !important;
-            overflow: hidden !important;
-            margin: auto !important;
+            overflow: visible !important; /* Allow the datepicker popover to render outside modal boundaries */
+            margin: auto !important; /* Center the modal card */
             border: 1px solid rgba(255, 255, 255, 0.1) !important;
             animation: modalScaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+            position: relative !important;
         }
 
         @keyframes modalScaleIn {
@@ -198,6 +200,8 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
             display: flex !important;
             justify-content: space-between !important;
             align-items: center !important;
+            border-top-left-radius: 24px !important; /* Keep header corners rounded since modal-inner overflow is visible */
+            border-top-right-radius: 24px !important; /* Keep header corners rounded since modal-inner overflow is visible */
         }
 
         #modal-edit-operation h3.text-xl {
