@@ -149,16 +149,20 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
         #modal-edit-operation {
             position: fixed !important;
             inset: 0 !important;
-            z-index: 99999 !important; /* Ensure it is on top of EVERYTHING */
-            background: rgba(15, 23, 42, 0.65) !important; /* Dark blue/gray modern tint */
+            z-index: 99999 !important;
+            /* Ensure it is on top of EVERYTHING */
+            background: rgba(15, 23, 42, 0.65) !important;
+            /* Dark blue/gray modern tint */
             backdrop-filter: blur(8px) !important;
             display: none;
             align-items: center !important;
             justify-content: center !important;
-            padding: 40px 16px !important; /* Provide top and bottom margin for scrolling */
+            padding: 40px 16px !important;
+            /* Provide top and bottom margin for scrolling */
             width: 100vw !important;
             height: 100vh !important;
-            overflow-y: auto !important; /* Allow modal container to scroll if contents exceed viewport */
+            overflow-y: auto !important;
+            /* Allow modal container to scroll if contents exceed viewport */
         }
 
         #modal-edit-operation.modalshow {
@@ -175,9 +179,12 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
             width: 100% !important;
             max-width: 520px !important;
-            max-height: none !important; /* Prevent the white card from being limited by global max-height */
-            overflow: visible !important; /* Allow the datepicker popover to render outside modal boundaries */
-            margin: auto !important; /* Center the modal card */
+            max-height: none !important;
+            /* Prevent the white card from being limited by global max-height */
+            overflow: visible !important;
+            /* Allow the datepicker popover to render outside modal boundaries */
+            margin: auto !important;
+            /* Center the modal card */
             border: 1px solid rgba(255, 255, 255, 0.1) !important;
             animation: modalScaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
             position: relative !important;
@@ -188,6 +195,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                 transform: scale(0.95);
                 opacity: 0;
             }
+
             to {
                 transform: scale(1);
                 opacity: 1;
@@ -195,14 +203,18 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
         }
 
         #modal-edit-operation .bg-primary\/10 {
-            background-color: #531d09 !important; /* Deep Kori brown for header */
+            background-color: #531d09 !important;
+            /* Deep Kori brown for header */
             padding: 20px 24px !important;
-            border-bottom: 3px solid #ebb009 !important; /* Accent gold line */
+            border-bottom: 3px solid #ebb009 !important;
+            /* Accent gold line */
             display: flex !important;
             justify-content: space-between !important;
             align-items: center !important;
-            border-top-left-radius: 24px !important; /* Keep header corners rounded since modal-inner overflow is visible */
-            border-top-right-radius: 24px !important; /* Keep header corners rounded since modal-inner overflow is visible */
+            border-top-left-radius: 24px !important;
+            /* Keep header corners rounded since modal-inner overflow is visible */
+            border-top-right-radius: 24px !important;
+            /* Keep header corners rounded since modal-inner overflow is visible */
         }
 
         #modal-edit-operation h3.text-xl {
@@ -247,7 +259,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
             gap: 18px !important;
         }
 
-        #edit-operation-form > div {
+        #edit-operation-form>div {
             display: flex !important;
             flex-direction: column !important;
         }
@@ -274,7 +286,8 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
             font-weight: 600 !important;
             outline: none !important;
             transition: all 0.2s ease !important;
-            height: auto !important; /* Reset any potential height constraints */
+            height: auto !important;
+            /* Reset any potential height constraints */
         }
 
         #edit-operation-form input {
@@ -328,7 +341,8 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
             display: inline-flex !important;
             align-items: center !important;
             justify-content: center !important;
-            margin: 0 !important; /* Reset any margins */
+            margin: 0 !important;
+            /* Reset any margins */
             padding: 0 !important;
         }
 
@@ -343,12 +357,14 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
             background-color: #f1f5f9 !important;
             color: #1e293b !important;
             border-color: #94a3b8 !important;
-            transform: none !important; /* cancel rotation */
+            transform: none !important;
+            /* cancel rotation */
         }
 
         /* Sauvegarder Button style */
         #btn-save-edit-op {
-            background-color: #ebb009 !important; /* Kori Gold */
+            background-color: #ebb009 !important;
+            /* Kori Gold */
             border: none !important;
             color: #ffffff !important;
             box-shadow: 0 4px 12px rgba(235, 176, 9, 0.25) !important;
@@ -446,134 +462,144 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                         </a>
                     </div>
                 </div>
-                
+
                 <!-- NEW SECTION: HISTORIQUE DES OPERATIONS (THEME KORI) -->
                 <div class="flex flex-wrap w-full mt-8 mb-8">
                     <div class="content-bloc-list-produit w-full" style="flex: 1 1 100%; max-width: 100%;">
                         <div class="box">
                             <h3 class="mb-4">HISTORIQUE SYNTHÉTIQUE DES OPÉRATIONS (FCP & PMG)</h3>
-                            
+
                             <div class="kori-table-wrapper mt-4">
                                 <table class="kori-fcp-table text-left" style="width: 100%;">
                                     <thead>
                                         <tr>
-                                    <th>DATE</th>
-                                    <th class="text-center">CATÉGORIE</th>
-                                    <th>PRODUIT</th>
-                                    <th>RÉF. OPÉRATION</th>
-                                    <th>TYPE</th>
-                                    <th class="text-right">SOLDE AVANT</th>
-                                    <th class="text-right">MONTANT BRUT</th>
-                                    <th class="text-right">SOLDE APRÈS</th>
-                                    <th class="text-right">PARTS (FCP)</th>
-                                    <th>COMMENTAIRE</th>
-                                    <th class="text-center">ACTIONS</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($allOperations as $op)
-                                <tr>
-                                    <td>
-                                        <div class="flex flex-col">
-                                            <span class="font-bold text-n900">{{ \Carbon\Carbon::parse($op->date_op)->format('d/m/Y') }}</span>
-                                            <span class="text-xs opacity-60">{{ \Carbon\Carbon::parse($op->date_op)->format('H:i') }}</span>
-                                        </div>
-                                    </td>
-                                    
-                                    <td class="text-center">
-                                        @if($op->category == 'PMG')
-                                            <span class="kori-badge kori-badge-pmg">PMG</span>
-                                        @else
-                                            <span class="kori-badge kori-badge-fcp">FCP</span>
-                                        @endif
-                                    </td>
-                                    
-                                    <td>
-                                        <span class="product-title">{{ $op->product_title }}</span>
-                                    </td>
-                                    
-                                    <td>
-                                        <span class="font-mono text-xs opacity-70">{{ $op->reference ?? '-' }}</span>
-                                    </td>
-                                    
-                                    <td>
-                                        @if($op->type == 'precompte_interets')
-                                            <span class="op-badge op-precompte">Précompte Int.</span>
-                                        @elseif($op->type == 'paiement_interets')
-                                            <span class="op-badge op-paiement">Paiement Int.</span>
-                                        @elseif($op->type == 'rachat_partiel' || $op->type == 'rachat' || $op->type == 'rachat_total')
-                                            <span class="op-badge op-rachat">Rachat</span>
-                                        @elseif($op->type == 'souscription')
-                                            <span class="op-badge op-souscription">Souscription</span>
-                                        @else
-                                            <span class="op-badge op-default">{{ ucfirst(str_replace('_', ' ', $op->type)) }}</span>
-                                        @endif
-                                    </td>
-                                    
-                                    <td class="text-right">
-                                        <span class="font-mono text-xs opacity-80">
-                                            @if($op->category == 'PMG')
-                                                {{ number_format($op->balance_before, 0, ',', ' ') }} XAF
-                                            @else
-                                                {{ number_format($op->balance_before, 0, ',', ' ') }} XAF
-                                                <br>
-                                                <small class="opacity-60 text-[10px]">{{ number_format($op->parts_before, 4) }} parts</small>
-                                            @endif
-                                        </span>
-                                    </td>
-                                    
-                                    <td class="text-right">
-                                        <span class="font-bold text-n900">
-                                            {{ number_format($op->amount, 0, ',', ' ') }} XAF
-                                        </span>
-                                    </td>
-                                    
-                                    <td class="text-right">
-                                        <span class="font-mono text-xs font-bold text-n900">
-                                            @if($op->category == 'PMG')
-                                                {{ number_format($op->balance_after, 0, ',', ' ') }} XAF
-                                            @else
-                                                {{ number_format($op->balance_after, 0, ',', ' ') }} XAF
-                                                <br>
-                                                <small class="opacity-60 font-normal text-[10px]">{{ number_format($op->parts_after, 4) }} parts</small>
-                                            @endif
-                                        </span>
-                                    </td>
-                                    
-                                    <td class="text-right">
-                                        @if($op->parts_change !== null)
-                                            <span class="inline-flex px-2 py-1 rounded {{ $op->parts_change < 0 ? 'bg-red-50 text-red-600' : 'bg-green-100 text-green-700' }} text-xs font-bold font-mono">
-                                                {{ $op->parts_change > 0 ? '+' : '' }}{{ number_format($op->parts_change, 4) }}
-                                            </span>
-                                        @else
-                                            <span class="opacity-30 font-bold">-</span>
-                                        @endif
-                                    </td>
-                                    
-                                    <td>
-                                        <p class="text-xs opacity-70 italic max-w-[200px] truncate m-0" title="{{ $op->comment }}">{{ $op->comment ?? '-' }}</p>
-                                    </td>
+                                            <th>DATE</th>
+                                            <th class="text-center">CATÉGORIE</th>
+                                            <th>PRODUIT</th>
+                                            <th>RÉF. OPÉRATION</th>
+                                            <th>TYPE</th>
+                                            <th class="text-right">SOLDE AVANT</th>
+                                            <th class="text-right">MONTANT BRUT</th>
+                                            <th class="text-right">SOLDE APRÈS</th>
+                                            <th class="text-right">PARTS (FCP)</th>
+                                            <th>COMMENTAIRE</th>
+                                            <th class="text-center">ACTIONS</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @forelse($allOperations as $op)
+                                            <tr>
+                                                <td>
+                                                    <div class="flex flex-col">
+                                                        <span
+                                                            class="font-bold text-n900">{{ \Carbon\Carbon::parse($op->date_op)->format('d/m/Y') }}</span>
+                                                        <span
+                                                            class="text-xs opacity-60">{{ \Carbon\Carbon::parse($op->date_op)->format('H:i') }}</span>
+                                                    </div>
+                                                </td>
 
-                                    <td class="text-center">
-                                        <button type="button" 
-                                            class="w-8 h-8 rounded-lg bg-orange-100 text-orange-600 hover:bg-orange-200 transition-all flex items-center justify-center mx-auto"
-                                            onclick="openEditOpModal('{{ $op->id }}', '{{ $op->category }}', '{{ $op->type }}', '{{ $op->amount }}', '{{ $op->vl_applied ?? 0 }}', '{{ \Carbon\Carbon::parse($op->date_op)->toDateString() }}', '{{ rawurlencode($op->comment ?? "") }}')">
-                                            <i class="las la-edit"></i>
-                                        </button>
-                                    </td>
-                                </tr>
-                                @empty
-                                <tr>
-                                    <td colspan="11" class="text-center py-8 opacity-50">
-                                        Aucun historique d'opération disponible pour ce client.
-                                    </td>
-                                </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
+                                                <td class="text-center">
+                                                    @if ($op->category == 'PMG')
+                                                        <span class="kori-badge kori-badge-pmg">PMG</span>
+                                                    @else
+                                                        <span class="kori-badge kori-badge-fcp">FCP</span>
+                                                    @endif
+                                                </td>
+
+                                                <td>
+                                                    <span class="product-title">{{ $op->product_title }}</span>
+                                                </td>
+
+                                                <td>
+                                                    <span
+                                                        class="font-mono text-xs opacity-70">{{ $op->reference ?? '-' }}</span>
+                                                </td>
+
+                                                <td>
+                                                    @if ($op->type == 'precompte_interets')
+                                                        <span class="op-badge op-precompte">Précompte Int.</span>
+                                                    @elseif($op->type == 'paiement_interets')
+                                                        <span class="op-badge op-paiement">Paiement Int.</span>
+                                                    @elseif($op->type == 'rachat_partiel' || $op->type == 'rachat' || $op->type == 'rachat_total')
+                                                        <span class="op-badge op-rachat">Rachat</span>
+                                                    @elseif($op->type == 'souscription')
+                                                        <span class="op-badge op-souscription">Souscription</span>
+                                                    @else
+                                                        <span
+                                                            class="op-badge op-default">{{ ucfirst(str_replace('_', ' ', $op->type)) }}</span>
+                                                    @endif
+                                                </td>
+
+                                                <td class="text-right">
+                                                    <span class="font-mono text-xs opacity-80">
+                                                        @if ($op->category == 'PMG')
+                                                            {{ number_format($op->balance_before, 0, ',', ' ') }} XAF
+                                                        @else
+                                                            {{ number_format($op->balance_before, 0, ',', ' ') }} XAF
+                                                            <br>
+                                                            <small
+                                                                class="opacity-60 text-[10px]">{{ number_format($op->parts_before, 4) }}
+                                                                parts</small>
+                                                        @endif
+                                                    </span>
+                                                </td>
+
+                                                <td class="text-right">
+                                                    <span class="font-bold text-n900">
+                                                        {{ number_format($op->amount, 0, ',', ' ') }} XAF
+                                                    </span>
+                                                </td>
+
+                                                <td class="text-right">
+                                                    <span class="font-mono text-xs font-bold text-n900">
+                                                        @if ($op->category == 'PMG')
+                                                            {{ number_format($op->balance_after, 0, ',', ' ') }} XAF
+                                                        @else
+                                                            {{ number_format($op->balance_after, 0, ',', ' ') }} XAF
+                                                            <br>
+                                                            <small
+                                                                class="opacity-60 font-normal text-[10px]">{{ number_format($op->parts_after, 4) }}
+                                                                parts</small>
+                                                        @endif
+                                                    </span>
+                                                </td>
+
+                                                <td class="text-right">
+                                                    @if ($op->parts_change !== null)
+                                                        <span
+                                                            class="inline-flex px-2 py-1 rounded {{ $op->parts_change < 0 ? 'bg-red-50 text-red-600' : 'bg-green-100 text-green-700' }} text-xs font-bold font-mono">
+                                                            {{ $op->parts_change > 0 ? '+' : '' }}{{ number_format($op->parts_change, 4) }}
+                                                        </span>
+                                                    @else
+                                                        <span class="opacity-30 font-bold">-</span>
+                                                    @endif
+                                                </td>
+
+                                                <td>
+                                                    <p class="text-xs opacity-70 italic max-w-[200px] truncate m-0"
+                                                        title="{{ $op->comment }}">{{ $op->comment ?? '-' }}</p>
+                                                </td>
+
+                                                <td class="text-center">
+                                                    <button type="button"
+                                                        class="w-8 h-8 rounded-lg bg-orange-100 text-orange-600 hover:bg-orange-200 transition-all flex items-center justify-center mx-auto"
+                                                        onclick="openEditOpModal('{{ $op->id }}', '{{ $op->category }}', '{{ $op->type }}', '{{ $op->amount }}', '{{ $op->vl_applied ?? 0 }}', '{{ \Carbon\Carbon::parse($op->date_op)->toDateString() }}', '{{ rawurlencode($op->comment ?? '') }}')">
+                                                        <i class="las la-edit"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        @empty
+                                            <tr>
+                                                <td colspan="11" class="text-center py-8 opacity-50">
+                                                    Aucun historique d'opération disponible pour ce client.
+                                                </td>
+                                            </tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
-                </div>
-                </div>
                 </div>
 
                 <div id="popup-interet-precomptes" class="mfp-hide white-popup-block">
@@ -636,8 +662,8 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                         </div>
                         <div class="form-group mb-3">
                             <label>Frais de gestion (XAF)</label>
-                            <input type="number" name="amount_frais" class="form-control" placeholder="Frais de gestion "
-                                required>
+                            <input type="number" name="amount_frais" class="form-control"
+                                placeholder="Frais de gestion " required>
                         </div>
                         <div class="text-right mt-4">
                             <button type="submit" class="btn btn-warning">Confirmer le Rachat</button>
@@ -743,64 +769,76 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                 </div>
             </div>
 
-    <!-- MODALE MODIFICATION OPERATION -->
-    <div id="modal-edit-operation"
-        class="ac-modal-overlay modalhide fixed inset-0 z-[100] bg-n900/50 backdrop-blur-sm flex items-center justify-center p-4" style="display:none;">
-        <div class="modal-inner bg-white dark:bg-bg4 w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-modal-in">
-            <div class="p-6 border-b border-n30 flex justify-between items-center bg-primary/10">
-                <h3 class="text-xl font-bold text-n900 dark:text-n0">Modifier l'Opération</h3>
-                <button type="button" onclick="closeEditOpModal()"
-                    class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white transition-all text-n500">
-                    <i class="las la-times text-xl"></i>
-                </button>
-            </div>
-            <div class="p-8">
-                <form id="edit-operation-form" class="space-y-5">
-                    @csrf
-                    <input type="hidden" name="op_id" id="edit-op-id">
-                    <input type="hidden" name="op_category" id="edit-op-category">
-                    <input type="hidden" name="op_type" id="edit-op-type">
-
-                    <div>
-                        <label class="block text-[10px] font-bold uppercase text-n500 mb-2 font-Inter tracking-widest italic">Montant de l'Opération (XAF)</label>
-                        <input type="number" step="0.01" name="amount" id="edit-op-amount"
-                            class="w-full h-[50px] p-4 rounded-xl border border-n30 focus:border-primary outline-none text-sm font-bold bg-n10/50" required>
-                    </div>
-
-                    <div id="edit-op-vl-container">
-                        <label class="block text-[10px] font-bold uppercase text-n500 mb-2 font-Inter tracking-widest italic">Valeur Liquidative (VL)</label>
-                        <input type="number" step="0.000001" name="vl_applied" id="edit-op-vl"
-                            class="w-full h-[50px] p-4 rounded-xl border border-n30 focus:border-primary outline-none text-sm font-bold bg-n10/50">
-                    </div>
-
-                    <div>
-                        <label class="block text-[10px] font-bold uppercase text-n500 mb-2 font-Inter tracking-widest italic">Date d'effet</label>
-                        <input type="text" name="date_operation" id="edit-op-date"
-                            class="w-full h-[50px] p-4 rounded-xl border border-n30 focus:border-primary outline-none text-sm font-bold bg-n10/50" readonly required>
-                    </div>
-
-                    <div>
-                        <label class="block text-[10px] font-bold uppercase text-n500 mb-2 font-Inter tracking-widest italic font-bold">Commentaire / Justification</label>
-                        <textarea name="comments" id="edit-op-comments" rows="3"
-                            class="w-full p-4 rounded-xl border border-n30 focus:border-primary outline-none text-sm font-bold bg-n10/50"></textarea>
-                    </div>
-
-                    <div id="edit-op-response-msg" class="hidden"></div>
-
-                    <div class="flex gap-4 pt-4">
+            <!-- MODALE MODIFICATION OPERATION -->
+            <div id="modal-edit-operation"
+                class="ac-modal-overlay modalhide fixed inset-0 z-[100] bg-n900/50 backdrop-blur-sm flex items-center justify-center p-4"
+                style="display:none;">
+                <div
+                    class="modal-inner bg-white dark:bg-bg4 w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-modal-in">
+                    <div class="p-6 border-b border-n30 flex justify-between items-center bg-primary/10">
+                        <h3 class="text-xl font-bold text-n900 dark:text-n0">Modifier l'Opération</h3>
                         <button type="button" onclick="closeEditOpModal()"
-                            class="flex-1 h-[50px] rounded-xl border border-n30 text-n500 font-bold uppercase tracking-wider hover:bg-n10 transition-all">
-                            Annuler
-                        </button>
-                        <button type="submit" id="btn-save-edit-op"
-                            class="flex-1 h-[50px] rounded-xl bg-primary text-white font-bold uppercase tracking-wider hover:bg-primary/90 transition-all shadow-lg shadow-primary/20">
-                            Sauvegarder
+                            class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white transition-all text-n500">
+                            <i class="las la-times text-xl"></i>
                         </button>
                     </div>
-                </form>
+                    <div class="p-8">
+                        <form id="edit-operation-form" class="space-y-5">
+                            @csrf
+                            <input type="hidden" name="op_id" id="edit-op-id">
+                            <input type="hidden" name="op_category" id="edit-op-category">
+                            <input type="hidden" name="op_type" id="edit-op-type">
+
+                            <div>
+                                <label
+                                    class="block text-[10px] font-bold uppercase text-n500 mb-2 font-Inter tracking-widest italic">Montant
+                                    de l'Opération (XAF)</label>
+                                <input type="number" step="0.01" name="amount" id="edit-op-amount"
+                                    class="w-full h-[50px] p-4 rounded-xl border border-n30 focus:border-primary outline-none text-sm font-bold bg-n10/50"
+                                    required>
+                            </div>
+
+                            <div id="edit-op-vl-container">
+                                <label id="edit-op-vl-label"
+                                    class="block text-[10px] font-bold uppercase text-n500 mb-2 font-Inter tracking-widest italic">Taux/VL</label>
+                                <input type="number" step="0.000001" name="vl_applied" id="edit-op-vl"
+                                    class="w-full h-[50px] p-4 rounded-xl border border-n30 focus:border-primary outline-none text-sm font-bold bg-n10/50"
+                                    readonly>
+                            </div>
+
+                            <div>
+                                <label
+                                    class="block text-[10px] font-bold uppercase text-n500 mb-2 font-Inter tracking-widest italic">Date
+                                    d'effet</label>
+                                <input type="text" name="date_operation" id="edit-op-date"
+                                    class="w-full h-[50px] p-4 rounded-xl border border-n30 focus:border-primary outline-none text-sm font-bold bg-n10/50"
+                                    readonly required>
+                            </div>
+
+                            <div>
+                                <label
+                                    class="block text-[10px] font-bold uppercase text-n500 mb-2 font-Inter tracking-widest italic font-bold">Commentaire
+                                    / Justification</label>
+                                <textarea name="comments" id="edit-op-comments" rows="3"
+                                    class="w-full p-4 rounded-xl border border-n30 focus:border-primary outline-none text-sm font-bold bg-n10/50"></textarea>
+                            </div>
+
+                            <div id="edit-op-response-msg" class="hidden"></div>
+
+                            <div class="flex gap-4 pt-4">
+                                <button type="button" onclick="closeEditOpModal()"
+                                    class="flex-1 h-[50px] rounded-xl border border-n30 text-n500 font-bold uppercase tracking-wider hover:bg-n10 transition-all">
+                                    Annuler
+                                </button>
+                                <button type="submit" id="btn-save-edit-op"
+                                    class="flex-1 h-[50px] rounded-xl bg-primary text-white font-bold uppercase tracking-wider hover:bg-primary/90 transition-all shadow-lg shadow-primary/20">
+                                    Sauvegarder
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
             </div>
-        </div>
-    </div>
     </main>
 @endsection
 
@@ -1033,20 +1071,24 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                 $('#edit-op-comments').val(comment);
 
                 if (category === 'PMG') {
-                    $('#edit-op-vl-container').hide();
+                    $('#edit-op-vl-label').text("Taux d'intérêt (%)");
                 } else {
-                    $('#edit-op-vl-container').show();
+                    $('#edit-op-vl-label').text("Valeur Liquidative (VL)");
                 }
+                $('#edit-op-vl-container').show();
 
                 if (!pickerEditOpDate) {
                     pickerEditOpDate = datepicker('#edit-op-date', {
                         formatter: (input, date, instance) => {
-                            const value = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+                            const value = date.getFullYear() + '-' + String(date.getMonth() + 1)
+                                .padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
                             input.value = value;
                         },
                         startDay: 1,
                         customDays: ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'],
-                        customMonths: ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'],
+                        customMonths: ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet',
+                            'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
+                        ],
                         overlayButton: "Valider",
                         overlayPlaceholder: "Année (4 chiffres)"
                     });
@@ -1086,16 +1128,19 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                         data: $(this).serialize(),
                         success: function(data) {
                             resp.textContent = data.message;
-                            resp.className = "block bg-green-100 text-green-700 p-3 rounded-xl text-xs font-bold uppercase italic mt-4";
+                            resp.className =
+                                "block bg-green-100 text-green-700 p-3 rounded-xl text-xs font-bold uppercase italic mt-4";
                             resp.classList.remove('hidden');
                             setTimeout(() => {
                                 window.location.reload();
                             }, 1000);
                         },
                         error: function(xhr) {
-                            const msg = xhr.responseJSON ? xhr.responseJSON.message : "Erreur lors de la modification.";
+                            const msg = xhr.responseJSON ? xhr.responseJSON.message :
+                                "Erreur lors de la modification.";
                             resp.textContent = msg;
-                            resp.className = "block bg-red-100 text-red-700 p-3 rounded-xl text-xs font-bold uppercase italic mt-4";
+                            resp.className =
+                                "block bg-red-100 text-red-700 p-3 rounded-xl text-xs font-bold uppercase italic mt-4";
                             resp.classList.remove('hidden');
                             btn.disabled = false;
                             btn.textContent = "Sauvegarder";
