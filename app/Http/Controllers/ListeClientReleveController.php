@@ -259,7 +259,33 @@ public function previewPmg(int $clientId)
 
             $productValoN += $vN;
             $productValoN1 += $vN1;
-            $productCapitalTotal += (float)$trans->amount;
+
+            // Calcul du capital à la date de fin du relevé (prenant en compte les capitalisations et les rachats)
+            $transCapital = (float)$trans->amount;
+            if ($trans->product->products_category_id == 2) { // PMG
+                $lastM = DB::table('financial_movements')
+                    ->where('transaction_id', $parentId)
+                    ->whereIn('type', ['capitalisation_interets', 'rachat_partiel', 'rachat_total'])
+                    ->where('date_operation', '<=', $dateN->toDateString())
+                    ->orderBy('date_operation', 'desc')
+                    ->first();
+                
+                if ($lastM) {
+                    if ($lastM->type === 'rachat_total') {
+                        // Si racheté ce mois-ci, on garde le capital avant rachat pour affichage historique dans ce relevé
+                        $startOfMonthStr = $dateN->copy()->startOfMonth()->toDateString();
+                        if ($lastM->date_operation >= $startOfMonthStr) {
+                            $transCapital = (float)$lastM->capital_before;
+                        } else {
+                            $transCapital = 0;
+                        }
+                    } else {
+                        $transCapital = (float)$lastM->capital_after;
+                    }
+                }
+            }
+
+            $productCapitalTotal += $transCapital;
             $productPrecompteTotal += (float)$prec;
             $productPertesMensuelles += $displayedOutflows;
             $productGainMensuelTotal += $currentTransGain;
@@ -269,7 +295,7 @@ public function previewPmg(int $clientId)
         $totalValoN += $productValoN;
         $totalValoN1 += $productValoN1;
 
-        if ($productCapitalTotal > 0) {
+        if ($productCapitalTotal > 0 || $productValoN > 0 || $productValoN1 > 0) {
             $produitsAffiches[] = (object)[
                 'nom' => $productRecord->title,
                 'capital' => $productCapitalTotal,
@@ -710,7 +736,32 @@ private function genererPdfPmg(int $clientId): string
 
             $productValoN += $vN;
             $productValoN1 += $vN1;
-            $productCapitalTotal += (float)$trans->amount;
+
+            $transCapital = (float)$trans->amount;
+            if ($trans->product->products_category_id == 2) { // PMG
+                $lastM = DB::table('financial_movements')
+                    ->where('transaction_id', $parentId)
+                    ->whereIn('type', ['capitalisation_interets', 'rachat_partiel', 'rachat_total'])
+                    ->where('date_operation', '<=', $dateN->toDateString())
+                    ->orderBy('date_operation', 'desc')
+                    ->first();
+                
+                if ($lastM) {
+                    if ($lastM->type === 'rachat_total') {
+                        // Si racheté ce mois-ci, on garde le capital avant rachat pour affichage historique dans ce relevé
+                        $startOfMonthStr = $dateN->copy()->startOfMonth()->toDateString();
+                        if ($lastM->date_operation >= $startOfMonthStr) {
+                            $transCapital = (float)$lastM->capital_before;
+                        } else {
+                            $transCapital = 0;
+                        }
+                    } else {
+                        $transCapital = (float)$lastM->capital_after;
+                    }
+                }
+            }
+
+            $productCapitalTotal += $transCapital;
             $productPrecompteTotal += (float)$prec;
             $productPertesMensuelles += $displayedOutflows;
             $productGainMensuelTotal += $currentTransGain;
@@ -720,7 +771,7 @@ private function genererPdfPmg(int $clientId): string
         $totalValoN += $productValoN;
         $totalValoN1 += $productValoN1;
 
-        if ($productCapitalTotal > 0) {
+        if ($productCapitalTotal > 0 || $productValoN > 0 || $productValoN1 > 0) {
             $produitsPreparees[] = (object)[
                 'nom' => $productRecord->title,
                 'capital' => $productCapitalTotal,

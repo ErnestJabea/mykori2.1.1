@@ -618,33 +618,59 @@ class ProductController extends Controller
     $targetDate = Carbon::parse($refDate)->min(Carbon::parse($trans->date_echeance));
     $rate = (float)$trans->vl_buy / 100;
 
-    // 0. Sécurité Rachat Total
-    // NOTE : Les transactions supplémentaires n'ont pas de mouvements financiers dans cette table
     $isSupplementaire = ($trans instanceof \App\Models\TransactionSupplementaire);
-    
-    $totalRedemption = false;
-    $lastMovement = null;
+    $parentId = $isSupplementaire ? $trans->transaction_id : $trans->id;
 
-    if (!$isSupplementaire) {
-        $totalRedemption = DB::table('financial_movements')
-            ->where('transaction_id', $trans->id)
-            ->where('type', 'rachat_total')
-            ->where('date_operation', '<=', $targetDate->toDateString())
-            ->exists();
+    $totalRedemption = DB::table('financial_movements')
+        ->where('transaction_id', $parentId)
+        ->where('type', 'rachat_total')
+        ->where('date_operation', '<=', $targetDate->toDateString())
+        ->exists();
 
-        if ($totalRedemption) return 0;
+    if ($totalRedemption) return 0;
 
-        // 1. On cherche le capital effectif à la date cible (ignore les capitalisations futures)
-        $lastMovement = DB::table('financial_movements')
-            ->where('transaction_id', $trans->id)
-            ->whereIn('type', ['capitalisation_interets', 'rachat_partiel'])
-            ->where('date_operation', '<=', $targetDate->toDateString())
-            ->orderBy('date_operation', 'desc')
-            ->first();
+    $lastMovementQuery = DB::table('financial_movements')
+        ->where('transaction_id', $parentId)
+        ->where('date_operation', '<=', $targetDate->toDateString());
+
+    if ($isSupplementaire) {
+        $lastMovementQuery->where('type', 'capitalisation_interets')
+            ->where('comments', 'LIKE', "%versement complémentaire ID {$trans->id}%");
+    } else {
+        $lastMovementQuery->whereIn('type', ['capitalisation_interets', 'rachat_partiel'])
+            ->where('comments', 'NOT LIKE', "%versement complémentaire ID %");
     }
 
-    $baseCapital = $lastMovement ? (float)$lastMovement->capital_after : (float)$trans->amount;
-    $startDate = $lastMovement ? Carbon::parse($lastMovement->date_operation) : Carbon::parse($trans->date_validation);
+    $lastMovement = $lastMovementQuery->orderBy('date_operation', 'desc')
+        ->first();
+
+    if ($lastMovement && ($lastMovement->type === 'rachat_total' || (float)$lastMovement->capital_after <= 0)) {
+        return 0;
+    }
+
+    $baseCapital = (float)$trans->amount;
+    $startDate = Carbon::parse($trans->date_validation);
+
+    if ($lastMovement) {
+        $baseCapital = (float)$lastMovement->capital_after;
+        $startDate = Carbon::parse($lastMovement->date_operation);
+    } else {
+        // Si aucun mouvement n'a eu lieu avant la date cible, mais qu'il y a des mouvements enregistrés plus tard,
+        // le capital initial est le capital_before du tout premier mouvement de cette transaction.
+        $earliestMovementQuery = DB::table('financial_movements')
+            ->where('transaction_id', $parentId);
+
+        if ($isSupplementaire) {
+            $earliestMovementQuery->where('comments', 'LIKE', "%versement complémentaire ID {$trans->id}%");
+        } else {
+            $earliestMovementQuery->where('comments', 'NOT LIKE', "%versement complémentaire ID %");
+        }
+
+        $earliestMovement = $earliestMovementQuery->orderBy('date_operation', 'asc')->first();
+        if ($earliestMovement) {
+            $baseCapital = (float)$earliestMovement->capital_before;
+        }
+    }
 
     // 2. Calcul des intérêts courus (Base 360)
     $totalInterest = 0;
@@ -667,11 +693,18 @@ class ProductController extends Controller
         }
     }
 
-    $payouts = DB::table('financial_movements')
-        ->where('transaction_id', $trans->id)
+    $payoutsQuery = DB::table('financial_movements')
+        ->where('transaction_id', $parentId)
         ->whereIn('type', ['precompte_interets', 'paiement_interets'])
-        ->where('date_operation', '<=', $targetDate->toDateString())
-        ->sum('amount') ?? 0;
+        ->where('date_operation', '<=', $targetDate->toDateString());
+
+    if ($isSupplementaire) {
+        $payoutsQuery->where('comments', 'LIKE', "%versement complémentaire ID {$trans->id}%");
+    } else {
+        $payoutsQuery->where('comments', 'NOT LIKE', "%versement complémentaire ID %");
+    }
+
+    $payouts = $payoutsQuery->sum('amount') ?? 0;
 
     // Valorisation = (Capital à l'instant T - (Somme des intérêts déjà payés/précomptés)) + Intérêts courus du cycle
     return round(($baseCapital - $payouts) + $totalInterest, 0);
@@ -1647,7 +1680,6 @@ class ProductController extends Controller
                         if ($interetAdd > 0) {
                             DB::table('financial_movements')->insert([
                                 'transaction_id' => $parentId,
-                                'user_id'        => $trans->user_id,
                                 'date_operation' => $anniversaryMidnight->toDateTimeString(),
                                 'type'           => 'capitalisation_interets',
                                 'amount'         => round($interetAdd, 0),
@@ -1921,29 +1953,77 @@ class ProductController extends Controller
                     $vN = $this->calculatePMGValorization($trans, $dateN);
                     $vN1 = $this->calculatePMGValorization($trans, $dateN1);
 
-                    $prec = DB::table('financial_movements')
-                        ->where('transaction_id', $trans->id)
-                        ->where('type', 'precompte_interets')
-                        ->value('amount') ?? 0;
+                    $isSupplementaire = ($trans instanceof \App\Models\TransactionSupplementaire);
+                    $parentId = $isSupplementaire ? $trans->transaction_id : $trans->id;
+
+                    $precQuery = DB::table('financial_movements')
+                        ->where('transaction_id', $parentId)
+                        ->where('type', 'precompte_interets');
+                    if ($isSupplementaire) {
+                        $precQuery->where('comments', 'LIKE', "%versement complémentaire ID {$trans->id}%");
+                    } else {
+                        $precQuery->where('comments', 'NOT LIKE', "%versement complémentaire ID %");
+                    }
+                    $prec = $precQuery->value('amount') ?? 0;
 
                     $productValoN += $vN;
                     $productValoN1 += $vN1;
-                    $productCapitalTotal += (float)$trans->amount;
+
+                    $transCapital = (float)$trans->amount;
+                    if ($trans->product->products_category_id == 2) { // PMG
+                        $lastMQuery = DB::table('financial_movements')
+                            ->where('transaction_id', $parentId)
+                            ->whereIn('type', ['capitalisation_interets', 'rachat_partiel', 'rachat_total'])
+                            ->where('date_operation', '<=', $dateN->toDateString());
+                        
+                        if ($isSupplementaire) {
+                            $lastMQuery->where('comments', 'LIKE', "%versement complémentaire ID {$trans->id}%");
+                        } else {
+                            $lastMQuery->where('comments', 'NOT LIKE', "%versement complémentaire ID %");
+                        }
+                        
+                        $lastM = $lastMQuery->orderBy('date_operation', 'desc')->first();
+                        
+                        if ($lastM) {
+                            if ($lastM->type === 'rachat_total') {
+                                $startOfMonthStr = $dateN->copy()->startOfMonth()->toDateString();
+                                if ($lastM->date_operation >= $startOfMonthStr) {
+                                    $transCapital = (float)$lastM->capital_before;
+                                } else {
+                                    $transCapital = 0;
+                                }
+                            } else {
+                                $transCapital = (float)$lastM->capital_after;
+                            }
+                        }
+                    }
+
+                    $productCapitalTotal += $transCapital;
                     $productPrecompteTotal += (float)$prec;
 
                     // Gain mensuel local pour cette transaction
-                    $mvtCap = DB::table('financial_movements')
-                        ->where('transaction_id', $trans->id)
+                    $mvtCapQuery = DB::table('financial_movements')
+                        ->where('transaction_id', $parentId)
                         ->where('type', 'capitalisation_interets')
-                        ->whereBetween('date_operation', [$dateN1->copy()->addDay()->toDateString(), $dateN->toDateString()])
-                        ->first();
+                        ->whereBetween('date_operation', [$dateN1->copy()->addDay()->toDateString(), $dateN->toDateString()]);
+                    if ($isSupplementaire) {
+                        $mvtCapQuery->where('comments', 'LIKE', "%versement complémentaire ID {$trans->id}%");
+                    } else {
+                        $mvtCapQuery->where('comments', 'NOT LIKE', "%versement complémentaire ID %");
+                    }
+                    $mvtCap = $mvtCapQuery->first();
 
                     // Sorties du mois (Rachats partiels, Paiement intérêts)
-                    $mensualOutflows = DB::table('financial_movements')
-                        ->where('transaction_id', $trans->id)
+                    $mensualOutflowsQuery = DB::table('financial_movements')
+                        ->where('transaction_id', $parentId)
                         ->whereIn('type', ['rachat_partiel', 'paiement_interets', 'precompte_interets', 'dividende_interets'])
-                        ->whereBetween('date_operation', [$dateN1->copy()->addDay()->toDateString(), $dateN->toDateString()])
-                        ->sum('amount') ?? 0;
+                        ->whereBetween('date_operation', [$dateN1->copy()->addDay()->toDateString(), $dateN->toDateString()]);
+                    if ($isSupplementaire) {
+                        $mensualOutflowsQuery->where('comments', 'LIKE', "%versement complémentaire ID {$trans->id}%");
+                    } else {
+                        $mensualOutflowsQuery->where('comments', 'NOT LIKE', "%versement complémentaire ID %");
+                    }
+                    $mensualOutflows = $mensualOutflowsQuery->sum('amount') ?? 0;
 
                     if ($mvtCap) {
                         $dateCap = Carbon::parse($mvtCap->date_operation);
@@ -1955,7 +2035,7 @@ class ProductController extends Controller
                     } else {
                         // Cas produit jeune ou normal
                         if (Carbon::parse($trans->date_validation)->gt($dateN1)) {
-                             $productGainMensuelTotal += (($vN + $mensualOutflows) - ((float)$trans->amount - (float)$prec));
+                             $productGainMensuelTotal += (($vN + $mensualOutflows) - ($transCapital - (float)$prec));
                         } else {
                              $productGainMensuelTotal += (($vN + $mensualOutflows) - $vN1);
                         }
@@ -1966,7 +2046,7 @@ class ProductController extends Controller
                 $totalValoN += $productValoN;
                 $totalValoN1 += ($productValoN - $productGainMensuelTotal);
 
-                if ($productCapitalTotal > 0) {
+                if ($productCapitalTotal > 0 || $productValoN > 0 || $productValoN1 > 0) {
                     $produitsAffiches[] = (object)[
                         'nom' => $productRecord->title,
                         'capital' => $productCapitalTotal,
