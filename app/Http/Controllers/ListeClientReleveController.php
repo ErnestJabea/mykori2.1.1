@@ -268,6 +268,7 @@ public function previewPmg(int $clientId)
                     ->whereIn('type', ['capitalisation_interets', 'rachat_partiel', 'rachat_total'])
                     ->where('date_operation', '<=', $dateN->toDateString())
                     ->orderBy('date_operation', 'desc')
+                    ->orderBy('id', 'desc')
                     ->first();
                 
                 if ($lastM) {
@@ -744,6 +745,7 @@ private function genererPdfPmg(int $clientId): string
                     ->whereIn('type', ['capitalisation_interets', 'rachat_partiel', 'rachat_total'])
                     ->where('date_operation', '<=', $dateN->toDateString())
                     ->orderBy('date_operation', 'desc')
+                    ->orderBy('id', 'desc')
                     ->first();
                 
                 if ($lastM) {

@@ -642,6 +642,7 @@ class ProductController extends Controller
     }
 
     $lastMovement = $lastMovementQuery->orderBy('date_operation', 'desc')
+        ->orderBy('id', 'desc')
         ->first();
 
     if ($lastMovement && ($lastMovement->type === 'rachat_total' || (float)$lastMovement->capital_after <= 0)) {
@@ -744,6 +745,7 @@ class ProductController extends Controller
             ->where('transaction_id', $trans->id)
             ->where('date_operation', '<=', $targetDate->toDateString())
             ->orderBy('date_operation', 'desc')
+            ->orderBy('id', 'desc')
             ->first();
 
         if ($lastMovement) {
@@ -1672,6 +1674,7 @@ class ProductController extends Controller
                                 ->where('transaction_id', $trans->id)
                                 ->where('date_operation', '<', $anniversaryMidnight)
                                 ->orderBy('date_operation', 'desc')
+                                ->orderBy('id', 'desc')
                                 ->value('capital_after') ?? (float)$trans->amount;
                         }
 
@@ -1982,7 +1985,9 @@ class ProductController extends Controller
                             $lastMQuery->where('comments', 'NOT LIKE', "%versement complémentaire ID %");
                         }
                         
-                        $lastM = $lastMQuery->orderBy('date_operation', 'desc')->first();
+                        $lastM = $lastMQuery->orderBy('date_operation', 'desc')
+                            ->orderBy('id', 'desc')
+                            ->first();
                         
                         if ($lastM) {
                             if ($lastM->type === 'rachat_total') {

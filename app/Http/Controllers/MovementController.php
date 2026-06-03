@@ -21,6 +21,7 @@ class MovementController extends Controller
         $lastCapital = DB::table('financial_movements')
             ->where('transaction_id', $transaction->id)
             ->orderBy('date_operation', 'desc')
+            ->orderBy('id', 'desc')
             ->value('capital_after') ?? (float)$transaction->amount;
 
         // Insertion du mouvement de précompte
@@ -285,6 +286,7 @@ class MovementController extends Controller
         $lastMove = DB::table('financial_movements')
             ->where('transaction_id', $trans->id)
             ->orderBy('date_operation', 'desc')
+            ->orderBy('id', 'desc')
             ->first();
 
         $capitalBefore = $lastMove ? $lastMove->capital_after : $trans->amount;
@@ -347,6 +349,7 @@ class MovementController extends Controller
         $capitalActuel = (float)DB::table('financial_movements')
             ->where('transaction_id', $trans->id)
             ->orderBy('date_operation', 'desc')
+            ->orderBy('id', 'desc')
             ->value('capital_after') ?? (float)$trans->amount;
 
         $interetsDisponibles = max(0, $valoTotale - $capitalActuel);
@@ -395,6 +398,7 @@ class MovementController extends Controller
             ->whereIn('type', ['capitalisation_interets', 'rachat_partiel'])
             ->where('date_operation', '<=', $targetDate->toDateString())
             ->orderBy('date_operation', 'desc')
+            ->orderBy('id', 'desc')
             ->first();
 
         $baseCapital = $lastMovement ? (float)$lastMovement->capital_after : (float)$trans->amount;
