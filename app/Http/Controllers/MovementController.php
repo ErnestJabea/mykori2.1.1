@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use App\Models\Transaction;
 use App\Models\FinancialMovement;
+use App\Support\FinancialDecimal;
 use Illuminate\Support\Str;
 
 class MovementController extends Controller
@@ -428,7 +429,7 @@ class MovementController extends Controller
 
         $paiementsAnterieurs = DB::table('financial_movements')
             ->where('transaction_id', $trans->id)
-            ->where('type', 'paiement_interets')
+            ->whereIn('type', ['paiement_interets', 'liquidite_interets'])
             ->sum('amount') ?? 0;
 
         return round(($baseCapital - $precompte - $paiementsAnterieurs) + $totalInterest, 0);
@@ -450,8 +451,8 @@ class MovementController extends Controller
         $productId = $request->product_id;
         $userId = $request->customer_id;
         $dateOp = $request->date_operation;
-        $amountBrut = (float)$request->amount_brut;
-        $amountFrais = (float)($request->amount_frais ?? 0);
+        $amountBrut = FinancialDecimal::money($request->amount_brut);
+        $amountFrais = FinancialDecimal::money($request->amount_frais ?? 0);
 
         // 1. Récupérer la VL à la date choisie (ou plus proche précédente)
         // Note: On utilise AssetValue via ProductController::getVlAtDate logic
@@ -465,8 +466,8 @@ class MovementController extends Controller
             return response()->json(['message' => "Aucune Valeur Liquidative trouvée à cette date pour ce produit."], 422);
         }
 
-        $vl = (float)$vlEntry->vl;
-        $nbPartsARetirer = $amountBrut / $vl;
+        $vl = (string) $vlEntry->vl;
+        $nbPartsARetirer = FinancialDecimal::partsFromAmount($amountBrut, $vl);
 
         // 2. Vérifier si le client a assez de parts à cette date
         $partsActuelles = \DB::table('fcp_movements')
@@ -475,9 +476,9 @@ class MovementController extends Controller
             ->where('date_operation', '<=', $dateOp)
             ->sum('nb_parts_change');
 
-        if ($nbPartsARetirer > $partsActuelles) {
+        if (FinancialDecimal::of($nbPartsARetirer)->isGreaterThan(FinancialDecimal::of($partsActuelles))) {
             return response()->json([
-                'message' => "Parts insuffisantes. Le client possède " . round($partsActuelles, 4) . " parts à cette date, or l'opération demande d'en retirer " . round($nbPartsARetirer, 4) . "."
+                'message' => "Parts insuffisantes. Le client possède " . round((float)$partsActuelles, 4) . " parts à cette date, or l'opération demande d'en retirer " . round((float)$nbPartsARetirer, 4) . "."
             ], 422);
         }
 
@@ -497,10 +498,11 @@ class MovementController extends Controller
                 'date_operation' => $dateOp,
                 'type' => 'rachat',
                 'amount_xaf' => $amountBrut,
-                'nb_parts_change' => -$nbPartsARetirer,
-                'nb_parts_total' => $oldNbPartsTotal - $nbPartsARetirer,
+                'fees' => $amountFrais,
+                'nb_parts_change' => FinancialDecimal::of($nbPartsARetirer)->negated()->__toString(),
+                'nb_parts_total' => FinancialDecimal::subtract($oldNbPartsTotal, $nbPartsARetirer, FinancialDecimal::PARTS_SCALE),
                 'vl_applied' => $vl,
-                'comment' => "Rachat FCP de $amountBrut XAF (Net Client: " . ($amountBrut - $amountFrais) . " XAF). Frais: $amountFrais XAF.",
+                'comment' => "Rachat FCP de $amountBrut XAF (Net Client: " . FinancialDecimal::subtract($amountBrut, $amountFrais) . " XAF). Frais: $amountFrais XAF.",
                 'created_at' => now(),
                 'updated_at' => now()
             ]);
@@ -515,7 +517,7 @@ class MovementController extends Controller
 
             return response()->json([
                 'status' => 'ok',
-                'message' => "Rachat FCP validé avec succès. VL appliquée: $vl XAF (" . round($nbPartsARetirer, 4) . " parts retirées)."
+                'message' => "Rachat FCP validé avec succès. VL appliquée: $vl XAF (" . round((float)$nbPartsARetirer, 4) . " parts retirées)."
             ]);
 
         } catch (\Exception $e) {
@@ -528,7 +530,7 @@ class MovementController extends Controller
     {
         $id = $request->input('op_id');
         $category = $request->input('op_category');
-        $amount = (float)$request->input('amount');
+        $amount = $request->input('amount');
         $dateOp = $request->input('date_operation');
         $comment = $request->input('comments');
 
@@ -563,12 +565,13 @@ class MovementController extends Controller
                 return response()->json(['status' => 'error', 'message' => 'Mouvement FCP introuvable.'], 404);
             }
 
-            $vlApplied = (float)$request->input('vl_applied', $mvt->vl_applied);
+            $amount = FinancialDecimal::money($amount);
+            $vlApplied = (string) $request->input('vl_applied', $mvt->vl_applied);
 
             $isRachat = str_contains(strtolower($mvt->type), 'rachat') || $mvt->nb_parts_change < 0;
-            $nbPartsChange = $amount / $vlApplied;
+            $nbPartsChange = FinancialDecimal::partsFromAmount($amount, $vlApplied);
             if ($isRachat) {
-                $nbPartsChange = -abs($nbPartsChange);
+                $nbPartsChange = FinancialDecimal::of($nbPartsChange)->abs()->negated()->__toString();
             }
 
             if (strlen($dateOp) === 10) {
@@ -669,7 +672,7 @@ class MovementController extends Controller
             } elseif ($mvt->type === 'frais_gestion') {
                 $capitalAfter = $currentCapital - (float)$mvt->amount;
                 $currentCapital = $capitalAfter;
-            } elseif (in_array($mvt->type, ['precompte_interets', 'paiement_interets'])) {
+            } elseif (in_array($mvt->type, ['precompte_interets', 'paiement_interets', 'liquidite_interets'])) {
                 $capitalAfter = $currentCapital;
                 $payoutsAccumulated += (float)$mvt->amount;
             } else {
@@ -694,10 +697,10 @@ class MovementController extends Controller
             ->orderBy('id', 'asc')
             ->get();
 
-        $runningParts = 0.0;
+        $runningParts = FinancialDecimal::parts(0);
         foreach ($movements as $mvt) {
             $partsBefore = $runningParts;
-            $runningParts += (float)$mvt->nb_parts_change;
+            $runningParts = FinancialDecimal::add($runningParts, $mvt->nb_parts_change, FinancialDecimal::PARTS_SCALE);
             $partsAfter = $runningParts;
 
             DB::table('fcp_movements')->where('id', $mvt->id)->update([
@@ -706,4 +709,3 @@ class MovementController extends Controller
         }
     }
 }
-

@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Http\Controllers\ProductController;
 use App\Mail\ReleveClientMail;
+use App\Support\FinancialDecimal;
 
 class ListeClientReleveController extends Controller
 {
@@ -22,10 +23,77 @@ class ListeClientReleveController extends Controller
         $this->productController = $productController;
     }
 
+    private function getPositiveFcpStatementValue(int $clientId, Carbon $date): float
+    {
+        $productIds = DB::table('transactions')
+            ->where('user_id', $clientId)
+            ->where('status', 'Succès')
+            ->distinct()->pluck('product_id')
+            ->merge(
+                DB::table('transaction_supplementaires')
+                    ->where('user_id', $clientId)
+                    ->where('status', 'Succès')
+                    ->distinct()->pluck('product_id')
+            )->unique();
+
+        $total = 0;
+        foreach ($productIds as $pid) {
+            $product = \App\Models\Product::find($pid);
+            if (!$product || (int)$product->products_category_id !== 1) {
+                continue;
+            }
+
+            $fcpData = $this->productController->getFcpPortfolioValue($clientId, $pid, $date);
+            if (($fcpData['parts'] ?? 0) > 0 && ($fcpData['valorisation'] ?? 0) > 0) {
+                $total += (float)$fcpData['valorisation'];
+            }
+        }
+
+        return $total;
+    }
+
+    private function getPositivePmgStatementValue(int $clientId, Carbon $date): float
+    {
+        $periodStart = $date->copy()->startOfMonth();
+
+        $mainTransactions = Transaction::where('user_id', $clientId)
+            ->where('status', 'Succès')
+            ->where('date_validation', '<=', $date->format('Y-m-d'))
+            ->where(function($q) use ($periodStart) {
+                $q->whereNull('date_echeance')
+                    ->orWhere('date_echeance', '>=', $periodStart->format('Y-m-d'));
+            })
+            ->whereHas('product', function($q) {
+                $q->where('products_category_id', 2);
+            })->get();
+
+        $suppTransactions = \App\Models\TransactionSupplementaire::where('user_id', $clientId)
+            ->where('status', 'Succès')
+            ->where('date_validation', '<=', $date->format('Y-m-d'))
+            ->where(function($q) use ($periodStart) {
+                $q->whereNull('date_echeance')
+                    ->orWhere('date_echeance', '>=', $periodStart->format('Y-m-d'));
+            })
+            ->whereHas('product', function($q) {
+                $q->where('products_category_id', 2);
+            })->get();
+
+        $total = 0;
+        foreach ($mainTransactions->merge($suppTransactions) as $transaction) {
+            $value = (float)$this->productController->calculatePMGValorization($transaction, $date);
+            if ($value > 0) {
+                $total += $value;
+            }
+        }
+
+        return $total;
+    }
+
     public function index($type = 'all')
     {
         $allClients = User::where('role_id', 2)->get();
         $currentDate = Carbon::now();
+        $statementDate = $currentDate->copy()->startOfMonth()->subDay();
         $periode = $currentDate->copy()->subMonth()->translatedFormat('F Y');
 
         $filteredClients = collect();
@@ -36,58 +104,10 @@ class ListeClientReleveController extends Controller
             $client->has_fcp = false;
             $client->has_pmg = false;
 
-            // 1. Identifier tous les produits impliqués (Transactions principales + supplémentaires)
-            $productIds = DB::table('transactions')
-                ->where('user_id', $client->id)
-                ->where('status', 'Succès')
-                ->distinct()->pluck('product_id')
-                ->merge(
-                    DB::table('transaction_supplementaires')
-                    ->where('user_id', $client->id)
-                    ->where('status', 'Succès')
-                    ->distinct()->pluck('product_id')
-                )->unique();
-
-            $processedFcpProducts = [];
-
-            foreach ($productIds as $pid) {
-                $product = \App\Models\Product::find($pid);
-                if (!$product) continue;
-
-                if ($product->products_category_id == 1) {
-                    $client->has_fcp = true;
-                    if (!in_array($pid, $processedFcpProducts)) {
-                        $fcpData = $this->productController->getFcpPortfolioValue($client->id, $pid, $currentDate);
-                        $totalValorisationFcp += $fcpData['valorisation'];
-                        $processedFcpProducts[] = $pid;
-                    }
-                } elseif ($product->products_category_id == 2) {
-                    // Pour PMG, on récupère toutes les transactions actives à cette date
-                    $pmgTrans = Transaction::where('user_id', $client->id)
-                        ->where('product_id', $pid)
-                        ->where('status', 'Succès')
-                        ->where(function($q) use ($currentDate) {
-                            $q->whereNull('date_echeance')
-                              ->orWhere('date_echeance', '>=', $currentDate->format('Y-m-d'));
-                        })->get();
-                    
-                    $pmgSupp = \App\Models\TransactionSupplementaire::where('user_id', $client->id)
-                        ->where('product_id', $pid)
-                        ->where('status', 'Succès')
-                        ->where(function($q) use ($currentDate) {
-                            $q->whereNull('date_echeance')
-                              ->orWhere('date_echeance', '>=', $currentDate->format('Y-m-d'));
-                        })->get();
-
-                    $allPmg = $pmgTrans->merge($pmgSupp);
-                    if ($allPmg->isNotEmpty()) {
-                        $client->has_pmg = true;
-                        foreach ($allPmg as $pt) {
-                            $totalValorisationPmg += $this->productController->calculatePMGValorization($pt, $currentDate);
-                        }
-                    }
-                }
-            }
+            $totalValorisationFcp = $this->getPositiveFcpStatementValue($client->id, $statementDate);
+            $totalValorisationPmg = $this->getPositivePmgStatementValue($client->id, $statementDate);
+            $client->has_fcp = $totalValorisationFcp > 0;
+            $client->has_pmg = $totalValorisationPmg > 0;
 
             if ($type === 'fcp') {
                 $client->portefeuille_total = $totalValorisationFcp;
@@ -261,31 +281,55 @@ public function previewPmg(int $clientId)
             $endDatePeriod = $dateN->copy()->endOfDay()->toDateTimeString();
 
             // Sorties du mois pour le calcul du gain (inclut les intérêts payés, les rachats et les frais)
-            $totalOutflowsForGain = DB::table('financial_movements')
+            $totalOutflowsForGainQuery = DB::table('financial_movements')
                 ->where('transaction_id', $parentId)
-                ->whereIn('type', ['rachat_partiel', 'rachat_total', 'frais_gestion', 'paiement_interets', 'precompte_interets', 'dividende_interets'])
-                ->whereBetween('date_operation', [$startDatePeriod, $endDatePeriod])
-                ->sum('amount') ?? 0;
+                ->whereIn('type', ['rachat_partiel', 'rachat_total', 'frais_gestion', 'paiement_interets', 'precompte_interets', 'liquidite_interets', 'dividende_interets'])
+                ->whereBetween('date_operation', [$startDatePeriod, $endDatePeriod]);
+            if ($isSupplementaire) {
+                $totalOutflowsForGainQuery->where('comments', 'LIKE', "%versement complémentaire ID {$trans->id}%");
+            } else {
+                $totalOutflowsForGainQuery->where(function($q) {
+                    $q->where('comments', 'NOT LIKE', "%versement complémentaire ID %")
+                      ->orWhereNull('comments');
+                });
+            }
+            $totalOutflowsForGain = $totalOutflowsForGainQuery->sum('amount') ?? 0;
 
             // Sorties affichées en "Pertes" (exclut les rachats et les frais de gestion selon demande)
-            $displayedOutflows = DB::table('financial_movements')
+            $displayedOutflowsQuery = DB::table('financial_movements')
                 ->where('transaction_id', $parentId)
-                ->whereIn('type', ['precompte_interets', 'dividende_interets'])
-                ->whereBetween('date_operation', [$startDatePeriod, $endDatePeriod])
-                ->sum('amount') ?? 0;
+                ->whereIn('type', ['precompte_interets', 'liquidite_interets', 'dividende_interets'])
+                ->whereBetween('date_operation', [$startDatePeriod, $endDatePeriod]);
+            if ($isSupplementaire) {
+                $displayedOutflowsQuery->where('comments', 'LIKE', "%versement complémentaire ID {$trans->id}%");
+            } else {
+                $displayedOutflowsQuery->where(function($q) {
+                    $q->where('comments', 'NOT LIKE', "%versement complémentaire ID %")
+                      ->orWhereNull('comments');
+                });
+            }
+            $displayedOutflows = $displayedOutflowsQuery->sum('amount') ?? 0;
 
             // Calcul du gain mensuel de cette transaction
-            $mvtCap = DB::table('financial_movements')
+            $mvtCapQuery = DB::table('financial_movements')
                 ->where('transaction_id', $parentId)
                 ->where('type', 'capitalisation_interets')
-                ->whereBetween('date_operation', [$startDatePeriod, $endDatePeriod])
-                ->first();
+                ->whereBetween('date_operation', [$startDatePeriod, $endDatePeriod]);
+            if ($isSupplementaire) {
+                $mvtCapQuery->where('comments', 'LIKE', "%versement complémentaire ID {$trans->id}%");
+            } else {
+                $mvtCapQuery->where(function($q) {
+                    $q->where('comments', 'NOT LIKE', "%versement complémentaire ID %")
+                      ->orWhereNull('comments');
+                });
+            }
+            $mvtCap = $mvtCapQuery->first();
 
             $currentTransGain = 0;
             if ($mvtCap) {
                 $dateCap = Carbon::parse($mvtCap->date_operation);
-                $joursA = $dateN1->diffInDays($dateCap->copy()->subDay()) + 1;
-                $joursB = $dateCap->diffInDays($dateN) + 1;
+                $joursA = $this->productController->calculate30_360Days($dateN1, $dateCap);
+                $joursB = $this->productController->calculate30_360Days($dateCap, $dateN);
                 $gA = ($mvtCap->capital_before * ($trans->vl_buy/100) * $joursA) / 360;
                 $gB = ($mvtCap->capital_after * ($trans->vl_buy/100) * $joursB) / 360;
                 $currentTransGain = ($gA + $gB);
@@ -305,10 +349,18 @@ public function previewPmg(int $clientId)
                 continue;
             }
 
-            $prec = DB::table('financial_movements')
+            $precQuery = DB::table('financial_movements')
                 ->where('transaction_id', $parentId)
-                ->where('type', 'precompte_interets')
-                ->value('amount') ?? 0;
+                ->where('type', 'precompte_interets');
+            if ($isSupplementaire) {
+                $precQuery->where('comments', 'LIKE', "%versement complémentaire ID {$trans->id}%");
+            } else {
+                $precQuery->where(function($q) {
+                    $q->where('comments', 'NOT LIKE', "%versement complémentaire ID %")
+                      ->orWhereNull('comments');
+                });
+            }
+            $prec = $precQuery->value('amount') ?? 0;
 
             $productValoN += $vN;
             $productValoN1 += $vN1;
@@ -316,11 +368,19 @@ public function previewPmg(int $clientId)
             // Calcul du capital à la date de fin du relevé (prenant en compte les capitalisations et les rachats)
             $transCapital = (float)$trans->amount;
             if ($trans->product->products_category_id == 2) { // PMG
-                $lastM = DB::table('financial_movements')
+                $lastMQuery = DB::table('financial_movements')
                     ->where('transaction_id', $parentId)
                     ->whereIn('type', ['capitalisation_interets', 'rachat_partiel', 'rachat_total'])
-                    ->where('date_operation', '<=', $dateN->toDateString())
-                    ->orderBy('date_operation', 'desc')
+                    ->where('date_operation', '<=', $dateN->toDateString());
+                if ($isSupplementaire) {
+                    $lastMQuery->where('comments', 'LIKE', "%versement complémentaire ID {$trans->id}%");
+                } else {
+                    $lastMQuery->where(function($q) {
+                        $q->where('comments', 'NOT LIKE', "%versement complémentaire ID %")
+                          ->orWhereNull('comments');
+                    });
+                }
+                $lastM = $lastMQuery->orderBy('date_operation', 'desc')
                     ->orderBy('id', 'desc')
                     ->first();
                 
@@ -347,7 +407,7 @@ public function previewPmg(int $clientId)
 
         $capNetTotal = $productCapitalTotal - $productPrecompteTotal;
         $totalValoN += $productValoN;
-        $totalValoN1 += $productValoN1;
+        $totalValoN1 += ($productValoN - $productGainMensuelTotal);
 
         if ($productCapitalTotal > 0 || $productValoN > 0 || $productValoN1 > 0) {
             $produitsAffiches[] = (object)[
@@ -461,8 +521,8 @@ public function previewFcp(int $clientId)
             continue;
         }
 
-        $valoN = (float)$partsN * (float)$vlN;
-        $valoN1 = (float)$partsN1 * (float)$vlN1;
+        $valoN = FinancialDecimal::toFloat(FinancialDecimal::fcpValuation($partsN, $vlN));
+        $valoN1 = FinancialDecimal::toFloat(FinancialDecimal::fcpValuation($partsN1, $vlN1));
 
         // Logic de cumul BRUT
         // Logic de cumul BRUT
@@ -537,8 +597,9 @@ public function sendSelected(Request $request)
         ], 400);
     }
 
-    try {
-        $periode = now()->subMonth()->locale('fr')->isoFormat('MMMM YYYY');
+        try {
+            $periode = now()->subMonth()->locale('fr')->isoFormat('MMMM YYYY');
+            $statementDate = now()->startOfMonth()->subDay();
         
         $reportData = [];
 
@@ -546,29 +607,9 @@ public function sendSelected(Request $request)
             try {
                 $client = User::findOrFail($clientId);
                 
-                // On calcule quels types de PDF générer
-                $has_pmg = Transaction::where('user_id', $client->id)
-                    ->where('status', 'Succès')
-                    ->where('date_echeance', '>=', Carbon::now()->format('Y-m-d'))
-                    ->whereHas('product', function($q) {
-                        $q->where('products_category_id', 2);
-                    })->exists();
-
-                $has_fcp = Transaction::where('user_id', $client->id)
-                    ->where('status', 'Succès')
-                    ->whereNull('date_echeance')
-                    ->whereHas('product', function($q) {
-                        $q->where('products_category_id', 1);
-                    })->exists();
-                
-                // On check aussi les supps pour le FCP
-                if (!$has_fcp) {
-                    $has_fcp = \App\Models\TransactionSupplementaire::where('user_id', $client->id)
-                        ->where('status', 'Succès')
-                        ->whereHas('product', function($q) {
-                            $q->where('products_category_id', 1);
-                        })->exists();
-                }
+                // On calcule quels types de PDF générer uniquement si la valorisation est positive.
+                $has_pmg = $this->getPositivePmgStatementValue($client->id, $statementDate) > 0;
+                $has_fcp = $this->getPositiveFcpStatementValue($client->id, $statementDate) > 0;
 
                 $pdfFiles = [];
                 $productLabels = [];
@@ -792,37 +833,61 @@ private function genererPdfPmg(int $clientId): string
             $endDatePeriod = $dateN->copy()->endOfDay()->toDateTimeString();
 
             // Sorties du mois pour le calcul du gain (inclut les intérêts payés, les rachats et les frais)
-            $totalOutflowsForGain = DB::table('financial_movements')
+            $totalOutflowsForGainQuery = DB::table('financial_movements')
                 ->where('transaction_id', $parentId)
-                ->whereIn('type', ['rachat_partiel', 'rachat_total', 'frais_gestion', 'paiement_interets', 'precompte_interets', 'dividende_interets'])
-                ->whereBetween('date_operation', [$startDatePeriod, $endDatePeriod])
-                ->sum('amount') ?? 0;
+                ->whereIn('type', ['rachat_partiel', 'rachat_total', 'frais_gestion', 'paiement_interets', 'precompte_interets', 'liquidite_interets', 'dividende_interets'])
+                ->whereBetween('date_operation', [$startDatePeriod, $endDatePeriod]);
+            if ($isSupplementaire) {
+                $totalOutflowsForGainQuery->where('comments', 'LIKE', "%versement complémentaire ID {$trans->id}%");
+            } else {
+                $totalOutflowsForGainQuery->where(function($q) {
+                    $q->where('comments', 'NOT LIKE', "%versement complémentaire ID %")
+                      ->orWhereNull('comments');
+                });
+            }
+            $totalOutflowsForGain = $totalOutflowsForGainQuery->sum('amount') ?? 0;
 
             // Sorties affichées en "Pertes" (exclut les rachats et les frais de gestion selon demande)
-            $displayedOutflows = DB::table('financial_movements')
+            $displayedOutflowsQuery = DB::table('financial_movements')
                 ->where('transaction_id', $parentId)
-                ->whereIn('type', ['precompte_interets', 'dividende_interets'])
-                ->whereBetween('date_operation', [$startDatePeriod, $endDatePeriod])
-                ->sum('amount') ?? 0;
+                ->whereIn('type', ['precompte_interets', 'liquidite_interets', 'dividende_interets'])
+                ->whereBetween('date_operation', [$startDatePeriod, $endDatePeriod]);
+            if ($isSupplementaire) {
+                $displayedOutflowsQuery->where('comments', 'LIKE', "%versement complémentaire ID {$trans->id}%");
+            } else {
+                $displayedOutflowsQuery->where(function($q) {
+                    $q->where('comments', 'NOT LIKE', "%versement complémentaire ID %")
+                      ->orWhereNull('comments');
+                });
+            }
+            $displayedOutflows = $displayedOutflowsQuery->sum('amount') ?? 0;
 
             // Calcul du gain mensuel de cette transaction
-            $mvtCap = DB::table('financial_movements')
+            $mvtCapQuery = DB::table('financial_movements')
                 ->where('transaction_id', $parentId)
                 ->where('type', 'capitalisation_interets')
-                ->whereBetween('date_operation', [$startDatePeriod, $endDatePeriod])
-                ->first();
+                ->whereBetween('date_operation', [$startDatePeriod, $endDatePeriod]);
+            if ($isSupplementaire) {
+                $mvtCapQuery->where('comments', 'LIKE', "%versement complémentaire ID {$trans->id}%");
+            } else {
+                $mvtCapQuery->where(function($q) {
+                    $q->where('comments', 'NOT LIKE', "%versement complémentaire ID %")
+                      ->orWhereNull('comments');
+                });
+            }
+            $mvtCap = $mvtCapQuery->first();
 
             $currentTransGain = 0;
             if ($mvtCap) {
                 $dateCap = Carbon::parse($mvtCap->date_operation);
-                $joursA = $dateN1->diffInDays($dateCap->copy()->subDay()) + 1;
-                $joursB = $dateCap->diffInDays($dateN) + 1;
+                $joursA = $this->productController->calculate30_360Days($dateN1, $dateCap);
+                $joursB = $this->productController->calculate30_360Days($dateCap, $dateN);
                 $gA = ($mvtCap->capital_before * ($trans->vl_buy/100) * $joursA) / 360;
                 $gB = ($mvtCap->capital_after * ($trans->vl_buy/100) * $joursB) / 360;
                 $currentTransGain = ($gA + $gB);
             } else {
                 $currentTransGain = ($vN + $totalOutflowsForGain) - $vN1;
-
+                
                 // Si c'est un nouveau produit (N-1 = 0), on déduit le capital pour ne montrer que les intérêts
                 if ($vN1 <= 0 && $vN > 0) {
                     $currentTransGain -= (float)$trans->amount;
@@ -836,21 +901,38 @@ private function genererPdfPmg(int $clientId): string
                 continue;
             }
 
-            $prec = DB::table('financial_movements')
+            $precQuery = DB::table('financial_movements')
                 ->where('transaction_id', $parentId)
-                ->where('type', 'precompte_interets')
-                ->value('amount') ?? 0;
+                ->where('type', 'precompte_interets');
+            if ($isSupplementaire) {
+                $precQuery->where('comments', 'LIKE', "%versement complémentaire ID {$trans->id}%");
+            } else {
+                $precQuery->where(function($q) {
+                    $q->where('comments', 'NOT LIKE', "%versement complémentaire ID %")
+                      ->orWhereNull('comments');
+                });
+            }
+            $prec = $precQuery->value('amount') ?? 0;
 
             $productValoN += $vN;
             $productValoN1 += $vN1;
 
+            // Calcul du capital à la date de fin du relevé (prenant en compte les capitalisations et les rachats)
             $transCapital = (float)$trans->amount;
             if ($trans->product->products_category_id == 2) { // PMG
-                $lastM = DB::table('financial_movements')
+                $lastMQuery = DB::table('financial_movements')
                     ->where('transaction_id', $parentId)
                     ->whereIn('type', ['capitalisation_interets', 'rachat_partiel', 'rachat_total'])
-                    ->where('date_operation', '<=', $dateN->toDateString())
-                    ->orderBy('date_operation', 'desc')
+                    ->where('date_operation', '<=', $dateN->toDateString());
+                if ($isSupplementaire) {
+                    $lastMQuery->where('comments', 'LIKE', "%versement complémentaire ID {$trans->id}%");
+                } else {
+                    $lastMQuery->where(function($q) {
+                        $q->where('comments', 'NOT LIKE', "%versement complémentaire ID %")
+                          ->orWhereNull('comments');
+                    });
+                }
+                $lastM = $lastMQuery->orderBy('date_operation', 'desc')
                     ->orderBy('id', 'desc')
                     ->first();
                 
@@ -877,7 +959,7 @@ private function genererPdfPmg(int $clientId): string
 
         $capNetTotal = $productCapitalTotal - $productPrecompteTotal;
         $totalValoN += $productValoN;
-        $totalValoN1 += $productValoN1;
+        $totalValoN1 += ($productValoN - $productGainMensuelTotal);
 
         if ($productCapitalTotal > 0 || $productValoN > 0 || $productValoN1 > 0) {
             $produitsPreparees[] = (object)[
@@ -1020,8 +1102,8 @@ private function genererPdfFcp(int $clientId): string
                 continue;
             }
 
-            $valoN = (float)$partsN * (float)$vlN;
-            $valoN1 = (float)$partsN1 * (float)$vlN1;
+            $valoN = FinancialDecimal::toFloat(FinancialDecimal::fcpValuation($partsN, $vlN));
+            $valoN1 = FinancialDecimal::toFloat(FinancialDecimal::fcpValuation($partsN1, $vlN1));
             
             // Calcul du Cumul BRUT
             $mainAmount = DB::table('transactions')

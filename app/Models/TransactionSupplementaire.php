@@ -51,12 +51,16 @@ class TransactionSupplementaire extends Model
 
     public function checkValidationStatus()
     {
-        // Seule la Compliance est obligatoire pour activer la transaction
-        if ($this->is_compliance_validated) {
+        if (
+            $this->is_compliance_validated
+            && $this->is_backoffice_validated
+            && $this->is_dg_validated
+        ) {
             $this->status = 'Succès';
-            $this->save();
+            $this->saveQuietly();
             return true;
         }
+
         return false;
     }
 

@@ -88,6 +88,8 @@ $logoBase64 = file_exists($logoPath) ? 'data:image/png;base64,'.base64_encode(fi
                         INVESTISSEMENT INITIAL
                     @elseif($m->type == 'capitalisation_interets')
                         CAPITALISATION ANNUELLE
+                    @elseif($m->type == 'liquidite_interets')
+                        INTÉRÊTS EN LIQUIDITÉ
                     @elseif($m->type == 'rachat_partiel')
                         RACHAT PARTIEL
                     @else
@@ -95,7 +97,7 @@ $logoBase64 = file_exists($logoPath) ? 'data:image/png;base64,'.base64_encode(fi
                     @endif
                 </td>
                 @php
-                    $isNegative = in_array($m->type, ['rachat_partiel', 'rachat_total', 'precompte_interets', 'paiement_interets', 'remboursement']);
+                    $isNegative = in_array($m->type, ['rachat_partiel', 'rachat_total', 'precompte_interets', 'paiement_interets', 'liquidite_interets', 'remboursement']);
                 @endphp
                 <td class="text-right {{ $isNegative ? 'negative' : 'positive' }}">
                     {{ $isNegative ? '-' : '+' }}{{ number_format(abs($m->amount), 0, ',', ' ') }}

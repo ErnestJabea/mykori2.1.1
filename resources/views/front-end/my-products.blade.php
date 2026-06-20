@@ -70,13 +70,13 @@
                                         <div class="content-label-info">
                                             <div class="label- text-gold font-bold">Gains actifs :</div>
                                             <div class="response- {{ $isExpired ? 'text-red-500 font-bold' : 'text-gold font-bold' }}">XAF
-                                                {{ $isExpired ? '0' : number_format(max(0, $my_product['portfolio_valeur'] - $my_product['capital_investi']), 0, ' ', ' ') }}
+                                                {{ $isExpired ? '0,00' : number_format(max(0, $my_product['portfolio_valeur'] - $my_product['capital_investi']), 2, ',', ' ') }}
                                             </div>
                                         </div>
                                         <div class="content-label-info">
                                             <div class="label-">Portefeuille :</div>
                                             <div class="response- {{ $isExpired ? 'text-red-600 font-bold' : '' }}">XAF
-                                                {{ $isExpired ? '0' : number_format($my_product['portfolio_valeur'], 0, ' ', ' ') }}
+                                                {{ $isExpired ? '0,00' : number_format($my_product['portfolio_valeur'], 2, ',', ' ') }}
                                             </div>
                                         </div>
                                     </div>
@@ -120,7 +120,7 @@
                                         <div class="content-label-info">
                                             <div class="label-">Nombre de parts :</div>
                                             <div class="response-">
-                                                {{ number_format($my_product['nb_part'], 6, ',', ' ') }}</div>
+                                                {{ number_format($my_product['nb_part'], 2, ',', ' ') }}</div>
                                         </div>
                                         <div class="content-label-info">
                                             <div class="label-">VL souscription :</div>
@@ -147,7 +147,7 @@
                                         </div>
                                         <div class="content-label-info">
                                             <div class="response-">XAF
-                                                {{ number_format($my_product['portfolio_valeur'], 0, ' ', ' ') }}
+                                                {{ number_format($my_product['portfolio_valeur'], 2, ',', ' ') }}
                                             </div>
                                         </div>
 

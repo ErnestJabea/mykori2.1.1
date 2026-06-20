@@ -1,31 +1,38 @@
 <!-- Category Tabs -->
 <div class="flex items-center gap-4 mb-6 border-b border-n30">
-    <a href="{{ route('customer', array_merge(request()->query(), ['category' => 'all', 'page' => 1])) }}" 
+    <a href="{{ route('customer', ['search' => $search ?? '', 'category' => 'all', 'filter' => '', 'status' => 'all', 'sort_by' => 'name', 'order' => 'asc', 'page' => 1]) }}" 
        class="ajax-tab px-6 py-3 text-sm font-bold border-b-2 transition-all duration-300 {{ ($categoryFilter ?? 'all') == 'all' ? 'border-primary text-primary' : 'border-transparent opacity-50 hover:opacity-100' }}">
         TOUS LES CLIENTS
     </a>
-    <a href="{{ route('customer', array_merge(request()->query(), ['category' => '1', 'page' => 1])) }}" 
-       class="ajax-tab px-6 py-3 text-sm font-bold border-b-2 transition-all duration-300 {{ ($categoryFilter ?? '') == '1' ? 'border-primary text-primary' : 'border-transparent opacity-50 hover:opacity-100' }}">
+    <a href="{{ route('customer', ['search' => $search ?? '', 'category' => '1', 'filter' => '', 'status' => 'all', 'sort_by' => 'name', 'order' => 'asc', 'page' => 1]) }}" 
+       class="ajax-tab px-6 py-3 text-sm font-bold border-b-2 transition-all duration-300 {{ ($categoryFilter ?? '') == '1' && empty($filter) ? 'border-primary text-primary' : 'border-transparent opacity-50 hover:opacity-100' }}">
         CLIENTS FCP
     </a>
-    <a href="{{ route('customer', array_merge(request()->query(), ['category' => '2', 'page' => 1, 'filter' => ''])) }}" 
+    <a href="{{ route('customer', ['search' => $search ?? '', 'category' => '2', 'filter' => '', 'status' => 'all', 'sort_by' => 'name', 'order' => 'asc', 'page' => 1]) }}" 
        class="ajax-tab px-6 py-3 text-sm font-bold border-b-2 transition-all duration-300 {{ ($categoryFilter ?? '') == '2' && empty($filter) ? 'border-primary text-primary' : 'border-transparent opacity-50 hover:opacity-100' }}">
         CLIENTS PMG
     </a>
-    <a href="{{ route('customer', array_merge(request()->query(), ['filter' => 'expiring_pmg', 'page' => 1])) }}" 
+    <a href="{{ route('customer', ['search' => $search ?? '', 'category' => '2', 'filter' => 'expiring_pmg', 'status' => 'all', 'sort_by' => 'name', 'order' => 'asc', 'page' => 1]) }}" 
        class="ajax-tab px-6 py-3 text-sm font-bold border-b-2 transition-all duration-300 {{ ($filter ?? '') == 'expiring_pmg' ? 'border-red-500 text-red-500' : 'border-transparent opacity-50 hover:opacity-100 hover:text-red-500' }}">
         ÉCHÉANCES PMG DU MOIS
     </a>
-    <a href="{{ route('customer', array_merge(request()->query(), ['filter' => 'anniversaries', 'page' => 1])) }}" 
+    <a href="{{ route('customer', ['search' => $search ?? '', 'category' => '2', 'filter' => 'anniversaries', 'status' => 'all', 'sort_by' => 'name', 'order' => 'asc', 'page' => 1]) }}" 
        class="ajax-tab px-6 py-3 text-sm font-bold border-b-2 transition-all duration-300 {{ ($filter ?? '') == 'anniversaries' ? 'border-blue-500 text-blue-500' : 'border-transparent opacity-50 hover:opacity-100 hover:text-blue-500' }}">
         ANNIVERSAIRES PMG
     </a>
 </div>
 
+@php
+    $cardUrl = function (array $params) {
+        return route('customer', array_merge(request()->query(), $params, ['page' => 1]));
+    };
+@endphp
+
 <div class="flex flex-wrap gap-4 xxl:gap-4 mb-8 w-full">
 
     <!-- Card 1: Total Investi -->
-    <div class="flex-1 min-w-[200px] box bg-white dark:bg-bg3 border border-n30 p-4 rounded-2xl flex items-center gap-3 hover:border-primary/50 duration-300 transition-all shadow-sm">
+    <a href="{{ $cardUrl(['category' => 'all', 'filter' => '', 'status' => 'active', 'sort_by' => 'total_capital', 'order' => 'desc']) }}"
+       class="ajax-card flex-1 min-w-[200px] box bg-white dark:bg-bg3 border border-n30 p-4 rounded-2xl flex items-center gap-3 hover:border-primary/50 duration-300 transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
         <div class="w-10 h-10 rounded-full bg-n30 flex items-center justify-center text-n500 shrink-0">
             <i class="las la-wallet text-xl"></i>
         </div>
@@ -34,10 +41,11 @@
             <h4 class="text-base font-bold mb-0 text-n700 leading-none whitespace-nowrap">
                 {{ number_format($globalTotalInvesti, 0, ' ', ' ') }}</h4>
         </div>
-    </div>
+    </a>
 
     <!-- Card 2: Total Gains FCP -->
-    <div class="flex-1 min-w-[200px] box bg-white dark:bg-bg3 border border-n30 p-4 rounded-2xl flex items-center gap-3 hover:border-success/50 duration-300 transition-all shadow-sm">
+    <a href="{{ $cardUrl(['category' => '1', 'filter' => '', 'status' => 'active', 'sort_by' => 'total_interets', 'order' => 'desc']) }}"
+       class="ajax-card flex-1 min-w-[200px] box bg-white dark:bg-bg3 border border-n30 p-4 rounded-2xl flex items-center gap-3 hover:border-success/50 duration-300 transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-success/30">
         <div class="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center text-success shrink-0">
             <i class="las la-chart-pie text-xl"></i>
         </div>
@@ -46,10 +54,11 @@
             <h4 class="text-base font-bold mb-0 text-success leading-none whitespace-nowrap">
                 +{{ number_format($globalTotalInterestsFcp ?? 0, 0, ' ', ' ') }}</h4>
         </div>
-    </div>
+    </a>
 
     <!-- Card 3: Total Gains Actifs PMG -->
-    <div class="flex-1 min-w-[200px] box bg-white dark:bg-bg3 border border-n30 p-4 rounded-2xl flex items-center gap-3 hover:border-primary/50 duration-300 transition-all shadow-sm">
+    <a href="{{ $cardUrl(['category' => '2', 'filter' => '', 'status' => 'active', 'sort_by' => 'total_interets', 'order' => 'desc']) }}"
+       class="ajax-card flex-1 min-w-[200px] box bg-white dark:bg-bg3 border border-n30 p-4 rounded-2xl flex items-center gap-3 hover:border-primary/50 duration-300 transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
         <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
             <i class="las la-chart-line text-xl"></i>
         </div>
@@ -58,10 +67,11 @@
             <h4 class="text-base font-bold mb-0 text-primary leading-none whitespace-nowrap">
                 +{{ number_format($globalTotalInterestsPmg ?? 0, 0, ' ', ' ') }}</h4>
         </div>
-    </div>
+    </a>
 
     <!-- Card 3: Clients Actifs -->
-    <div class="flex-1 min-w-[200px] box bg-white dark:bg-bg3 border border-n30 p-4 rounded-2xl flex items-center gap-3 hover:border-secondary1/50 duration-300 transition-all shadow-sm">
+    <a href="{{ $cardUrl(['category' => 'all', 'filter' => '', 'status' => 'active', 'sort_by' => 'name', 'order' => 'asc']) }}"
+       class="ajax-card flex-1 min-w-[200px] box bg-white dark:bg-bg3 border border-n30 p-4 rounded-2xl flex items-center gap-3 hover:border-secondary1/50 duration-300 transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-secondary1/30">
         <div class="w-10 h-10 rounded-full bg-secondary1/10 flex items-center justify-center text-secondary1 shrink-0">
             <i class="las la-user-check text-xl"></i>
         </div>
@@ -70,10 +80,11 @@
             <h4 class="text-base font-bold mb-0 text-secondary1 leading-none whitespace-nowrap">
                 {{ $activeClientsCount }}</h4>
         </div>
-    </div>
+    </a>
 
     <!-- Card 4: Clients Inactifs -->
-    <div class="flex-1 min-w-[200px] box bg-white dark:bg-bg3 border border-n30 p-4 rounded-2xl flex items-center gap-3 hover:border-red-500/50 duration-300 transition-all shadow-sm">
+    <a href="{{ $cardUrl(['category' => 'all', 'filter' => '', 'status' => 'inactive', 'sort_by' => 'name', 'order' => 'asc']) }}"
+       class="ajax-card flex-1 min-w-[200px] box bg-white dark:bg-bg3 border border-n30 p-4 rounded-2xl flex items-center gap-3 hover:border-red-500/50 duration-300 transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500/30">
         <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-500 shrink-0">
             <i class="las la-user-minus text-xl"></i>
         </div>
@@ -82,7 +93,7 @@
             <h4 class="text-base font-bold mb-0 text-red-500 leading-none whitespace-nowrap">
                 {{ $inactiveClientsCount }}</h4>
         </div>
-    </div>
+    </a>
 </div>
 
 <div class="box col-span-12 shadow-sm border border-n30 p-6">
@@ -96,6 +107,11 @@
             @else
                 Récapitulatif de tous les Portefeuilles
             @endif
+            @if(($statusFilter ?? 'all') == 'active')
+                <span class="rounded-full bg-secondary1/10 px-3 py-1 text-xs font-bold text-secondary1">Actifs</span>
+            @elseif(($statusFilter ?? 'all') == 'inactive')
+                <span class="rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-500">Inactifs</span>
+            @endif
         </h4>
 
         <!-- Search Bar -->
@@ -105,6 +121,7 @@
                 @if(isset($sortBy)) <input type="hidden" name="sort_by" value="{{ $sortBy }}"> @endif
                 @if(isset($order)) <input type="hidden" name="order" value="{{ $order }}"> @endif
                 @if(isset($filter)) <input type="hidden" name="filter" value="{{ $filter }}"> @endif
+                @if(isset($statusFilter)) <input type="hidden" name="status" value="{{ $statusFilter }}"> @endif
                 
                 <input type="text" name="search" id="ajax-search" value="{{ $search ?? '' }}" placeholder="Chercher un client..."
                     class="w-64 rounded-full border border-n30 bg-secondary1/5 px-6 py-2 dark:border-n500 dark:bg-bg3 focus:border-primary focus:ring-1 focus:ring-primary outline-none text-sm">
@@ -127,16 +144,17 @@
     <div class="overflow-x-auto pb-4">
 
 
-    <table class="w-full min-w-[1000px]">
+    <table class="w-full min-w-[1150px]">
         <thead>
             @php
-                $sortUrl = function($field) use ($sortBy, $order, $categoryFilter, $search, $filter) {
+                $sortUrl = function($field) use ($sortBy, $order, $categoryFilter, $search, $filter, $statusFilter) {
                     $newOrder = ($sortBy == $field && $order == 'asc') ? 'desc' : 'asc';
                     return route('customer', [
                         'sort_by' => $field,
                         'order' => $newOrder,
                         'category' => $categoryFilter ?? 'all',
                         'filter' => $filter ?? '',
+                        'status' => $statusFilter ?? 'all',
                         'search' => $search ?? ''
                     ]);
                 };
@@ -160,6 +178,11 @@
                 <th class="px-6 py-5 text-right font-semibold opacity-70 cursor-pointer hover:bg-secondary1/10 duration-300">
                     <a href="{{ $sortUrl('total_interets') }}" class="flex items-center justify-end gap-2 w-full ajax-sort">
                         Gains Actifs {!! $sortIcon('total_interets') !!}
+                    </a>
+                </th>
+                <th class="px-6 py-5 text-right font-semibold opacity-70 cursor-pointer hover:bg-secondary1/10 duration-300">
+                    <a href="{{ $sortUrl('total_liquidite_interets') }}" class="flex items-center justify-end gap-2 w-full ajax-sort">
+                        Liquidité {!! $sortIcon('total_liquidite_interets') !!}
                     </a>
                 </th>
                 <th class="px-6 py-5 text-right font-semibold opacity-70 cursor-pointer hover:bg-secondary1/10 duration-300">
@@ -198,6 +221,12 @@
                         </p>
                     </td>
 
+                    <td class="px-6 py-4 text-right" style="white-space: nowrap;">
+                        <p class="font-medium text-secondary1">
+                            {{ number_format($client->total_liquidite_interets ?? 0, 0, ' ', ' ') }}
+                        </p>
+                    </td>
+
                     <td class="px-6 py-4 text-right">
                         <div class="rounded bg-primary/10 px-3 py-1 inline-block">
                             <p class="font-bold text-primary">
@@ -223,6 +252,7 @@
         'search' => $search,
         'category' => $categoryFilter ?? 'all',
         'filter' => $filter ?? '',
+        'status' => $statusFilter ?? 'all',
         'sort_by' => $sortBy ?? 'name',
         'order' => $order ?? 'asc'
     ])->links() }}

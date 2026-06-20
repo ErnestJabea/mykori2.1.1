@@ -156,8 +156,8 @@
             if (e.key === "Escape") $('#export-modal').hide();
         });
 
-        // Handle global click for sort and pagination
-        $(document).on('click', '.ajax-sort, .ajax-pagination a, .ajax-tab', function(e) {
+        // Handle global click for sort, pagination, tabs and dashboard cards
+        $(document).on('click', '.ajax-sort, .ajax-pagination a, .ajax-tab, .ajax-card', function(e) {
             e.preventDefault();
             let url = $(this).attr('href');
             fetchCustomers(url);
@@ -172,8 +172,9 @@
             let sort_by = new URLSearchParams(window.location.search).get('sort_by') || 'name';
             let order = new URLSearchParams(window.location.search).get('order') || 'asc';
             let filter = new URLSearchParams(window.location.search).get('filter') || '';
+            let status = new URLSearchParams(window.location.search).get('status') || 'all';
             
-            let url = `{{ route('customer') }}?search=${search}&category=${category}&sort_by=${sort_by}&order=${order}&filter=${filter}`;
+            let url = `{{ route('customer') }}?search=${search}&category=${category}&sort_by=${sort_by}&order=${order}&filter=${filter}&status=${status}`;
             
             timer = setTimeout(function() {
                 fetchCustomers(url);

@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Transaction;
+use App\Models\Transaction;
 
 class FinancialMovement extends Model
 {
@@ -19,13 +19,16 @@ class FinancialMovement extends Model
         'capital_before',
         'capital_after',
         'date_operation',
+        'interest_rate_at_moment',
+        'comments',
+        'comment',
     ];
 
     protected $casts = [
         'amount' => 'decimal:2',
         'capital_before' => 'decimal:2',
         'capital_after' => 'decimal:2',
-        'date_operation' => 'date',
+        'date_operation' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];

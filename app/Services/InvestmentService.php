@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Transaction;
 use App\Models\FinancialMovement;
+use App\Support\FinancialDecimal;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Exception;
@@ -142,18 +143,21 @@ class InvestmentService
             ->first();
 
         // On utilise la VL historique, ou alors celle à l'achat, ou le défaut produit
-        $vl = $historicalVl ? (float)$historicalVl->vl : (float)($transaction->vl_buy ?: 0);
-        if ($vl <= 0) {
+        $vl = $historicalVl ? (string) $historicalVl->vl : (string) ($transaction->vl_buy ?: 0);
+        if (FinancialDecimal::of($vl)->isLessThanOrEqualTo('0')) {
             $product = \App\Models\Product::find($transaction->product_id);
-            $vl = (float)($product->vl ?? 100);
+            $vl = (string) ($product->vl ?? 100);
         }
 
         // On s'assure que les parts sont bien basées sur le montant NET (déjà déduit des frais)
         // Le montant enregistré en transaction est désormais le BRUT total
-        $fees = (float)($transaction->fees ?? 0);
-        $amountNet = (float)$transaction->amount - $fees;
+        $fees = FinancialDecimal::money($transaction->fees ?? 0);
+        $amountNet = FinancialDecimal::subtract($transaction->amount, $fees);
+        if (FinancialDecimal::of($amountNet)->isLessThanOrEqualTo('0')) {
+            throw new Exception('Montant net FCP invalide après déduction des frais.');
+        }
         
-        $nbParts = $amountNet / $vl;
+        $nbParts = FinancialDecimal::partsFromAmount($amountNet, $vl);
 
         return DB::table('fcp_movements')->insert([
             'transaction_id' => $transaction->id,
@@ -270,6 +274,13 @@ class InvestmentService
     public function executeRedemption($transactionId, $amountRequested, $fees = 0)
     {
         return DB::transaction(function () use ($transactionId, $amountRequested, $fees) {
+            $amountRequested = (float) $amountRequested;
+            $fees = (float) $fees;
+
+            if ($amountRequested <= 0) {
+                throw new \Exception("Montant invalide.");
+            }
+
             // 1. Récupérer le dernier état du capital
             $lastMovement = FinancialMovement::where('transaction_id', $transactionId)
                 ->orderBy('date_operation', 'desc')
@@ -280,18 +291,20 @@ class InvestmentService
 
             // 2. Vérification de sécurité
             if ($amountRequested > $currentCapital) {
-                throw new \Exception("Fonds insuffisants pour ce rachat.");
+                throw new \Exception("Solde insuffisant pour ce rachat.");
             }
+
+            $capitalAfter = $currentCapital - $amountRequested;
 
             // 3. Enregistrer le mouvement de rachat
             return FinancialMovement::create([
                 'transaction_id' => $transactionId,
-                'type'           => 'rachat_partiel',
-                'amount'         => -$amountRequested, // Négatif car c'est une sortie
+                'type'           => $capitalAfter <= 0 ? 'rachat_total' : 'rachat_partiel',
+                'amount'         => $amountRequested,
                 'capital_before' => $currentCapital,
-                'capital_after'  => $currentCapital - $amountRequested,
+                'capital_after'  => max(0, $capitalAfter),
                 'date_operation' => now(),
-                'comment'        => "Rachat demandé par le client. Frais appliqués: $fees"
+                'comments'       => "Rachat demandé par le client. Frais appliqués: $fees"
             ]);
         });
     }

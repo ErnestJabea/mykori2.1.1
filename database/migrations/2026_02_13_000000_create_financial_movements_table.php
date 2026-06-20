@@ -15,21 +15,28 @@ class CreateFinancialMovementsTable extends Migration
     {
         Schema::create('financial_movements', function (Blueprint $table) {
             $table->id();
-            // transactions.id is int unsigned in the existing schema, use unsignedInteger
-            $table->unsignedInteger('transaction_id');
-            $table->foreign('transaction_id')->references('id')->on('transactions')->onDelete('cascade');
+            $table->foreignId('transaction_id')->constrained('transactions')->cascadeOnDelete();
             $table->enum('type', [
                 'souscription',
+                'souscription_initiale',
                 'versement_libre',
                 'rachat_partiel',
                 'rachat_total',
                 'capitalisation_interets',
-                'frais_gestion'
+                'frais_gestion',
+                'precompte_interets',
+                'paiement_interets',
+                'liquidite_interets',
+                'remboursement',
+                'dividende_interets'
             ]);
             $table->decimal('amount', 15, 2);
             $table->decimal('capital_before', 15, 2);
             $table->decimal('capital_after', 15, 2);
-            $table->date('date_operation');
+            $table->dateTime('date_operation');
+            $table->decimal('interest_rate_at_moment', 8, 4)->nullable();
+            $table->text('comments')->nullable();
+            $table->text('comment')->nullable();
             $table->timestamps();
         });
     }

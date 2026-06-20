@@ -30,6 +30,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use TCG\Voyager\Facades\Voyager;
 
@@ -37,6 +38,7 @@ use TCG\Voyager\Facades\Voyager;
 |--------------------------------------------------------------------------
 */
 
+if (app()->environment('local')) {
 Route::get('/clear-fcp-data', function() {
     return DB::transaction(function () {
         $fcpProductIds = DB::table('products')->where('products_category_id', 1)->pluck('id');
@@ -46,6 +48,7 @@ Route::get('/clear-fcp-data', function() {
         return "NETTOYAGE RÉUSSI : Toutes les données FCP ont été effacées. Vous pouvez maintenant ré-insérer vos clients proprement via l'interface.";
     });
 });
+}
 
 /*
 |--------------------------------------------------------------------------
@@ -69,6 +72,7 @@ Route::name('home')->get('/', function () {
 });
 
 // Route TEMPORAIRE pour la création de la table portfolios
+if (app()->environment('local')) {
 Route::get('/run-portfolios-migration', function () {
     try {
         if (!Schema::hasTable('customer_portfolios')) {
@@ -132,6 +136,7 @@ Route::get('/run-portfolios-migration', function () {
         return "ERROR: " . $e->getMessage();
     }
 });
+}
 
 Route::name('login')->get('/login', function () {
     return view('front-end.home');
@@ -143,6 +148,7 @@ Route::get('/connexion', function () {
 
 
 
+if (app()->environment('local')) {
 Route::get('/test-mail', function () {
 
     Mail::raw('Test email KORI', function ($message) {
@@ -152,6 +158,7 @@ Route::get('/test-mail', function () {
 
     return 'Mail envoyé';
 });
+}
 Route::name('login-user')->post('/login-user', [VerificationOtpController::class, 'login']);
 
 
@@ -184,10 +191,11 @@ Route::middleware('auth')->group(function () {
     |--------------------------------------------------------------------------
     |
     */
-    Route::prefix('asset-manager')->middleware(['auth'])->group(function () {
+    Route::prefix('asset-manager')->middleware(['auth', 'permission:view_asset_manager'])->group(function () {
             //////////// TESTS ////////////
 
 
+            if (app()->environment('local')) {
             Route::get('/test-releve/{id}', function ($id) {
                 $service = new InvestmentService();
 
@@ -356,6 +364,8 @@ Route::middleware('auth')->group(function () {
                 return $pdf->stream("test_releve_kori.pdf"); // .stream pour l'afficher dans le navigateur
             });
 
+            }
+
             ////// fin test ////////
 
             Route::get('/', [ProductController::class, 'indexAssetManager'])->name('asset-manager');
@@ -376,9 +386,11 @@ Route::middleware('auth')->group(function () {
             Route::get('/customer/releve-client/liste/{type?}', [ListeClientReleveController::class, 'index'])->name('releve-client');
 
 
+            if (app()->environment('local')) {
             Route::get('/test-calculs', function() {
                 return (new ProductController)->debugClientPortfolios('2026-01-31');
             });
+            }
 
 
             Route::post('/rachat-partiel', [MovementController::class, 'rachatPartiel'])->name('transactions.rachat-partiel');
@@ -390,7 +402,9 @@ Route::middleware('auth')->group(function () {
             // Route pour le remboursement des intérêts
             Route::post('/remboursement-interets', [MovementController::class, 'rembourserInterets'])->name('transactions.remboursement-interets');
 
+            if (app()->environment('local')) {
             Route::get('/sync-anniversaries', [ProductController::class, 'syncAnniversaryMovements']);
+            }
 
             Route::get('/products/client/{customer}', function ($customer) {
                 $customer = User::findOrFail($customer);
@@ -477,7 +491,7 @@ Route::middleware('auth')->group(function () {
     | COMPLIANCE PORTAL (Isolated)
     |--------------------------------------------------------------------------
     */
-    Route::prefix('compliance')->middleware(['auth'])->group(function () {
+    Route::prefix('compliance')->middleware(['auth', 'permission:view_compliance'])->group(function () {
         Route::get('/', [ComplianceController::class, 'dashboard'])->name('compliance.dashboard');
         Route::get('/clients', [ComplianceController::class, 'clients'])->name('compliance.clients');
         Route::get('/clients/{client}/history', [ComplianceController::class, 'clientHistory'])->name('compliance.client-history');
@@ -493,7 +507,9 @@ Route::middleware('auth')->group(function () {
 
 
 
+    if (app()->environment('local')) {
     Route::get('/asset-manager/test-log', [ListeClientReleveController::class, 'testSimplePdf']);
+    }
     /*
     END ASSET MANAGER
     */
@@ -531,7 +547,7 @@ Route::middleware('auth')->group(function () {
                     'produit'            => $productTitle,
                     'montant'            => (float)$m->amount,
                     'fees'               => 0,
-                    'sens'               => in_array($m->type, ['rachat_partiel', 'rachat_total', 'precompte_interets', 'paiement_interets', 'remboursement']) ? 'sortant' : 'entrant',
+                    'sens'               => in_array($m->type, ['rachat_partiel', 'rachat_total', 'precompte_interets', 'paiement_interets', 'liquidite_interets', 'remboursement']) ? 'sortant' : 'entrant',
                     'source'             => 'pmg',
                     'id'                 => $m->id,
                 ]);
@@ -735,7 +751,7 @@ Route::group(['prefix' => 'admin'], function () {
 });
 
 // --- Dossier Compliance (Audit & Risques) ---
-Route::prefix('compliance')->middleware(['auth'])->group(function () {
+Route::prefix('compliance')->middleware(['auth', 'permission:view_compliance'])->group(function () {
     Route::get('/dashboard', [ComplianceController::class, 'dashboard'])->name('compliance.dashboard');
     Route::get('/clients', [ComplianceController::class, 'clients'])->name('compliance.clients');
     Route::get('/client/{client}', [ComplianceController::class, 'clientHistory'])->name('compliance.client-detail');
@@ -746,14 +762,14 @@ Route::prefix('compliance')->middleware(['auth'])->group(function () {
 });
 
 // --- Dossier Backoffice ---
-Route::prefix('backoffice')->middleware(['auth'])->group(function () {
+Route::prefix('backoffice')->middleware(['auth', 'permission:view_backoffice,validate_compliance,validate_dg'])->group(function () {
     Route::get('/dashboard', [BackofficeController::class, 'dashboard'])->name('backoffice.dashboard');
     Route::get('/transactions', [BackofficeController::class, 'transactions'])->name('backoffice.transactions');
     Route::post('/validate-transaction/{id}/{type}', [BackofficeController::class, 'validateTransaction'])->name('backoffice.validate-transaction');
 });
 
 // --- Dossier Direction Générale ---
-Route::prefix('dg')->middleware(['auth'])->group(function () {
+Route::prefix('dg')->middleware(['auth', 'permission:view_dg'])->group(function () {
     Route::get('/dashboard', [DirectorGeneralController::class, 'dashboard'])->name('dg.dashboard');
     
     // Rapports d'Envoi (Historique DG)
@@ -762,7 +778,7 @@ Route::prefix('dg')->middleware(['auth'])->group(function () {
 });
 
 // --- Administration Frontend ---
-Route::prefix('admin-front')->middleware(['auth'])->group(function () {
+Route::prefix('admin-front')->middleware(['auth', 'permission:view_admin_frontend'])->group(function () {
     Route::get('/dashboard', [\App\Http\Controllers\AdminFrontendController::class, 'dashboard'])->name('admin.front.dashboard');
     Route::get('/users', [\App\Http\Controllers\AdminFrontendController::class, 'users'])->name('admin.front.users');
     // Ajout de la route pour créer un utilisateur
@@ -779,7 +795,7 @@ Route::prefix('admin-front')->middleware(['auth'])->group(function () {
 });
 
 // --- Gestion Commerciale (CRM) ---
-Route::prefix('crm')->middleware(['auth'])->group(function () {
+Route::prefix('crm')->middleware(['auth', 'permission:view_crm'])->group(function () {
     Route::get('/dashboard', [\App\Http\Controllers\CrmController::class, 'index'])->name('crm.dashboard');
     Route::get('/prospects', [\App\Http\Controllers\CrmController::class, 'prospects'])->name('crm.prospects');
     Route::post('/prospects', [\App\Http\Controllers\CrmController::class, 'storeProspect'])->name('crm.prospects.store');
@@ -789,9 +805,11 @@ Route::prefix('crm')->middleware(['auth'])->group(function () {
 
 
 // Routes de prévisualisation des pages d'erreur (à supprimer en production)
+if (app()->environment('local')) {
 Route::get('/preview/404', function () { return view('errors.404'); });
 Route::get('/preview/500', function () { return view('errors.500'); });
 Route::get('/preview/419', function () { return view('errors.419'); });
+}
 
 Route::fallback(function () {
     return response()->view('errors.404', [], 404);

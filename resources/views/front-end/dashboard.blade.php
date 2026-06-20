@@ -189,7 +189,7 @@
                                                     <div class="flex justify-between text-sm">
                                                         <span class="text-n100">Valeur:</span>
                                                         <span
-                                                            class="font-bold @if ($my_product['type_product'] == 1) text-secondary3 @else text-primary @endif">{{ number_format($my_product['portfolio_valeur'], 0, ' ', ' ') }}
+                                                            class="font-bold @if ($my_product['type_product'] == 1) text-secondary3 @else text-primary @endif">{{ number_format($my_product['portfolio_valeur'], 2, ',', ' ') }}
                                                             XAF</span>
                                                     </div>
                                                 </div>

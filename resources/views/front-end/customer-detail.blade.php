@@ -49,6 +49,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                     </button>
                 </div>
             </div>
+
         </div>
 
         <!-- NEW PLACEMENT MODAL -->
@@ -249,6 +250,11 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                 <p class="text-xs opacity-70 uppercase text-primary font-bold">Intérêts Générés</p>
                 <h4 class="h4 text-primary">+ {{ number_format($total_interets, 0, ' ', ' ') }} XAF</h4>
             </div>
+
+            <div class="box box-card col-span-12 md:col-span-3 border-l-4 border-secondary1">
+                <p class="text-xs opacity-70 uppercase text-secondary1 font-bold">Liquidité intérêts</p>
+                <h4 class="h4 text-secondary1">{{ number_format($total_liquidite_interets ?? 0, 0, ' ', ' ') }} XAF</h4>
+            </div>
         </div>
 
         <div class="content-separator" style="height:30px"></div>
@@ -423,10 +429,10 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                             </td>
                                             <td class="text-right">
                                                 <span
-                                                    class="gold-text">{{ number_format(floor($my_product['nb_part'] * 100) / 100, 2, ',', ' ') }}</span>
+                                                    class="gold-text">{{ number_format($my_product['nb_part'], 2, ',', ' ') }}</span>
                                             </td>
                                             <td class="text-right text-marron" style="white-space: nowrap;">
-                                                XAF {{ number_format(floor($my_product['portfolio_valeur']), 0, ' ', ' ') }}
+                                                XAF {{ number_format($my_product['portfolio_valeur'], 2, ',', ' ') }}
                                             </td>
                                             <td class="text-right">
                                                 @php
@@ -440,7 +446,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                                 @endphp
                                                 <span class="gain-badge {{ $fcpClass }}" style="white-space: nowrap;">
                                                     {{ $gainFcp > 0 ? '+' : '' }}
-                                                    XAF {{ number_format(floor($gainFcp), 0, ' ', ' ') }}
+                                                    XAF {{ number_format($gainFcp, 2, ',', ' ') }}
                                                 </span>
                                             </td>
                                             <td class="text-center">
@@ -617,7 +623,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                                 </td>
                                                 <td
                                                     class="px-3 py-3 text-right font-bold {{ (str_contains(strtolower($fcm->type), 'rachat') || $fcm->nb_parts_change < 0) ? 'text-red-500' : 'text-primary' }}">
-                                                    {{ (str_contains(strtolower($fcm->type), 'rachat') || $fcm->nb_parts_change < 0) ? '-' : '+' }}{{ number_format(abs($fcm->nb_parts_change), 4, ',', ' ') }}
+                                                    {{ (str_contains(strtolower($fcm->type), 'rachat') || $fcm->nb_parts_change < 0) ? '-' : '+' }}{{ number_format(abs($fcm->nb_parts_change), 2, ',', ' ') }}
                                                 </td>
                                             </tr>
                                         @endforeach

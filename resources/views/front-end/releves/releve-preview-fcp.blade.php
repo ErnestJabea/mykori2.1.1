@@ -216,11 +216,11 @@
                             <tr>
                                 <td class="text-center">{{ $date_releve }}</td>
                                 <td class="text-center">{{ number_format(data_get($p, 'vl_n', 0), 2, ',', ' ') }}</td>
-                                <td class="text-right" style="white-space: nowrap;">XAF {{ number_format(data_get($p, 'cumul_investi', 0), 0, ' ', ' ') }}</td>
-                                <td class="text-center" style="white-space: nowrap;">{{ number_format(floor(data_get($p, 'parts_n', 0) * 100) / 100, 2, ',', ' ') }}</td>
-                                <td class="text-right" style="font-weight: bold; white-space: nowrap;">XAF {{ number_format(floor(data_get($p, 'valo_n', 0)), 0, ' ', ' ') }}</td>
-                                <td class="text-right" style="color: {{ data_get($p, 'plus_value', 0) >= 0 ? 'green' : 'red' }}; font-weight: bold; white-space: nowrap;">XAF {{ number_format(floor(data_get($p, 'plus_value', 0)), 0, ' ', ' ') }}</td>
-                                <td class="text-right" style="color: {{ data_get($p, 'gain_mensuel', 0) >= 0 ? 'green' : 'red' }}; font-weight: bold; white-space: nowrap;">XAF {{ number_format(floor(data_get($p, 'gain_mensuel', 0)), 0, ' ', ' ') }}</td>
+                                <td class="text-right" style="white-space: nowrap;">XAF {{ number_format(data_get($p, 'cumul_investi', 0), 2, ',', ' ') }}</td>
+                                <td class="text-center" style="white-space: nowrap;">{{ number_format(data_get($p, 'parts_n', 0), 2, ',', ' ') }}</td>
+                                <td class="text-right" style="font-weight: bold; white-space: nowrap;">XAF {{ number_format(data_get($p, 'valo_n', 0), 2, ',', ' ') }}</td>
+                                <td class="text-right" style="color: {{ data_get($p, 'plus_value', 0) >= 0 ? 'green' : 'red' }}; font-weight: bold; white-space: nowrap;">XAF {{ number_format(data_get($p, 'plus_value', 0), 2, ',', ' ') }}</td>
+                                <td class="text-right" style="color: {{ data_get($p, 'gain_mensuel', 0) >= 0 ? 'green' : 'red' }}; font-weight: bold; white-space: nowrap;">XAF {{ number_format(data_get($p, 'gain_mensuel', 0), 2, ',', ' ') }}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -246,12 +246,12 @@
                         <tbody>
                             <tr>
                                 <td>Mouvements de {{ ucfirst($periode) }}</td>
-                                <td class="text-center" style="white-space: nowrap;">{{ number_format(floor(data_get($p, 'parts_n_1', 0) * 100) / 100, 2, ',', ' ') }}</td>
-                                <td class="text-right" style="color: green; font-weight: bold; white-space: nowrap;">XAF {{ number_format(data_get($p, 'total_montant_brut', 0), 0, ' ', ' ') }}</td>
-                                <td class="text-right" style="color: gray; white-space: nowrap;">XAF {{ number_format(data_get($p, 'total_frais', 0), 0, ' ', ' ') }}</td>
-                                <td class="text-center" style="color: green; white-space: nowrap;">+ {{ number_format(floor(data_get($p, 'parts_achetees', 0) * 100) / 100, 2, ',', ' ') }}</td>
-                                <td class="text-center" style="color: red; white-space: nowrap;">- {{ number_format(floor(data_get($p, 'parts_rachetees', 0) * 100) / 100, 2, ',', ' ') }}</td>
-                                <td class="text-center" style="font-weight: bold; white-space: nowrap;">{{ number_format(floor(data_get($p, 'parts_n', 0) * 100) / 100, 2, ',', ' ') }}</td>
+                                <td class="text-center" style="white-space: nowrap;">{{ number_format(data_get($p, 'parts_n_1', 0), 2, ',', ' ') }}</td>
+                                <td class="text-right" style="color: green; font-weight: bold; white-space: nowrap;">XAF {{ number_format(data_get($p, 'total_montant_brut', 0), 2, ',', ' ') }}</td>
+                                <td class="text-right" style="color: gray; white-space: nowrap;">XAF {{ number_format(data_get($p, 'total_frais', 0), 2, ',', ' ') }}</td>
+                                <td class="text-center" style="color: green; white-space: nowrap;">+ {{ number_format(data_get($p, 'parts_achetees', 0), 2, ',', ' ') }}</td>
+                                <td class="text-center" style="color: red; white-space: nowrap;">- {{ number_format(data_get($p, 'parts_rachetees', 0), 2, ',', ' ') }}</td>
+                                <td class="text-center" style="font-weight: bold; white-space: nowrap;">{{ number_format(data_get($p, 'parts_n', 0), 2, ',', ' ') }}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -264,7 +264,7 @@
                 <tr class="total-row">
                     <td style="padding: 15px; font-size: 14px;">VALORISATION AU {{ $date_releve }}</td>
                     <td class="text-right" style="padding: 15px; font-size: 18px; white-space: nowrap;">XAF
-                        {{ number_format(floor($valorisation_courante), 0, ' ', ' ') }}</td>
+                        {{ number_format($valorisation_courante, 2, ',', ' ') }}</td>
                 </tr>
             </table>
         </div>

@@ -367,6 +367,11 @@ class AssetManagerController extends Controller
         }
 
         $portefeuille_total = $portefeuille_fcp + $portefeuille_pmg;
+        $total_liquidite_interets = \Illuminate\Support\Facades\DB::table('financial_movements')
+            ->join('transactions', 'financial_movements.transaction_id', '=', 'transactions.id')
+            ->where('transactions.user_id', $customer->id)
+            ->whereIn('financial_movements.type', ['precompte_interets', 'paiement_interets', 'liquidite_interets'])
+            ->sum('financial_movements.amount') ?? 0;
 
         // On récupère aussi tous les produits pour la modale d'ajout
         $products = Product::all()->map(function($p) {
@@ -406,6 +411,7 @@ class AssetManagerController extends Controller
             'portefeuille_pmg',
             'portefeuille_fcp',
             'total_interets',
+            'total_liquidite_interets',
             'total_plus_value_fcp',
             'products',
             'categories',
