@@ -13,9 +13,13 @@ class RemoveUniqueFromUsersEmail extends Migration
      */
     public function up()
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->dropUnique(['email']);
-        });
+        try {
+            Schema::table('users', function (Blueprint $table) {
+                $table->dropUnique(['email']);
+            });
+        } catch (\Exception $e) {
+            // Déjà supprimé ou inexistant
+        }
     }
 
     /**
@@ -25,8 +29,12 @@ class RemoveUniqueFromUsersEmail extends Migration
      */
     public function down()
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->unique('email');
-        });
+        try {
+            Schema::table('users', function (Blueprint $table) {
+                $table->unique('email');
+            });
+        } catch (\Exception $e) {
+            // Déjà unique ou erreur
+        }
     }
 }

@@ -14,7 +14,9 @@ class AddInterestManagementToTransactionsTable extends Migration
     public function up()
     {
         Schema::table('transactions', function (Blueprint $table) {
-            $table->string('interest_management')->nullable()->after('date_echeance');
+            if (!Schema::hasColumn('transactions', 'interest_management')) {
+                $table->string('interest_management')->nullable()->after('date_echeance');
+            }
         });
     }
 

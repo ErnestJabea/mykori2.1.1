@@ -13,16 +13,18 @@ class CreateCustomerPortfoliosTable extends Migration
      */
     public function up()
     {
-        Schema::create('customer_portfolios', function (Blueprint $table) {
-            $table->id();
-            $table->unsignedBigInteger('user_id'); // Relation avec la table users (le compte mail unique)
-            $table->string('type'); // 'PMG' ou 'FCP'
-            $table->string('reference')->unique(); // La référence auto: PMG0001, FCP0001...
-            $table->string('status')->default('active');
-            $table->timestamps();
+        if (!Schema::hasTable('customer_portfolios')) {
+            Schema::create('customer_portfolios', function (Blueprint $table) {
+                $table->id();
+                $table->unsignedBigInteger('user_id'); // Relation avec la table users (le compte mail unique)
+                $table->string('type'); // 'PMG' ou 'FCP'
+                $table->string('reference')->unique(); // La référence auto: PMG0001, FCP0001...
+                $table->string('status')->default('active');
+                $table->timestamps();
 
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
-        });
+                $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
+            });
+        }
     }
 
     /**
