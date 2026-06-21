@@ -367,11 +367,29 @@ class AssetManagerController extends Controller
         }
 
         $portefeuille_total = $portefeuille_fcp + $portefeuille_pmg;
-        $total_liquidite_interets = \Illuminate\Support\Facades\DB::table('financial_movements')
+        $liquiditeRows = \Illuminate\Support\Facades\DB::table('financial_movements')
             ->join('transactions', 'financial_movements.transaction_id', '=', 'transactions.id')
             ->where('transactions.user_id', $customer->id)
-            ->whereIn('financial_movements.type', ['precompte_interets', 'paiement_interets', 'liquidite_interets'])
-            ->sum('financial_movements.amount') ?? 0;
+            ->whereIn('financial_movements.type', ['liquidite_interets', 'liquidite_capital', 'paiement_interets', 'paiement_capital'])
+            ->where(function ($q) {
+                $q->where('financial_movements.type', '!=', 'paiement_interets')
+                    ->orWhere('financial_movements.comments', 'LIKE', 'Paiement depuis liquidite%')
+                    ->orWhere('financial_movements.comments', 'LIKE', 'Paiement depuis liquidité%');
+            })
+            ->select('financial_movements.type', \Illuminate\Support\Facades\DB::raw('SUM(financial_movements.amount) as total'))
+            ->groupBy('financial_movements.type')
+            ->pluck('total', 'type');
+
+        $total_liquidite_interets = max(
+            0,
+            round(
+                (float)($liquiditeRows['liquidite_interets'] ?? 0)
+                + (float)($liquiditeRows['liquidite_capital'] ?? 0)
+                - (float)($liquiditeRows['paiement_interets'] ?? 0)
+                - (float)($liquiditeRows['paiement_capital'] ?? 0),
+                0
+            )
+        );
 
         // On récupère aussi tous les produits pour la modale d'ajout
         $products = Product::all()->map(function($p) {

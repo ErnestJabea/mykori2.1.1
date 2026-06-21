@@ -90,14 +90,21 @@ $logoBase64 = file_exists($logoPath) ? 'data:image/png;base64,'.base64_encode(fi
                         CAPITALISATION ANNUELLE
                     @elseif($m->type == 'liquidite_interets')
                         INTÉRÊTS EN LIQUIDITÉ
+                    @elseif($m->type == 'liquidite_capital')
+                        CAPITAL EN LIQUIDITE
+                    @elseif($m->type == 'paiement_capital')
+                        PAIEMENT CAPITAL
                     @elseif($m->type == 'rachat_partiel')
                         RACHAT PARTIEL
                     @else
                         {{ strtoupper(str_replace('_', ' ', $m->type)) }}
                     @endif
+                    @if(!empty($m->payment_reference))
+                        <br><small>Ref paiement: {{ $m->payment_reference }} - {{ strtoupper(str_replace('_', ' ', $m->payment_method ?? '-')) }}</small>
+                    @endif
                 </td>
                 @php
-                    $isNegative = in_array($m->type, ['rachat_partiel', 'rachat_total', 'precompte_interets', 'paiement_interets', 'liquidite_interets', 'remboursement']);
+                    $isNegative = in_array($m->type, ['rachat_partiel', 'rachat_total', 'precompte_interets', 'paiement_interets', 'liquidite_interets', 'liquidite_capital', 'paiement_capital', 'remboursement']);
                 @endphp
                 <td class="text-right {{ $isNegative ? 'negative' : 'positive' }}">
                     {{ $isNegative ? '-' : '+' }}{{ number_format(abs($m->amount), 0, ',', ' ') }}

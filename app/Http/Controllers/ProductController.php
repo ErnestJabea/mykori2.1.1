@@ -34,6 +34,78 @@ class ProductController extends Controller
         'capitalisation_interets',
     ];
 
+    private const PMG_CAPITAL_LIQUIDITY_TYPES = [
+        'liquidite_capital',
+    ];
+
+    private const PMG_CAPITAL_PAYOUT_TYPES = [
+        'paiement_capital',
+    ];
+
+    private const PMG_LIQUIDITY_TYPES = [
+        'liquidite_interets',
+        'liquidite_capital',
+    ];
+
+    private const PMG_LIQUIDITY_PAYMENT_TYPES = [
+        'paiement_interets',
+        'paiement_capital',
+    ];
+
+    public function getPmgAvailableLiquidityBreakdownForUser($userId, ?Carbon $asOf = null, ?int $productId = null): array
+    {
+        $query = DB::table('financial_movements')
+            ->join('transactions', 'financial_movements.transaction_id', '=', 'transactions.id')
+            ->join('products', 'transactions.product_id', '=', 'products.id')
+            ->where('transactions.user_id', $userId)
+            ->where('products.products_category_id', 2)
+            ->whereIn('financial_movements.type', array_merge(self::PMG_LIQUIDITY_TYPES, self::PMG_LIQUIDITY_PAYMENT_TYPES))
+            ->where(function ($q) {
+                $q->where('financial_movements.type', '!=', 'paiement_interets')
+                    ->orWhere('financial_movements.comments', 'LIKE', 'Paiement depuis liquidite%')
+                    ->orWhere('financial_movements.comments', 'LIKE', 'Paiement depuis liquidité%');
+            });
+
+        if ($asOf) {
+            $query->where('financial_movements.date_operation', '<=', $asOf->copy()->endOfDay()->toDateTimeString());
+        }
+
+        if ($productId) {
+            $query->where('transactions.product_id', $productId);
+        }
+
+        $movements = $query
+            ->select('financial_movements.type', DB::raw('SUM(financial_movements.amount) as total'))
+            ->groupBy('financial_movements.type')
+            ->pluck('total', 'type');
+
+        $interest = max(0, (float)($movements['liquidite_interets'] ?? 0) - (float)($movements['paiement_interets'] ?? 0));
+        $capital = max(0, (float)($movements['liquidite_capital'] ?? 0) - (float)($movements['paiement_capital'] ?? 0));
+
+        return [
+            'interets' => round($interest, 0),
+            'capital' => round($capital, 0),
+            'total' => round($interest + $capital, 0),
+        ];
+    }
+
+    public function getPmgAvailableLiquidityForUser($userId, ?Carbon $asOf = null, ?int $productId = null): float
+    {
+        return (float)$this->getPmgAvailableLiquidityBreakdownForUser($userId, $asOf, $productId)['total'];
+    }
+
+    private function excludeLiquidityInterestPayments($query)
+    {
+        return $query->where(function ($q) {
+            $q->where('type', '!=', 'paiement_interets')
+                ->orWhereNull('comments')
+                ->orWhere(function ($sub) {
+                    $sub->where('comments', 'NOT LIKE', 'Paiement depuis liquidite%')
+                        ->where('comments', 'NOT LIKE', 'Paiement depuis liquidité%');
+                });
+        });
+    }
+
     public function calculateFCPGain($vl_actuel, $transaction)
     {
         $totalInvested = $transaction->amount;
@@ -151,11 +223,8 @@ class ProductController extends Controller
 
             $allPmgTrans = $transactions->merge($additionalTransactions);
             
-            // FILTRE : On ne prend que les transactions non échues (ou sans date d'échéance) et non totalement rachetées (capital nominal > 0)
+            // Garder aussi les PMG echus pour les afficher avec leur date d'echeance.
             $allPmgTrans = $allPmgTrans->filter(function($t) use ($currentDate) {
-                if ($t->date_echeance && Carbon::parse($t->date_echeance)->startOfDay()->lt($currentDate->copy()->startOfDay())) {
-                    return false;
-                }
                 if ((float)$t->amount <= 0) {
                     return false;
                 }
@@ -170,14 +239,22 @@ class ProductController extends Controller
             
             $totalCapitalInvested = 0;
             $totalCurrentValuation = 0;
+            $totalActiveCurrentValuation = 0;
+            $totalExpiredValuation = 0;
             $totalPayoutsSum = 0;
+            $totalActivePayoutsSum = 0;
             $totalCapitalizedBonus = 0;
             $totalInitialInvestment = 0;
+            $totalActiveInitialInvestment = 0;
+            $totalActiveCapitalInvested = 0;
+            $liquidityBreakdown = $this->getPmgAvailableLiquidityBreakdownForUser($user_id, null, $product->id);
             
             foreach ($allPmgTrans as $transaction) {
                 // Montant nominal actuel
                 $amount = (float)$transaction->amount;
-                $totalCapitalInvested += $amount;
+                $transactionExpired = $transaction->date_echeance
+                    ? Carbon::parse($transaction->date_echeance)->startOfDay()->lt($currentDate->copy()->startOfDay())
+                    : false;
                 
                 // Mouvements sur cette transaction spécifique (Paiements, Rachats, Précomptes)
                 // IMPORTANT : Les transactions supplémentaires n'ont pas de mouvements financiers directs dans cette table
@@ -227,16 +304,33 @@ class ProductController extends Controller
                     $initialCapital = (float)$transaction->amount;
                 }
                 $totalInitialInvestment += $initialCapital;
+                $totalCapitalInvested += $initialCapital;
                     
                 // Valorisation individuelle incluant déjà capitalisation et rachats dans sa logique
                 $totalValo = $this->calculatePMGValorization($transaction, $currentDate);
                 $totalCurrentValuation += (float)$totalValo;
+
+                if ($transactionExpired) {
+                    $totalExpiredValuation += (float)$totalValo;
+                } else {
+                    $totalActiveCurrentValuation += (float)$totalValo;
+                    $totalActivePayoutsSum += (float)$payouts;
+                    $totalActiveInitialInvestment += (float)$initialCapital;
+                    $totalActiveCapitalInvested += (float)$initialCapital;
+                }
             }
 
             // Calcul global des gains (Différence entre valo actuelle + sorties et capital versé initialement)
             $totalInterestsGenerated = ($totalCurrentValuation + $totalPayoutsSum) - $totalInitialInvestment;
+            $activeInterestsGenerated = ($totalActiveCurrentValuation + $totalActivePayoutsSum) - $totalActiveInitialInvestment;
             $consolidatedCapital = $totalCapitalInvested;  
             $rate = (float)$allPmgTrans->first()->vl_buy / 100;
+            $hasActivePmg = $totalActiveCurrentValuation > 0;
+            $isExpired = !$hasActivePmg && $allPmgTrans->contains(function ($t) use ($currentDate) {
+                return $t->date_echeance
+                    && Carbon::parse($t->date_echeance)->startOfDay()->lt($currentDate->copy()->startOfDay());
+            });
+            $activePortfolioValue = $totalActiveCurrentValuation;
 
             $pmgResult[] = [
                 'id' => $product->id,
@@ -246,11 +340,17 @@ class ProductController extends Controller
                 'capital_investi' => $totalInitialInvestment, 
                 'capital_actuel' => $consolidatedCapital, 
                 'montant_transaction' => $totalInitialInvestment, 
-                'interets_generes' => $totalInterestsGenerated,
-                'gain_month' => $totalInterestsGenerated,
-                'gain_mensuel' => ($consolidatedCapital * ($rate / 12)),
+                'interets_generes' => $activeInterestsGenerated,
+                'interets_echeance' => $totalInterestsGenerated,
+                'gain_month' => $activeInterestsGenerated,
+                'gain_mensuel' => $hasActivePmg ? ($totalActiveCapitalInvested * ($rate / 12)) : 0,
                 'soulte' => $consolidatedCapital,
-                'portfolio_valeur' => $totalCurrentValuation,
+                'portfolio_valeur' => $activePortfolioValue,
+                'valeur_echeance' => $totalCurrentValuation,
+                'valeur_echue' => $totalExpiredValuation,
+                'liquidite_interets' => $liquidityBreakdown['interets'],
+                'liquidite_capital' => $liquidityBreakdown['capital'],
+                'liquidite_total' => $liquidityBreakdown['total'],
                 'total_payouts' => $totalPayoutsSum,
                 'vl_achat' => $allPmgTrans->first()->vl_buy,
                 'vl_actuel' => $allPmgTrans->first()->vl_buy,
@@ -258,7 +358,8 @@ class ProductController extends Controller
                 'souscription' => $firstDate, // Date visuelle stable
                 'slug' => $product->slug,
                 'days_months' => $this->calculateMonthsAndDaysBetweenDates($firstDate, $maxExpiry),
-                'is_active' => ($totalCurrentValuation > 0)
+                'is_active' => $hasActivePmg,
+                'is_expired' => $isExpired,
             ];
         }
 
@@ -500,7 +601,8 @@ class ProductController extends Controller
 
         $productsWithGains = $this->getProductsWithGains();
         $user = Auth::user();
-        return view('front-end.my-products', compact('productsWithGains', 'user'));
+        $liquiditePmg = $this->getPmgAvailableLiquidityBreakdownForUser($user->id);
+        return view('front-end.my-products', compact('productsWithGains', 'user', 'liquiditePmg'));
     }
 
 
@@ -703,7 +805,7 @@ class ProductController extends Controller
         return 0;
     }
 
-    $baseCapital = (float)$trans->amount;
+    $baseCapital = $this->getPmgOriginalCapital($parentId, $trans, $isSupplementaire);
     $startDate = Carbon::parse($trans->date_validation);
 
     if ($lastMovement) {
@@ -726,7 +828,9 @@ class ProductController extends Controller
 
         $earliestMovement = $earliestMovementQuery->orderBy('date_operation', 'asc')->first();
         if ($earliestMovement) {
-            $baseCapital = (float)$earliestMovement->capital_before;
+            $baseCapital = $earliestMovement->type === 'souscription_initiale'
+                ? (float)$earliestMovement->capital_after
+                : (float)$earliestMovement->capital_before;
         }
     }
 
@@ -741,6 +845,8 @@ class ProductController extends Controller
         ->where('transaction_id', $parentId)
         ->whereIn('type', self::PMG_INTEREST_PAYOUT_TYPES)
         ->where('date_operation', '<=', $targetDate->toDateString());
+
+    $this->excludeLiquidityInterestPayments($payoutsQuery);
 
     if ($isSupplementaire) {
         $payoutsQuery->where('comments', 'LIKE', "%versement complémentaire ID {$trans->id}%");
@@ -927,13 +1033,7 @@ class ProductController extends Controller
             $allTrans = $user->transactions->concat($user->transactionssupplementaires);
 
             if ($categoryFilter != '1') {
-                $userTotalLiquiditeInterets = DB::table('financial_movements')
-                    ->join('transactions', 'financial_movements.transaction_id', '=', 'transactions.id')
-                    ->join('products', 'transactions.product_id', '=', 'products.id')
-                    ->where('transactions.user_id', $user->id)
-                    ->where('products.products_category_id', 2)
-                    ->whereIn('financial_movements.type', self::PMG_INTEREST_PAYOUT_TYPES)
-                    ->sum('financial_movements.amount') ?? 0;
+                $userTotalLiquiditeInterets = $this->getPmgAvailableLiquidityForUser($user->id);
             }
 
             foreach ($allTrans as $trans) {
@@ -1462,11 +1562,7 @@ class ProductController extends Controller
         // ✅ Calcul des intérêts : (Valeur actuelle + Sorties) - Capital initial total
         $totalPmgPayouts = collect($allProducts)->where('type_product', 2)->sum('total_payouts');
         $totalInterets = max(0, ($portefeuilleTotal + $totalPmgPayouts) - $totalInvestiActive);
-        $totalLiquiditeInterets = DB::table('financial_movements')
-            ->join('transactions', 'financial_movements.transaction_id', '=', 'transactions.id')
-            ->where('transactions.user_id', $customer->id)
-            ->whereIn('financial_movements.type', self::PMG_INTEREST_PAYOUT_TYPES)
-            ->sum('financial_movements.amount') ?? 0;
+        $totalLiquiditeInterets = $this->getPmgAvailableLiquidityForUser($customer->id);
 
         // Récupérer les IDs des produits PMG auxquels le client a déjà souscrit
         $ownedPmgProductIds = collect($allProducts)
@@ -1799,6 +1895,37 @@ class ProductController extends Controller
             return (float)$lastMove->capital_after;
         }
 
+        return $this->getPmgOriginalCapital($parentId, $trans, $isSupplementaire);
+    }
+
+    private function getPmgOriginalCapital($parentId, $trans, $isSupplementaire): float
+    {
+        if ($isSupplementaire) {
+            return (float)$trans->amount;
+        }
+
+        $firstMovement = $this->scopedPmgMovementQuery($parentId, $trans, false)
+            ->whereNotIn('type', array_merge(self::PMG_LIQUIDITY_TYPES, self::PMG_LIQUIDITY_PAYMENT_TYPES))
+            ->where(function ($q) {
+                $q->where('capital_before', '>', 0)
+                    ->orWhere('capital_after', '>', 0);
+            })
+            ->orderBy('date_operation', 'asc')
+            ->orderBy('id', 'asc')
+            ->first();
+
+        if ($firstMovement) {
+            if ($firstMovement->type === 'souscription_initiale' && (float)$firstMovement->capital_after > 0) {
+                return (float)$firstMovement->capital_after;
+            }
+
+            if ((float)$firstMovement->capital_before > 0) {
+                return (float)$firstMovement->capital_before;
+            }
+
+            return (float)$firstMovement->capital_after;
+        }
+
         return (float)$trans->amount;
     }
 
@@ -1826,11 +1953,13 @@ class ProductController extends Controller
         $rate = (float)$trans->vl_buy / 100;
         $grossInterest = ($capitalBefore * $rate * $days) / 360;
 
-        $alreadyPaidInPeriod = $this->scopedPmgMovementQuery($parentId, $trans, $isSupplementaire)
+        $alreadyPaidInPeriodQuery = $this->scopedPmgMovementQuery($parentId, $trans, $isSupplementaire)
             ->whereIn('type', self::PMG_INTEREST_PAYOUT_TYPES)
             ->where('date_operation', '>', $periodStart->copy()->endOfDay()->toDateTimeString())
-            ->where('date_operation', '<=', $dueDate->copy()->endOfDay()->toDateTimeString())
-            ->sum('amount') ?? 0;
+            ->where('date_operation', '<=', $dueDate->copy()->endOfDay()->toDateTimeString());
+
+        $this->excludeLiquidityInterestPayments($alreadyPaidInPeriodQuery);
+        $alreadyPaidInPeriod = $alreadyPaidInPeriodQuery->sum('amount') ?? 0;
 
         $interestAmount = round(max(0, $grossInterest - (float)$alreadyPaidInPeriod), 0);
         if ($interestAmount <= 0) {
@@ -1849,7 +1978,81 @@ class ProductController extends Controller
             'updated_at'     => now(),
         ]);
 
-        Log::info("SYNC OK : Trans {$parentId} intérêts passés en liquidité pour le {$dueDate->toDateString()} ({$label})");
+        return true;
+    }
+
+    private function createPmgMaturityInterestLiquidityIfDue($trans, Carbon $dueDate, string $label)
+    {
+        $isSupplementaire = ($trans instanceof TransactionSupplementaire);
+        $parentId = $isSupplementaire ? $trans->transaction_id : $trans->id;
+        $dueDate = $dueDate->copy()->startOfDay();
+
+        $alreadySettledOnDueDate = $this->scopedPmgMovementQuery($parentId, $trans, $isSupplementaire)
+            ->whereIn('type', self::PMG_INTEREST_SETTLEMENT_TYPES)
+            ->whereDate('date_operation', $dueDate->toDateString())
+            ->exists();
+
+        if ($alreadySettledOnDueDate) {
+            return false;
+        }
+
+        $capitalBefore = $this->getPmgCapitalBeforeDueDate($parentId, $trans, $isSupplementaire, $dueDate);
+        if ($capitalBefore <= 0) {
+            return false;
+        }
+
+        $valuationAtMaturity = (float)$this->calculatePMGValorization($trans, $dueDate);
+        $interestAmount = round(max(0, $valuationAtMaturity - $capitalBefore), 0);
+        if ($interestAmount <= 0) {
+            return false;
+        }
+
+        DB::table('financial_movements')->insert([
+            'transaction_id' => $parentId,
+            'date_operation' => $dueDate->toDateTimeString(),
+            'type'           => 'liquidite_interets',
+            'amount'         => $interestAmount,
+            'capital_before' => round($capitalBefore, 0),
+            'capital_after'  => round($capitalBefore, 0),
+            'comments'       => ($isSupplementaire ? 'Liquidite interets automatique versement complementaire ID ' . $trans->id . ' - ' : 'Liquidite interets automatique - ') . $label,
+            'created_at'     => now(),
+            'updated_at'     => now(),
+        ]);
+
+        return true;
+    }
+
+    private function createPmgCapitalLiquidityIfDue($trans, Carbon $dueDate, string $label)
+    {
+        $isSupplementaire = ($trans instanceof TransactionSupplementaire);
+        $parentId = $isSupplementaire ? $trans->transaction_id : $trans->id;
+        $dueDate = $dueDate->copy()->startOfDay();
+
+        $alreadyInLiquidity = $this->scopedPmgMovementQuery($parentId, $trans, $isSupplementaire)
+            ->whereIn('type', array_merge(self::PMG_CAPITAL_LIQUIDITY_TYPES, self::PMG_CAPITAL_PAYOUT_TYPES))
+            ->whereDate('date_operation', $dueDate->toDateString())
+            ->exists();
+
+        if ($alreadyInLiquidity) {
+            return false;
+        }
+
+        $capitalBefore = $this->getPmgCapitalBeforeDueDate($parentId, $trans, $isSupplementaire, $dueDate);
+        if ($capitalBefore <= 0) {
+            return false;
+        }
+
+        DB::table('financial_movements')->insert([
+            'transaction_id' => $parentId,
+            'date_operation' => $dueDate->copy()->addSecond()->toDateTimeString(),
+            'type'           => 'liquidite_capital',
+            'amount'         => round($capitalBefore, 0),
+            'capital_before' => round($capitalBefore, 0),
+            'capital_after'  => 0,
+            'comments'       => ($isSupplementaire ? 'Liquidite capital automatique versement complementaire ID ' . $trans->id . ' - ' : 'Liquidite capital automatique - ') . $label,
+            'created_at'     => now(),
+            'updated_at'     => now(),
+        ]);
 
         return true;
     }
@@ -1862,7 +2065,8 @@ class ProductController extends Controller
 
         if ($frequency === 'maturity') {
             if ($dateEcheance->lte($today)) {
-                $this->createPmgInterestLiquidityIfDue($trans, $startDate, $dateEcheance, "échéance du mandat");
+                $this->createPmgMaturityInterestLiquidityIfDue($trans, $dateEcheance, "echeance du mandat");
+                $this->createPmgCapitalLiquidityIfDue($trans, $dateEcheance, "echeance du mandat");
             }
             return;
         }
@@ -1883,6 +2087,11 @@ class ProductController extends Controller
             $dueDate = $frequency === 'monthly'
                 ? $dueDate->copy()->addMonthNoOverflow()
                 : $dueDate->copy()->addYear();
+        }
+
+        if ($dateEcheance->lte($today)) {
+            $this->createPmgMaturityInterestLiquidityIfDue($trans, $dateEcheance, "echeance du mandat");
+            $this->createPmgCapitalLiquidityIfDue($trans, $dateEcheance, "echeance du mandat");
         }
     }
 
@@ -1918,6 +2127,9 @@ class ProductController extends Controller
                 $interestMode = $this->getPmgInterestManagementMode($trans);
 
                 if ($interestMode === 'prepaid') {
+                    if (Carbon::parse($trans->date_echeance)->startOfDay()->lte($today)) {
+                        $this->createPmgCapitalLiquidityIfDue($trans, Carbon::parse($trans->date_echeance), "echeance du mandat");
+                    }
                     continue;
                 }
 
@@ -1937,9 +2149,10 @@ class ProductController extends Controller
                 }
 
                 // Point de départ : 1 an après la validation
+                $dateEcheance = Carbon::parse($trans->date_echeance)->startOfDay();
                 $anniversary = Carbon::parse($trans->date_validation)->addYear();
 
-                while ($anniversary->lte($today)) {
+                while ($anniversary->lte($today) && $anniversary->copy()->startOfDay()->lte($dateEcheance)) {
                     $formattedDate = $anniversary->toDateString();
                     $anniversaryMidnight = $anniversary->copy()->startOfDay();
 
@@ -1994,16 +2207,18 @@ class ProductController extends Controller
                             ]);
 
                             // Mise à jour du capital de la transaction / versement complémentaire
-                            $trans->update(['amount' => round($valeurPortefeuille, 0)]);
-                            
-                            Log::info("SYNC OK : " . ($isSupplementaire ? "Supp" : "Main") . " Trans {$trans->id} capitalisée pour le {$formattedDate}");
+                            // Le capital courant est porte par financial_movements.capital_after.
                         }
                     }
 
                     $anniversary->addYear(); // Année suivante
                 }
+                if ($dateEcheance->lte($today)) {
+                    $this->createPmgMaturityInterestLiquidityIfDue($trans, $dateEcheance, "echeance du mandat");
+                    $this->createPmgCapitalLiquidityIfDue($trans, $dateEcheance, "echeance du mandat");
+                }
             } catch (\Exception $e) {
-                Log::error("SYNC FAIL : Erreur lors du traitement de la transaction ID {$trans->id} (" . ($trans instanceof TransactionSupplementaire ? "Supp" : "Main") . ") : " . $e->getMessage());
+                // Keep the sync resilient: one bad transaction must not stop the batch.
             }
         }
     }
@@ -2213,16 +2428,7 @@ class ProductController extends Controller
 
             $merged = $allTransactions->merge($supplemental);
 
-            // Ajustement de la date du relevé si tous les mandats sont échus dans le mois
-            $maxExpiryInMonth = $merged->where('date_echeance', '<=', $dateN->toDateString())
-                                       ->where('date_echeance', '>=', $dateN->copy()->startOfMonth()->toDateString())
-                                       ->max('date_echeance');
-            $anyActivePastMonth = $merged->where('date_echeance', '>', $dateN->toDateString())->isNotEmpty();
-            
-            if (!$anyActivePastMonth && $maxExpiryInMonth) {
-                $dateN = Carbon::parse($maxExpiryInMonth);
-            }
-
+            // Date N fixe : dernier jour du mois demande, meme si un mandat expire ensuite pendant la periode d'envoi.
             $dateN1 = $dateN->copy()->startOfMonth()->subDay();
 
             // Filtrer et exclure les transactions totalement rachetées avant le début de ce mois clos
@@ -2296,6 +2502,13 @@ class ProductController extends Controller
                 // Date de placement initial (la plus ancienne)
                 $firstDateVal = Carbon::parse($productTrans->min('date_validation') ?? $productTrans->min('created_at')->toDateString());
                 $maxExpiryDate = $productTrans->max('date_echeance');
+                $productValuationDate = $dateN->copy();
+                if ($maxExpiryDate) {
+                    $expiryForValuation = Carbon::parse($maxExpiryDate);
+                    if ($expiryForValuation->betweenIncluded($dateN->copy()->startOfMonth(), $dateN)) {
+                        $productValuationDate = $expiryForValuation;
+                    }
+                }
 
                 foreach ($productTrans as $trans) {
                     // --- FILTRE D'ACTIVITÉ ---
@@ -2427,9 +2640,16 @@ class ProductController extends Controller
                         'gain_total' => max(0, $productValoN - $capNetTotal),
                         'souscription' => $firstDateVal->format('d/m/Y'),
                         'date_echeance' => $maxExpiryDate ? Carbon::parse($maxExpiryDate)->format('d/m/Y') : '-',
+                        'date_valorisation' => $productValuationDate->format('d/m/Y'),
+                        'date_valorisation_raw' => $productValuationDate->toDateString(),
                         'produit_jeune' => $firstDateVal->gt($dateN1) ? 1 : 0,
                     ];
                 }
+            }
+
+            $dateReleveAffichee = $dateN->copy();
+            if (count($produitsAffiches) === 1 && !empty($produitsAffiches[0]->date_valorisation_raw)) {
+                $dateReleveAffichee = Carbon::parse($produitsAffiches[0]->date_valorisation_raw);
             }
 
             $pdf = Pdf::loadView('front-end.releves.releve-preview', [
@@ -2437,8 +2657,9 @@ class ProductController extends Controller
                 'produits' => $produitsAffiches,
                 'valorisation_courante' => $totalValoN,
                 'valorisation_precedente' => $totalValoN1,
-                'date_releve' => $dateN->format('d/m/Y'),
+                'date_releve' => $dateReleveAffichee->format('d/m/Y'),
                 'date_releve_precedent' => $dateN1->format('d/m/Y'),
+                'liquidite_pmg' => $this->getPmgAvailableLiquidityBreakdownForUser($client->id, $dateReleveAffichee),
                 'periode' => $periodeLabel
             ]);
 
@@ -2655,7 +2876,7 @@ class ProductController extends Controller
                 'ref'                => $tx->ref ?? '-',
                 'produit'            => $productTitle,
                 'montant'            => (float)$m->amount,
-                'sens'               => in_array($m->type, ['rachat_partiel', 'rachat_total', 'precompte_interets', 'paiement_interets', 'liquidite_interets', 'remboursement']) ? 'sortant' : 'entrant',
+                'sens'               => in_array($m->type, ['rachat_partiel', 'rachat_total', 'precompte_interets', 'paiement_interets', 'liquidite_interets', 'liquidite_capital', 'paiement_capital', 'remboursement']) ? 'sortant' : 'entrant',
             ]);
         });
 
@@ -2925,11 +3146,13 @@ class ProductController extends Controller
                     ->first();
                 $baseCapital = $lastMovement ? (float)$lastMovement->capital_after : (float)$trans->amount;
 
-                $payouts = \Illuminate\Support\Facades\DB::table('financial_movements')
+                $payoutsQuery = \Illuminate\Support\Facades\DB::table('financial_movements')
                     ->where('transaction_id', $trans->id)
                     ->whereIn('type', self::PMG_INTEREST_PAYOUT_TYPES)
-                    ->where('date_operation', '<=', $date->toDateString())
-                    ->sum('amount') ?? 0;
+                    ->where('date_operation', '<=', $date->toDateString());
+
+                $this->excludeLiquidityInterestPayments($payoutsQuery);
+                $payouts = $payoutsQuery->sum('amount') ?? 0;
 
                 $totalRedemption = \Illuminate\Support\Facades\DB::table('financial_movements')
                     ->where('transaction_id', $trans->id)

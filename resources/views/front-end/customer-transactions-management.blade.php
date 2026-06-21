@@ -435,6 +435,19 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                             </div>
                         </a>
                     </div>
+                    <div class="content-card">
+                        <a href="#popup-paiement-liquidite-pmg" class="open-popup-link">
+                            <div class="content-card-body">
+                                <div class="content-card-icon">
+                                    <i class="fa-solid fa-money-bill-transfer"></i>
+                                </div>
+                                <div class="content-card-info">
+                                    <h4>Payer la liquidite</h4>
+                                    <p>Verser au client les interets, le capital ou le total disponible.</p>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
                     {{--       <div class="content-card">
                         <a href="#popup-remboursement" class="open-popup-link">
                             <div class="content-card-body">
@@ -520,6 +533,12 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                                         <span class="op-badge op-precompte">Précompte Int.</span>
                                                     @elseif($op->type == 'paiement_interets')
                                                         <span class="op-badge op-paiement">Paiement Int.</span>
+                                                    @elseif($op->type == 'liquidite_interets')
+                                                        <span class="op-badge op-paiement">Liquidite Int.</span>
+                                                    @elseif($op->type == 'liquidite_capital')
+                                                        <span class="op-badge op-paiement">Liquidite Capital</span>
+                                                    @elseif($op->type == 'paiement_capital')
+                                                        <span class="op-badge op-paiement">Paiement Capital</span>
                                                     @elseif($op->type == 'rachat_partiel' || $op->type == 'rachat' || $op->type == 'rachat_total')
                                                         <span class="op-badge op-rachat">Rachat</span>
                                                     @elseif($op->type == 'souscription')
@@ -578,6 +597,19 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                                 <td>
                                                     <p class="text-xs opacity-70 italic max-w-[200px] truncate m-0"
                                                         title="{{ $op->comment }}">{{ $op->comment ?? '-' }}</p>
+                                                    @if (!empty($op->payment_reference))
+                                                        <div class="text-[10px] mt-1 leading-4">
+                                                            <span class="font-bold">Paiement:</span>
+                                                            {{ strtoupper(str_replace('_', ' ', $op->payment_method ?? '-')) }}
+                                                            / Ref. {{ $op->payment_reference }}
+                                                            @if (!empty($op->payment_proof_path))
+                                                                <br>
+                                                                <a href="{{ asset('storage/' . $op->payment_proof_path) }}" target="_blank" class="text-primary font-bold">
+                                                                    Justificatif
+                                                                </a>
+                                                            @endif
+                                                        </div>
+                                                    @endif
                                                 </td>
 
                                                 <td class="text-center">
@@ -605,7 +637,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                 <div id="popup-interet-precomptes" class="mfp-hide white-popup-block">
                     <h3>Gestion des Intérêts </h3>
                     <hr>
-                    <form action="{{ route('transactions.precompte') }}" method="POST">
+                    <form action="{{ route('transactions.precompte') }}" method="POST" enctype="multipart/form-data">
                         @csrf
                         <div class="form-group mb-3">
                             <label>Contrat concerné (PMG)</label>
@@ -629,6 +661,28 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                         <div class="form-group mb-3">
                             <label>Montant des intérêts à verser (XAF)</label>
                             <input type="number" name="interest_amount" class="form-control" placeholder="0" required>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>Date de paiement</label>
+                            <input type="date" name="payment_date" class="form-control" value="{{ date('Y-m-d') }}" required>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>Mode de paiement</label>
+                            <select name="payment_method" class="form-control" required>
+                                <option value="virement">Virement bancaire</option>
+                                <option value="cheque">Cheque</option>
+                                <option value="mobile_money">Mobile money</option>
+                                <option value="especes">Especes</option>
+                                <option value="autre">Autre</option>
+                            </select>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>Reference de paiement</label>
+                            <input type="text" name="payment_reference" class="form-control" placeholder="Ex: ref virement, cheque, transaction" required>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>Justificatif de paiement</label>
+                            <input type="file" name="payment_proof" class="form-control" accept=".pdf,.jpg,.jpeg,.png" required>
                         </div>
                         <div class="text-right mt-4">
                             <button type="submit" class="btn btn-primary">Valider le versement</button>
@@ -671,10 +725,69 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                     </form>
                 </div>
 
+                <div id="popup-paiement-liquidite-pmg" class="mfp-hide white-popup-block">
+                    <h3>Paiement de la liquidite PMG</h3>
+                    <hr>
+                    <form action="{{ route('transactions.paiement-liquidite-pmg') }}" method="POST" enctype="multipart/form-data">
+                        @csrf
+                        <div class="form-group mb-3">
+                            <label>Selectionner le mandat (PMG)</label>
+                            <select name="transaction_id" class="form-control" required>
+                                @foreach ($transactionsUsers as $trans)
+                                    @php
+                                        $product = App\Models\Product::where('id', $trans->product_id)->first();
+                                    @endphp
+                                    <option value="{{ $trans->id }}">
+                                        {{ $product->title ?? 'PMG' }} - {{ $trans->ref ?? 'Sans ref.' }} - Initial:
+                                        {{ number_format($trans->amount, 0, ',', ' ') }} XAF
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>Type de paiement</label>
+                            <select name="scope" class="form-control" required>
+                                <option value="interets">Interets uniquement</option>
+                                <option value="capital">Capital uniquement</option>
+                                <option value="total">Capital + interets</option>
+                            </select>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>Montant (optionnel)</label>
+                            <input type="number" name="amount" class="form-control" placeholder="Laisser vide pour payer tout le solde">
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>Date de paiement</label>
+                            <input type="date" name="payment_date" class="form-control" value="{{ date('Y-m-d') }}" required>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>Mode de paiement</label>
+                            <select name="payment_method" class="form-control" required>
+                                <option value="virement">Virement bancaire</option>
+                                <option value="cheque">Cheque</option>
+                                <option value="mobile_money">Mobile money</option>
+                                <option value="especes">Especes</option>
+                                <option value="autre">Autre</option>
+                            </select>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>Reference de paiement</label>
+                            <input type="text" name="payment_reference" class="form-control" placeholder="Ex: ref virement, cheque, transaction" required>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>Justificatif de paiement</label>
+                            <input type="file" name="payment_proof" class="form-control" accept=".pdf,.jpg,.jpeg,.png" required>
+                        </div>
+                        <div class="text-right mt-4">
+                            <button type="submit" class="btn btn-success">Valider le paiement</button>
+                        </div>
+                    </form>
+                </div>
+
                 <div id="popup-remboursement" class="mfp-hide white-popup-block">
                     <h3>Remboursement des Intérêts</h3>
                     <hr>
-                    <form action="{{ route('transactions.remboursement-interets') }}" method="POST">
+                    <form action="{{ route('transactions.remboursement-interets') }}" method="POST" enctype="multipart/form-data">
                         @csrf
                         <div class="form-group mb-3">
                             <label>Sélectionner le mandat (PMG)</label>
@@ -695,6 +808,28 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                             <label>Montant du remboursement (XAF)</label>
                             <input type="number" name="amount" class="form-control" placeholder="Montant à rembourser"
                                 required>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>Date de paiement</label>
+                            <input type="date" name="payment_date" class="form-control" value="{{ date('Y-m-d') }}" required>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>Mode de paiement</label>
+                            <select name="payment_method" class="form-control" required>
+                                <option value="virement">Virement bancaire</option>
+                                <option value="cheque">Cheque</option>
+                                <option value="mobile_money">Mobile money</option>
+                                <option value="especes">Especes</option>
+                                <option value="autre">Autre</option>
+                            </select>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>Reference de paiement</label>
+                            <input type="text" name="payment_reference" class="form-control" placeholder="Ex: ref virement, cheque, transaction" required>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>Justificatif de paiement</label>
+                            <input type="file" name="payment_proof" class="form-control" accept=".pdf,.jpg,.jpeg,.png" required>
                         </div>
                         <div class="text-right mt-4">
                             <button type="submit" class="btn btn-success">Valider le Remboursement</button>
@@ -877,7 +1012,9 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                 $.ajax({
                     url: $form.attr('action'),
                     method: 'POST',
-                    data: $form.serialize(),
+                    data: new FormData(this),
+                    processData: false,
+                    contentType: false,
                     success: function(response) {
                         $.magnificPopup.close(); // Fermer la modale
 
@@ -948,6 +1085,33 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                     error: function(xhr) {
                         $btn.prop('disabled', false).text('Valider le Remboursement');
                         let msg = xhr.responseJSON ? xhr.responseJSON.message : 'Erreur réseau';
+                        alert('Erreur : ' + msg);
+                    }
+                });
+            });
+
+            $('#popup-paiement-liquidite-pmg form').on('submit', function(e) {
+                e.preventDefault();
+
+                let $form = $(this);
+                let $btn = $form.find('button[type="submit"]');
+
+                $btn.prop('disabled', true).text('Enregistrement...');
+
+                $.ajax({
+                    url: $form.attr('action'),
+                    method: 'POST',
+                    data: new FormData(this),
+                    processData: false,
+                    contentType: false,
+                    success: function(response) {
+                        $.magnificPopup.close();
+                        alert(response.message);
+                        location.reload();
+                    },
+                    error: function(xhr) {
+                        $btn.prop('disabled', false).text('Valider le paiement');
+                        let msg = xhr.responseJSON ? xhr.responseJSON.message : 'Erreur reseau';
                         alert('Erreur : ' + msg);
                     }
                 });

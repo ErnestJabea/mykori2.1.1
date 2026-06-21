@@ -9,6 +9,25 @@
             <div class="col-span-12 md:col-span-5 lg:col-span-4">
                 <p style="text-align: right">{{ date('d-m-Y') }}</p>
             </div>
+            @if (($liquiditePmg['total'] ?? 0) > 0)
+                <div class="col-span-12">
+                    <div class="box" style="border-left: 4px solid #f2b400;">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <h4 class="h4">Liquidité disponible PMG</h4>
+                                <p class="text-sm">Montant disponible non encore payé au client.</p>
+                            </div>
+                            <div class="text-right">
+                                <div class="h4">XAF {{ number_format($liquiditePmg['total'], 0, ' ', ' ') }}</div>
+                                <div class="text-sm">
+                                    Intérêts: {{ number_format($liquiditePmg['interets'] ?? 0, 0, ' ', ' ') }} |
+                                    Capital: {{ number_format($liquiditePmg['capital'] ?? 0, 0, ' ', ' ') }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @endif
             <div class="col-span-12 detail-produit-wrapper">
                 <!-- Statistics -->
                 <div class="content-my-products-wrapper flex">
@@ -16,11 +35,12 @@
                         <h3>MES SOUSCRIPTIONS PMG</h3>
                         @foreach ($productsWithGains as $my_product)
                             @if ($my_product['type_product'] == 2)
-                                @if (!($my_product['is_active'] ?? true))
+                                @if (!($my_product['is_active'] ?? true) && !($my_product['is_expired'] ?? false))
                                     @continue
                                 @endif
                                 @php
-                                    $isExpired = \Carbon\Carbon::parse($my_product['date_echeance'])->isPast();
+                                    $isExpired = ($my_product['is_expired'] ?? false)
+                                        || \Carbon\Carbon::parse($my_product['date_echeance'])->isPast();
                                 @endphp
                                 <div class="item-product {{ $isExpired ? 'expired-product-card' : '' }}" {!! $isExpired ? 'style="background-color: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2);"' : '' !!}>
                                     <div class="content-link-title">
@@ -79,6 +99,21 @@
                                                 {{ $isExpired ? '0,00' : number_format($my_product['portfolio_valeur'], 2, ',', ' ') }}
                                             </div>
                                         </div>
+                                        @if (($my_product['liquidite_total'] ?? 0) > 0)
+                                            <div class="content-label-info">
+                                                <div class="label- text-gold font-bold">Liquidité disponible :</div>
+                                                <div class="response- text-gold font-bold">XAF
+                                                    {{ number_format($my_product['liquidite_total'], 0, ' ', ' ') }}
+                                                </div>
+                                            </div>
+                                            <div class="content-label-info">
+                                                <div class="label-">Détail liquidité :</div>
+                                                <div class="response-">
+                                                    Intérêts {{ number_format($my_product['liquidite_interets'] ?? 0, 0, ' ', ' ') }}
+                                                    / Capital {{ number_format($my_product['liquidite_capital'] ?? 0, 0, ' ', ' ') }}
+                                                </div>
+                                            </div>
+                                        @endif
                                     </div>
                                     <div class="content-label-info">
                                         <div class="label-">Date de valeur:</div>

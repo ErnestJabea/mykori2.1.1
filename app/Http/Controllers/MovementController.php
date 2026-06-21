@@ -9,6 +9,8 @@ use App\Models\Transaction;
 use App\Models\FinancialMovement;
 use App\Support\FinancialDecimal;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 class MovementController extends Controller
 {
@@ -36,7 +38,7 @@ class MovementController extends Controller
             'comments'       => $request->comments ?? 'Paiement d’intérêts précomptés',
             'created_at'     => now(),
             'updated_at'     => now()
-        ]);
+        ] + $paymentMeta);
 
         return redirect()->back()->with([
             'message'    => "Intérêts précomptés de XAF " . number_format($amountToPay, 0, ' ', ' ') . " enregistrés.",
@@ -57,10 +59,12 @@ class MovementController extends Controller
             ->get();
 
         $transactionsUsers = DB::table('transactions')
-            ->where('user_id', $customerId)
-            ->where('date_echeance', '>=', $currentDate->format('Y-m-d'))
+            ->join('products', 'transactions.product_id', '=', 'products.id')
+            ->where('transactions.user_id', $customerId)
 
-            ->where('status', 'Succès')
+            ->where('transactions.status', 'Succès')
+            ->where('products.products_category_id', 2)
+            ->select('transactions.*')
             ->get();
 
         $customer = \App\Models\User::findOrFail($customerId);
@@ -118,7 +122,10 @@ class MovementController extends Controller
                 'balance_after'  => $mvt->capital_after,
                 'parts_before'   => null,
                 'parts_after'    => null,
-                'vl_applied'     => $mvt->transaction_vl ?? 0
+                'vl_applied'     => $mvt->transaction_vl ?? 0,
+                'payment_method' => $mvt->payment_method ?? null,
+                'payment_reference' => $mvt->payment_reference ?? null,
+                'payment_proof_path' => $mvt->payment_proof_path ?? null,
             ]);
         }
 
@@ -138,7 +145,10 @@ class MovementController extends Controller
                 'balance_after'  => $fcpMvt->balance_after,
                 'parts_before'   => $fcpMvt->parts_before,
                 'parts_after'    => $fcpMvt->parts_after,
-                'vl_applied'     => $fcpMvt->vl_applied
+                'vl_applied'     => $fcpMvt->vl_applied,
+                'payment_method' => null,
+                'payment_reference' => null,
+                'payment_proof_path' => null,
             ]);
         }
 
@@ -152,17 +162,41 @@ class MovementController extends Controller
         $transaction = Transaction::findOrFail($request->transaction_id);
         $type = $request->type;
         $amount = (float)$request->amount;
+        $dateOperation = $request->date_operation . ' ' . date('H:i:s');
+        $paymentMeta = [];
+
+        if (in_array($type, ['precompte_interets', 'paiement_interets', 'paiement_capital'])) {
+            $request->validate([
+                'payment_date' => 'required|date',
+                'payment_method' => 'required|in:virement,cheque,especes,mobile_money,autre',
+                'payment_reference' => 'required|string|max:120',
+                'payment_proof' => 'required|file|mimes:pdf,jpg,jpeg,png|max:5120',
+            ]);
+
+            $dateOperation = Carbon::parse($request->payment_date)->toDateTimeString();
+            $paymentMeta = [
+                'payment_method' => $request->payment_method,
+                'payment_reference' => $request->payment_reference,
+                'payment_proof_path' => $request->hasFile('payment_proof')
+                    ? $request->file('payment_proof')->store('payment-proofs', 'public')
+                    : null,
+                'payment_recorded_by' => Auth::id(),
+            ];
+        }
 
         // 1. Calcul de la valorisation AVANT l'opération
         $capitalBefore = $this->calculatePMGValorization($transaction, $request->date_operation);
 
         // 2. Logique selon le type d'opération
-        if ($type === 'precompte_interets') {
+        if (in_array($type, ['precompte_interets', 'paiement_interets', 'liquidite_interets', 'paiement_capital'])) {
             // Le capital reste le même, on ne fait que sortir les intérêts
             $capitalAfter = $capitalBefore;
         } elseif ($type === 'rachat_partiel') {
             // On diminue le capital du montant racheté
             $capitalAfter = $capitalBefore - $amount;
+        } elseif ($type === 'liquidite_capital' || $type === 'rachat_total') {
+            // A l'echeance, le capital quitte le PMG actif pour devenir une liquidite disponible.
+            $capitalAfter = 0;
         } else {
             // Rajout : On augmente le capital
             $capitalAfter = $capitalBefore + $amount;
@@ -171,7 +205,7 @@ class MovementController extends Controller
         // 3. Insertion SQL
         DB::table('financial_movements')->insert([
             'transaction_id' => $transaction->id,
-            'date_operation' => $request->date_operation . ' ' . date('H:i:s'),
+            'date_operation' => $dateOperation,
             'type'           => $type,
             'amount'         => $amount,
             'capital_before' => $capitalBefore,
@@ -278,10 +312,24 @@ class MovementController extends Controller
             'transaction_id' => 'required|exists:transactions,id',
             'type' => 'required|in:precompte_interets,paiement_interets',
             'interest_amount' => 'required|numeric|min:1',
+            'payment_date' => 'required|date',
+            'payment_method' => 'required|in:virement,cheque,especes,mobile_money,autre',
+            'payment_reference' => 'required|string|max:120',
+            'payment_proof' => 'required|file|mimes:pdf,jpg,jpeg,png|max:5120',
         ]);
 
         $trans = Transaction::findOrFail($request->transaction_id);
         $amount = (float)$request->interest_amount;
+        $paymentDate = Carbon::parse($request->payment_date);
+        $proofPath = $request->hasFile('payment_proof')
+            ? $request->file('payment_proof')->store('payment-proofs', 'public')
+            : null;
+        $paymentMeta = [
+            'payment_method' => $request->payment_method,
+            'payment_reference' => $request->payment_reference,
+            'payment_proof_path' => $proofPath,
+            'payment_recorded_by' => Auth::id(),
+        ];
 
         // Récupérer le dernier état du capital
         $lastMove = DB::table('financial_movements')
@@ -296,7 +344,7 @@ class MovementController extends Controller
         if ($request->type === 'precompte_interets') {
             DB::table('financial_movements')->insert([
                 'transaction_id' => $trans->id,
-                'date_operation' => now(),
+                'date_operation' => $paymentDate->toDateTimeString(),
                 'type'           => 'precompte_interets',
                 'amount'         => $amount,
                 'capital_before' => $capitalBefore,
@@ -304,14 +352,14 @@ class MovementController extends Controller
                 'comments'       => "Intérêts précomptés versés au client : " . number_format($amount, 0) . " XAF",
                 'created_at'     => now(),
                 'updated_at'     => now()
-            ]);
+            ] + $paymentMeta);
         }
 
         // CAS 2 : Paiement d'intérêts (Versement ponctuel sans capitalisation)
         if ($request->type === 'paiement_interets') {
             DB::table('financial_movements')->insert([
                 'transaction_id' => $trans->id,
-                'date_operation' => now(),
+                'date_operation' => $paymentDate->toDateTimeString(),
                 'type'           => 'paiement_interets',
                 'amount'         => $amount,
                 'capital_before' => $capitalBefore,
@@ -319,7 +367,7 @@ class MovementController extends Controller
                 'comments'       => "Versement d'intérêts : " . number_format($amount, 0) . " XAF",
                 'created_at'     => now(),
                 'updated_at'     => now()
-            ]);
+            ] + $paymentMeta);
 
             \App\Models\UserActivityLog::log(
                 "VERSEMENT_INTERET",
@@ -339,11 +387,25 @@ class MovementController extends Controller
         $request->validate([
             'transaction_id' => 'required|exists:transactions,id',
             'amount' => 'required|numeric|min:1',
+            'payment_date' => 'required|date',
+            'payment_method' => 'required|in:virement,cheque,especes,mobile_money,autre',
+            'payment_reference' => 'required|string|max:120',
+            'payment_proof' => 'required|file|mimes:pdf,jpg,jpeg,png|max:5120',
         ]);
 
         $trans = Transaction::findOrFail($request->transaction_id);
         $amountToRefund = (float)$request->amount;
         $currentDate = Carbon::now();
+        $paymentDate = Carbon::parse($request->payment_date);
+        $proofPath = $request->hasFile('payment_proof')
+            ? $request->file('payment_proof')->store('payment-proofs', 'public')
+            : null;
+        $paymentMeta = [
+            'payment_method' => $request->payment_method,
+            'payment_reference' => $request->payment_reference,
+            'payment_proof_path' => $proofPath,
+            'payment_recorded_by' => Auth::id(),
+        ];
 
         // 1. Calcul des intérêts gagnés à ce jour
         $valoTotale = $this->calculatePMGValorizationForRefund($trans, $currentDate);
@@ -365,12 +427,16 @@ class MovementController extends Controller
         // 3. Enregistrement du mouvement de remboursement
         DB::table('financial_movements')->insert([
             'transaction_id' => $trans->id,
-            'date_operation' => now(),
+            'date_operation' => $paymentDate->toDateTimeString(),
             'type'           => 'paiement_interets', // On utilise le type existant pour la compatibilité
             'amount'         => $amountToRefund,
             'capital_before' => $capitalActuel,
             'capital_after'  => $capitalActuel, // Le capital de base ne change pas, on ne retire que les intérêts
             'comments'       => "Remboursement d'intérêts versés au client : " . number_format($amountToRefund, 0) . " XAF",
+            'payment_method' => $request->payment_method,
+            'payment_reference' => $request->payment_reference,
+            'payment_proof_path' => $proofPath,
+            'payment_recorded_by' => Auth::id(),
             'created_at'     => now(),
             'updated_at'     => now()
         ]);
@@ -384,6 +450,139 @@ class MovementController extends Controller
         return response()->json([
             'message' => "Remboursement de " . number_format($amountToRefund, 0, ',', ' ') . " XAF effectué avec succès."
         ]);
+    }
+
+    public function payerLiquiditePmg(Request $request)
+    {
+        $request->validate([
+            'transaction_id' => 'required|exists:transactions,id',
+            'scope' => 'required|in:interets,capital,total',
+            'amount' => 'nullable|numeric|min:1',
+            'payment_date' => 'required|date',
+            'payment_method' => 'required|in:virement,cheque,especes,mobile_money,autre',
+            'payment_reference' => 'required|string|max:120',
+            'payment_proof' => 'required|file|mimes:pdf,jpg,jpeg,png|max:5120',
+        ]);
+
+        $trans = Transaction::findOrFail($request->transaction_id);
+        $available = $this->getPmgLiquidityAvailable($trans->id);
+        $requestedAmount = $request->filled('amount') ? (float)$request->amount : null;
+        $paymentDate = Carbon::parse($request->payment_date);
+        $proofPath = $request->hasFile('payment_proof')
+            ? $request->file('payment_proof')->store('payment-proofs', 'public')
+            : null;
+        $paymentMeta = [
+            'payment_method' => $request->payment_method,
+            'payment_reference' => $request->payment_reference,
+            'payment_proof_path' => $proofPath,
+            'payment_recorded_by' => Auth::id(),
+        ];
+
+        if ($request->scope === 'interets') {
+            $amountInterest = $requestedAmount ?? $available['interets'];
+            $amountCapital = 0;
+            $limit = $available['interets'];
+        } elseif ($request->scope === 'capital') {
+            $amountInterest = 0;
+            $amountCapital = $requestedAmount ?? $available['capital'];
+            $limit = $available['capital'];
+        } else {
+            $amountToPay = $requestedAmount ?? ($available['interets'] + $available['capital']);
+            $amountInterest = min($available['interets'], $amountToPay);
+            $amountCapital = max(0, $amountToPay - $amountInterest);
+            $limit = $available['interets'] + $available['capital'];
+        }
+
+        $totalPayment = $amountInterest + $amountCapital;
+        if ($totalPayment <= 0 || $totalPayment > $limit) {
+            return response()->json([
+                'message' => 'Liquidite insuffisante. Disponible : ' . number_format($limit, 0, ',', ' ') . ' XAF.'
+            ], 422);
+        }
+
+        $lastCapital = $this->getLastPmgCapitalAfter($trans);
+
+        DB::beginTransaction();
+        try {
+            if ($amountInterest > 0) {
+                DB::table('financial_movements')->insert([
+                    'transaction_id' => $trans->id,
+                    'date_operation' => $paymentDate->toDateTimeString(),
+                    'type'           => 'paiement_interets',
+                    'amount'         => round($amountInterest, 0),
+                    'capital_before' => $lastCapital,
+                    'capital_after'  => $lastCapital,
+                    'comments'       => 'Paiement depuis liquidite - interets : ' . number_format($amountInterest, 0) . ' XAF | Ref: ' . $request->payment_reference,
+                    'created_at'     => now(),
+                    'updated_at'     => now(),
+                ] + $paymentMeta);
+            }
+
+            if ($amountCapital > 0) {
+                DB::table('financial_movements')->insert([
+                    'transaction_id' => $trans->id,
+                    'date_operation' => $paymentDate->copy()->addSecond()->toDateTimeString(),
+                    'type'           => 'paiement_capital',
+                    'amount'         => round($amountCapital, 0),
+                    'capital_before' => $lastCapital,
+                    'capital_after'  => $lastCapital,
+                    'comments'       => 'Paiement depuis liquidite - capital : ' . number_format($amountCapital, 0) . ' XAF | Ref: ' . $request->payment_reference,
+                    'created_at'     => now(),
+                    'updated_at'     => now(),
+                ] + $paymentMeta);
+            }
+
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            if ($proofPath) {
+                Storage::disk('public')->delete($proofPath);
+            }
+            return response()->json(['message' => $e->getMessage()], 500);
+        }
+
+        \App\Models\UserActivityLog::log(
+            "PAIEMENT_LIQUIDITE_PMG",
+            $trans,
+            "Paiement de liquidite PMG : interets " . number_format($amountInterest, 0) . " XAF, capital " . number_format($amountCapital, 0) . " XAF"
+        );
+
+        return response()->json([
+            'message' => 'Paiement de liquidite enregistre : interets '
+                . number_format($amountInterest, 0, ',', ' ')
+                . ' XAF, capital '
+                . number_format($amountCapital, 0, ',', ' ')
+                . ' XAF.'
+        ]);
+    }
+
+    private function getPmgLiquidityAvailable($transactionId): array
+    {
+        $rows = DB::table('financial_movements')
+            ->where('transaction_id', $transactionId)
+            ->whereIn('type', ['liquidite_interets', 'liquidite_capital', 'paiement_interets', 'paiement_capital'])
+            ->where(function ($q) {
+                $q->where('type', '!=', 'paiement_interets')
+                    ->orWhere('comments', 'LIKE', 'Paiement depuis liquidite%')
+                    ->orWhere('comments', 'LIKE', 'Paiement depuis liquidité%');
+            })
+            ->select('type', DB::raw('SUM(amount) as total'))
+            ->groupBy('type')
+            ->pluck('total', 'type');
+
+        return [
+            'interets' => round(max(0, (float)($rows['liquidite_interets'] ?? 0) - (float)($rows['paiement_interets'] ?? 0)), 0),
+            'capital' => round(max(0, (float)($rows['liquidite_capital'] ?? 0) - (float)($rows['paiement_capital'] ?? 0)), 0),
+        ];
+    }
+
+    private function getLastPmgCapitalAfter(Transaction $transaction): float
+    {
+        return (float)(DB::table('financial_movements')
+            ->where('transaction_id', $transaction->id)
+            ->orderBy('date_operation', 'desc')
+            ->orderBy('id', 'desc')
+            ->value('capital_after') ?? $transaction->amount);
     }
 
     /**
@@ -430,6 +629,14 @@ class MovementController extends Controller
         $paiementsAnterieurs = DB::table('financial_movements')
             ->where('transaction_id', $trans->id)
             ->whereIn('type', ['paiement_interets', 'liquidite_interets'])
+            ->where(function ($q) {
+                $q->where('type', '!=', 'paiement_interets')
+                    ->orWhereNull('comments')
+                    ->orWhere(function ($sub) {
+                        $sub->where('comments', 'NOT LIKE', 'Paiement depuis liquidite%')
+                            ->where('comments', 'NOT LIKE', 'Paiement depuis liquidité%');
+                    });
+            })
             ->sum('amount') ?? 0;
 
         return round(($baseCapital - $precompte - $paiementsAnterieurs) + $totalInterest, 0);
@@ -669,12 +876,24 @@ class MovementController extends Controller
                 $currentCapital = $capitalAfter;
                 $lastCapDate = $mvtDate;
                 $payoutsAccumulated = 0;
+            } elseif ($mvt->type === 'liquidite_capital') {
+                $capitalBefore = $currentCapital;
+                $capitalAfter = 0;
+                $currentCapital = 0;
+                $lastCapDate = $mvtDate;
+                $payoutsAccumulated = 0;
             } elseif ($mvt->type === 'frais_gestion') {
                 $capitalAfter = $currentCapital - (float)$mvt->amount;
                 $currentCapital = $capitalAfter;
             } elseif (in_array($mvt->type, ['precompte_interets', 'paiement_interets', 'liquidite_interets'])) {
                 $capitalAfter = $currentCapital;
-                $payoutsAccumulated += (float)$mvt->amount;
+                $isLiquidityPayment = $mvt->type === 'paiement_interets'
+                    && str_starts_with((string)$mvt->comments, 'Paiement depuis liquidite');
+                if (!$isLiquidityPayment) {
+                    $payoutsAccumulated += (float)$mvt->amount;
+                }
+            } elseif ($mvt->type === 'paiement_capital') {
+                $capitalAfter = $currentCapital;
             } else {
                 $capitalAfter = $currentCapital;
             }

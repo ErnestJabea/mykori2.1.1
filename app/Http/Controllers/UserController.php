@@ -77,6 +77,7 @@ class UserController extends Controller
         }
 
         $gain_user = $gain_cumule_fcp + $gain_cumule_pmg;
+        $liquiditePmg = $this->productControllerImport->getPmgAvailableLiquidityBreakdownForUser($user_->id);
         $result_gain = $this->productControllerImport->getProductsWithGainsPieChart();
         $resultatsAvecPourcentage2 = $this->getGainData();
         $chartData = $this->getChartData();
@@ -107,7 +108,8 @@ class UserController extends Controller
                 'totalPortefeuilleFcp',
                 'totalPortefeuillePmg',
                 'gain_cumule_pmg',
-                'gain_cumule_fcp'
+                'gain_cumule_fcp',
+                'liquiditePmg'
             )
         );
     }

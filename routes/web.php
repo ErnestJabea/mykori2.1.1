@@ -401,6 +401,7 @@ Route::middleware('auth')->group(function () {
 
             // Route pour le remboursement des intérêts
             Route::post('/remboursement-interets', [MovementController::class, 'rembourserInterets'])->name('transactions.remboursement-interets');
+            Route::post('/paiement-liquidite-pmg', [MovementController::class, 'payerLiquiditePmg'])->name('transactions.paiement-liquidite-pmg');
 
             if (app()->environment('local')) {
             Route::get('/sync-anniversaries', [ProductController::class, 'syncAnniversaryMovements']);
@@ -547,7 +548,7 @@ Route::middleware('auth')->group(function () {
                     'produit'            => $productTitle,
                     'montant'            => (float)$m->amount,
                     'fees'               => 0,
-                    'sens'               => in_array($m->type, ['rachat_partiel', 'rachat_total', 'precompte_interets', 'paiement_interets', 'liquidite_interets', 'remboursement']) ? 'sortant' : 'entrant',
+                    'sens'               => in_array($m->type, ['rachat_partiel', 'rachat_total', 'precompte_interets', 'paiement_interets', 'liquidite_interets', 'liquidite_capital', 'paiement_capital', 'remboursement']) ? 'sortant' : 'entrant',
                     'source'             => 'pmg',
                     'id'                 => $m->id,
                 ]);

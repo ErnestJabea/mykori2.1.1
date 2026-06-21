@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-class AddLiquiditeInteretsToFinancialMovementsType extends Migration
+class AddCapitalLiquidityToFinancialMovementsType extends Migration
 {
     private const TYPES = [
         'souscription',
@@ -38,7 +38,7 @@ class AddLiquiditeInteretsToFinancialMovementsType extends Migration
             return;
         }
 
-        $types = array_values(array_filter(self::TYPES, fn ($type) => !in_array($type, ['liquidite_interets', 'liquidite_capital', 'paiement_capital'])));
+        $types = array_values(array_filter(self::TYPES, fn ($type) => !in_array($type, ['liquidite_capital', 'paiement_capital'])));
         DB::statement("ALTER TABLE financial_movements MODIFY COLUMN type ENUM('" . implode("','", $types) . "') NOT NULL");
     }
 }

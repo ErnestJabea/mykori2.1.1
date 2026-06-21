@@ -70,6 +70,14 @@
                             <p class="mb-4 font-medium">GAINS/PERTES </p>
                             <h4 class="h4">XAF {{ number_format($gain_user, 0, ' ', ' ') }}</h4>
                         </div>
+                        <div class="card-portofolio">
+                            <p class="mb-4 font-medium">LIQUIDITÉ DISPONIBLE</p>
+                            <h4 class="h4">XAF {{ number_format($liquiditePmg['total'] ?? 0, 0, ' ', ' ') }}</h4>
+                            <p class="text-xs mt-2">
+                                Intérêts: {{ number_format($liquiditePmg['interets'] ?? 0, 0, ' ', ' ') }} |
+                                Capital: {{ number_format($liquiditePmg['capital'] ?? 0, 0, ' ', ' ') }}
+                            </p>
+                        </div>
                     </div>
                 </div>
                 <div class="content-btn-see-all">
@@ -192,6 +200,14 @@
                                                             class="font-bold @if ($my_product['type_product'] == 1) text-secondary3 @else text-primary @endif">{{ number_format($my_product['portfolio_valeur'], 2, ',', ' ') }}
                                                             XAF</span>
                                                     </div>
+                                                    @if (($my_product['type_product'] ?? null) == 2 && ($my_product['liquidite_total'] ?? 0) > 0)
+                                                        <div class="flex justify-between text-sm">
+                                                            <span class="text-n100">Liquidité:</span>
+                                                            <span class="font-bold text-primary">
+                                                                {{ number_format($my_product['liquidite_total'], 0, ' ', ' ') }} XAF
+                                                            </span>
+                                                        </div>
+                                                    @endif
                                                 </div>
                                                 <div class="mt-6">
                                                     <a href="{{ route('product-detail-gain', ['slug' => $my_product['slug']]) }}"

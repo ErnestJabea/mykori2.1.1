@@ -22,6 +22,10 @@ class FinancialMovement extends Model
         'interest_rate_at_moment',
         'comments',
         'comment',
+        'payment_method',
+        'payment_reference',
+        'payment_proof_path',
+        'payment_recorded_by',
     ];
 
     protected $casts = [

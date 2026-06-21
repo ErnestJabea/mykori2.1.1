@@ -27,6 +27,8 @@ class CreateFinancialMovementsTable extends Migration
                 'precompte_interets',
                 'paiement_interets',
                 'liquidite_interets',
+                'liquidite_capital',
+                'paiement_capital',
                 'remboursement',
                 'dividende_interets'
             ]);

@@ -460,6 +460,40 @@
             <small>MG : Mandat de Gestion</small>
         </div>
 
+        @php
+            $liquiditeInterets = $liquidite_pmg['interets'] ?? 0;
+            $liquiditeCapital = $liquidite_pmg['capital'] ?? 0;
+            $liquiditeTotale = $liquidite_pmg['total'] ?? ($liquiditeInterets + $liquiditeCapital);
+        @endphp
+
+        @if ($liquiditeTotale > 0)
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th colspan="3">Liquidité disponible à la date du relevé</th>
+                        </tr>
+                        <tr>
+                            <th class="text-center">Intérêts en liquidité</th>
+                            <th class="text-center">Capital en liquidité</th>
+                            <th class="text-center">Total liquidité</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="text-right">{{ number_format($liquiditeInterets, 0, ' ', ' ') }}</td>
+                            <td class="text-right">{{ number_format($liquiditeCapital, 0, ' ', ' ') }}</td>
+                            <td class="text-right" style="font-weight: bold;">{{ number_format($liquiditeTotale, 0, ' ', ' ') }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="disclaimer" style="margin-top: 6px;">
+                    La liquidité correspond aux montants disponibles ou exigibles non encore soldés par paiement.
+                    Le paiement effectif est confirmé uniquement par une opération de paiement avec référence et justificatif.
+                </div>
+            </div>
+        @endif
+
         <div class="footer">
             Kori Asset Management - Rue 1.131 DIKOUME BELL, BP: 1245 BALI-DOUALA<br>
             info@koriassetmanagement.com | www.koriassetmanagement.com

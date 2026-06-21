@@ -105,11 +105,11 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                             </div>
 
                             <!-- Mode de gestion des intérêts (PMG only) -->
-                            <div class="col-span-2 form-control hidden pt-4" id="interest_management_container">
+                            <div class="col-span-1 form-control hidden" id="interest_management_container">
                                 <label class="mb-2 block text-sm font-semibold opacity-80 italic text-primary">Gestion des
                                     Intérêts</label>
                                 <select id="interest_management" name="interest_management"
-                                    class="w-full rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 outline-none focus:border-primary font-bold">
+                                    class="w-full h-[50px] rounded-xl border border-primary/30 bg-primary/5 px-4 outline-none focus:border-primary font-bold">
                                     <option value="">Choisir un mode de gestion...</option>
                                     <option value="A la date d'échéance de placement">À la date d'échéance de placement
                                     </option>
@@ -252,7 +252,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
             </div>
 
             <div class="box box-card col-span-12 md:col-span-3 border-l-4 border-secondary1">
-                <p class="text-xs opacity-70 uppercase text-secondary1 font-bold">Liquidité intérêts</p>
+                <p class="text-xs opacity-70 uppercase text-secondary1 font-bold">Liquidité disponible</p>
                 <h4 class="h4 text-secondary1">{{ number_format($total_liquidite_interets ?? 0, 0, ' ', ' ') }} XAF</h4>
             </div>
         </div>
@@ -262,7 +262,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
         <div class="flex flex-wrap">
             <div class="content-bloc-list-produit">
                 <div class="box">
-                    <h3 class="mb-4">MES PRODUITS PMG ACTIFS</h3>
+                    <h3 class="mb-4">MES PRODUITS PMG</h3>
                     <div class="kori-table-wrapper mt-4">
                         <table class="kori-fcp-table kori-pmg-table">
                             <thead>
@@ -282,11 +282,12 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                             <tbody>
                                 @foreach ($productsWithGains as $my_product)
                                     @if ($my_product['type_product'] == 2)
-                                        @if (!($my_product['is_active'] ?? true))
+                                        @if (!($my_product['is_active'] ?? true) && !($my_product['is_expired'] ?? false))
                                             @continue
                                         @endif
                                         @php
-                                            $isExpired = \Carbon\Carbon::parse($my_product['date_echeance'])->isPast();
+                                            $isExpired = ($my_product['is_expired'] ?? false)
+                                                || \Carbon\Carbon::parse($my_product['date_echeance'])->isPast();
                                         @endphp
                                         <tr class="{{ $isExpired ? 'bg-red-50/50 dark:bg-red-900/10' : '' }}">
                                             <td>

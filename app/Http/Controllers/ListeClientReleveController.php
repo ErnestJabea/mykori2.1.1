@@ -184,16 +184,7 @@ public function previewPmg(int $clientId)
 
     $merged = $allTransactions->merge($supplemental);
 
-    // Ajustement de la date du relevé si tous les mandats sont échus dans le mois (exception demandée)
-    $maxExpiryInMonth = $merged->where('date_echeance', '<=', $dateN->toDateString())
-                               ->where('date_echeance', '>=', $dateN->copy()->startOfMonth()->toDateString())
-                               ->max('date_echeance');
-    $anyActivePastMonth = $merged->where('date_echeance', '>', $dateN->toDateString())->isNotEmpty();
-    
-    if (!$anyActivePastMonth && $maxExpiryInMonth) {
-        $dateN = Carbon::parse($maxExpiryInMonth);
-    }
-
+    // Date N fixe : dernier jour du mois clos, meme si un mandat expire ensuite pendant la periode d'envoi.
     $dateN1 = $dateN->copy()->startOfMonth()->subDay(); 
 
     // Filtrer et exclure les transactions totalement rachetées avant le début de ce mois clos
@@ -267,6 +258,13 @@ public function previewPmg(int $clientId)
 
         $firstDateVal = Carbon::parse($productTrans->min('date_validation') ?? $productTrans->min('created_at')->toDateString());
         $maxExpiryDate = $productTrans->max('date_echeance');
+        $productValuationDate = $dateN->copy();
+        if ($maxExpiryDate) {
+            $expiryForValuation = Carbon::parse($maxExpiryDate);
+            if ($expiryForValuation->betweenIncluded($dateN->copy()->startOfMonth(), $dateN)) {
+                $productValuationDate = $expiryForValuation;
+            }
+        }
 
         foreach ($productTrans as $trans) {
             $vN = $productController->calculatePMGValorization($trans, $dateN);
@@ -421,9 +419,16 @@ public function previewPmg(int $clientId)
                 'gain_total' => max(0, $productValoN - $capNetTotal),
                 'souscription' => $firstDateVal->format('d/m/Y'),
                 'date_echeance' => $maxExpiryDate ? Carbon::parse($maxExpiryDate)->format('d/m/Y') : '-',
+                'date_valorisation' => $productValuationDate->format('d/m/Y'),
+                'date_valorisation_raw' => $productValuationDate->toDateString(),
                 'produit_jeune' => $firstDateVal->gt($dateN1) ? 1 : 0,
             ];
         }
+    }
+
+    $dateReleveAffichee = $dateN->copy();
+    if (count($produitsAffiches) === 1 && !empty($produitsAffiches[0]->date_valorisation_raw)) {
+        $dateReleveAffichee = Carbon::parse($produitsAffiches[0]->date_valorisation_raw);
     }
 
     return view('front-end.releves.releve-preview', [
@@ -431,8 +436,9 @@ public function previewPmg(int $clientId)
         'produits' => $produitsAffiches,
         'valorisation_courante' => $totalValoN,
         'valorisation_precedente' => $totalValoN1,
-        'date_releve' => $dateN->format('d/m/Y'),
+        'date_releve' => $dateReleveAffichee->format('d/m/Y'),
         'date_releve_precedent' => $dateN1->format('d/m/Y'),
+        'liquidite_pmg' => $this->productController->getPmgAvailableLiquidityBreakdownForUser($client->id, $dateReleveAffichee),
         'periode' => ucfirst($dateN->translatedFormat('F Y')),
     ]);
 }
@@ -736,16 +742,7 @@ private function genererPdfPmg(int $clientId): string
 
     $merged = $allTransactions->merge($supplemental);
 
-    // Ajustement de la date du relevé si tous les mandats sont échus dans le mois (exception demandée)
-    $maxExpiryInMonth = $merged->where('date_echeance', '<=', $dateN->toDateString())
-                               ->where('date_echeance', '>=', $dateN->copy()->startOfMonth()->toDateString())
-                               ->max('date_echeance');
-    $anyActivePastMonth = $merged->where('date_echeance', '>', $dateN->toDateString())->isNotEmpty();
-    
-    if (!$anyActivePastMonth && $maxExpiryInMonth) {
-        $dateN = Carbon::parse($maxExpiryInMonth);
-    }
-
+    // Date N fixe : dernier jour du mois clos, meme si un mandat expire ensuite pendant la periode d'envoi.
     $dateN1 = $dateN->copy()->startOfMonth()->subDay();
 
     // Filtrer et exclure les transactions totalement rachetées avant le début de ce mois clos
@@ -819,6 +816,13 @@ private function genererPdfPmg(int $clientId): string
 
         $firstDateVal = Carbon::parse($productTrans->min('date_validation') ?? $productTrans->min('created_at')->toDateString());
         $maxExpiryDate = $productTrans->max('date_echeance');
+        $productValuationDate = $dateN->copy();
+        if ($maxExpiryDate) {
+            $expiryForValuation = Carbon::parse($maxExpiryDate);
+            if ($expiryForValuation->betweenIncluded($dateN->copy()->startOfMonth(), $dateN)) {
+                $productValuationDate = $expiryForValuation;
+            }
+        }
 
         foreach ($productTrans as $trans) {
             $vN = $productController->calculatePMGValorization($trans, $dateN);
@@ -973,12 +977,18 @@ private function genererPdfPmg(int $clientId): string
                 'gain_total' => max(0, $productValoN - $capNetTotal),
                 'souscription' => $firstDateVal->format('d/m/Y'),
                 'date_echeance' => $maxExpiryDate ? Carbon::parse($maxExpiryDate)->format('d/m/Y') : '-',
+                'date_valorisation' => $productValuationDate->format('d/m/Y'),
+                'date_valorisation_raw' => $productValuationDate->toDateString(),
                 'produit_jeune' => $firstDateVal->gt($dateN1) ? 1 : 0,
             ];
         }
     }
 
     $periode = ucfirst($dateN->translatedFormat('F Y'));
+    $dateReleveAffichee = $dateN->copy();
+    if (count($produitsPreparees) === 1 && !empty($produitsPreparees[0]->date_valorisation_raw)) {
+        $dateReleveAffichee = Carbon::parse($produitsPreparees[0]->date_valorisation_raw);
+    }
 
     /* ---------------- Génération du PDF ---------------- */
 
@@ -989,7 +999,8 @@ private function genererPdfPmg(int $clientId): string
             'valorisation_precedente' => $totalValoN1,
             'valorisation_courante' => $totalValoN,
             'date_releve_precedent' => $dateN1->format('d/m/Y'),
-            'date_releve' => $dateN->format('d/m/Y'),
+            'date_releve' => $dateReleveAffichee->format('d/m/Y'),
+            'liquidite_pmg' => $this->productController->getPmgAvailableLiquidityBreakdownForUser($client->id, $dateReleveAffichee),
             'periode' => $periode
         ])->setPaper('a4', 'portrait')
           ->setOption('isPhpEnabled', true) 
