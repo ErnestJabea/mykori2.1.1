@@ -24,11 +24,11 @@
                             </ul>
                         </div>
                     @endif
-                    <form class="kori-login-form" action="{{ route('login-user') }}" method="POST">
+                    <form class="kori-login-form" id="login-form" action="{{ route('login-user') }}" method="POST">
                         {{ csrf_field() }}
                         <input type="email" name="email" id="email" required placeholder="identifiant">
                         <input type="password" name="password" id="password" required placeholder="Mot de passe">
-                        <button type="submit" class="login-button">
+                        <button type="submit" class="login-button" id="login-submit">
                             Se connecter
                         </button>
                     </form>
@@ -59,5 +59,18 @@
         <script src="{{ asset('assets/js/jquery.countdown.min.js') }}"></script>
         <!--Custom Js-->
         <script src="{{ asset('assets/js/custom.js') }}"></script>
+        <script>
+            document.getElementById('login-form')?.addEventListener('submit', function () {
+                if (!this.checkValidity()) {
+                    return;
+                }
+
+                const submitButton = document.getElementById('login-submit');
+                if (submitButton) {
+                    submitButton.disabled = true;
+                    submitButton.textContent = 'Connexion en cours';
+                }
+            });
+        </script>
     </body>
 @endsection

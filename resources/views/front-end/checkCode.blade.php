@@ -24,12 +24,18 @@
                             </ul>
                         </div>
                     @endif
-                    <form class="kori-login-form" name="f" action="{{ route('code-verification') }}" method="POST">
+                    <form class="kori-login-form" name="f" id="otp-login-form" action="{{ route('code-verification') }}" method="POST">
                         {{ csrf_field() }}
                         <p>Un code OTP a été envoyé à l'adresse <strong>{{ auth()->user()->email }}</strong></p>
                         <input type="text" name="codeopt" id="codeopt" required placeholder="Code d'authenfication">
-                        <button type="submit" class="login-button">
+                        <button type="submit" class="login-button" id="otp-login-submit">
                             Se connecter
+                        </button>
+                    </form>
+                    <form method="POST" action="{{ route('otp.cancel') }}" style="margin-top: 18px; text-align: center;">
+                        @csrf
+                        <button type="submit" style="border: 0; background: transparent; color: #5b1f08; font-weight: 600; text-decoration: underline; cursor: pointer;">
+                            Retour à la page de connexion
                         </button>
                     </form>
                 </div>
@@ -59,5 +65,18 @@
         <script src="{{ asset('assets/js/jquery.countdown.min.js') }}"></script>
         <!--Custom Js-->
         <script src="{{ asset('assets/js/custom.js') }}"></script>
+        <script>
+            document.getElementById('otp-login-form')?.addEventListener('submit', function () {
+                if (!this.checkValidity()) {
+                    return;
+                }
+
+                const submitButton = document.getElementById('otp-login-submit');
+                if (submitButton) {
+                    submitButton.disabled = true;
+                    submitButton.textContent = 'Connexion en cours';
+                }
+            });
+        </script>
     </body>
 @endsection

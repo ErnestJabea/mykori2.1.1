@@ -9,6 +9,7 @@ use App\Mail\VerificationCodeMailKori;
 use App\Models\AuthCode;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class VerificationOtpController extends Controller
 {
@@ -49,6 +50,10 @@ class VerificationOtpController extends Controller
 
         // Vérifier les informations d'identification
         if (Auth::attempt($request->only('email', 'password'))) {
+            AuthCode::where('user_id', auth()->id())
+                ->where('status', 0)
+                ->update(['status' => 2]);
+
             $request->session()->regenerate();
             // Générez un code de vérification unique (par exemple, un nombre aléatoire à 6 chiffres)
             $verificationCode = rand(100000, 999999);
@@ -71,6 +76,21 @@ class VerificationOtpController extends Controller
                 // Si l'e-mail est envoyé avec succès, redirigez vers le formulaire de saisie du code
                 return redirect('/code-otp');
             } catch (\Exception $e) {
+                AuthCode::where('user_id', auth()->id())
+                    ->where('status', 0)
+                    ->update(['status' => 2]);
+
+                DB::table('users')
+                    ->where('id', auth()->id())
+                    ->update([
+                        'verification_code' => null,
+                        'verification_code_expires_at' => null,
+                    ]);
+
+                Auth::logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+
                 // En cas d'échec de l'envoi de l'e-mail, affichez un message d'erreur
                 return redirect('/connexion')->with('error', 'Une erreur s\'est produite lors de l\'envoi du code de vérification. Veuillez réessayer plus tard.');
             }
@@ -89,7 +109,18 @@ class VerificationOtpController extends Controller
 
         $user = AuthCode::where('user_id', auth()->user()->id)->where('status', 0)->orderBy('created_at', 'desc')->first();
 
-        if ($user->verification_code === $request->codeopt) {
+        if (!$user) {
+            return back()->withErrors(['verification_code' => 'Code expiré ou déjà utilisé.']);
+        }
+
+        if ($user->verification_code_expires_at && now()->greaterThan($user->verification_code_expires_at)) {
+            $user->status = 2;
+            $user->save();
+
+            return back()->withErrors(['verification_code' => 'Code expiré. Veuillez recommencer la connexion.']);
+        }
+
+        if (hash_equals((string)$user->verification_code, (string)$request->codeopt)) {
             // Si le code OTP est correct,
             $user->status = 1;
             $user->save();
@@ -119,5 +150,26 @@ class VerificationOtpController extends Controller
         return back()->withErrors(['verification_code' => 'Code incorrect.']);
     }
 
+    public function cancelOtp(Request $request)
+    {
+        if (Auth::check()) {
+            AuthCode::where('user_id', Auth::id())
+                ->where('status', 0)
+                ->update(['status' => 2]);
+
+            DB::table('users')
+                ->where('id', Auth::id())
+                ->update([
+                    'verification_code' => null,
+                    'verification_code_expires_at' => null,
+                ]);
+        }
+
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect()->route('connexion');
+    }
 
 }

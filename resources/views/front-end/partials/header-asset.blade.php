@@ -56,13 +56,16 @@
                                     </a>
                                 </li>
                                 <li>
-                                    <a href="{{ route('logout') }}"
-                                        class="flex items-center gap-2 rounded-md p-2 duration-300 hover:bg-primary hover:text-n0">
-                                        <span>
-                                            <i class="las la-sign-out-alt mt-1 text-xl"></i>
-                                        </span>
-                                        Déconnexion
-                                    </a>
+                                    <form method="POST" action="{{ route('logout') }}">
+                                        @csrf
+                                        <button type="submit"
+                                            class="flex w-full items-center gap-2 rounded-md p-2 text-left duration-300 hover:bg-primary hover:text-n0">
+                                            <span>
+                                                <i class="las la-sign-out-alt mt-1 text-xl"></i>
+                                            </span>
+                                            Déconnexion
+                                        </button>
+                                    </form>
                                 </li>
                             </ul>
                         </div>
@@ -118,10 +121,13 @@
 
                         <ul class="menu-ul mt-8 border-t border-n30 pt-6">
                             <li class="menu-li text-center">
-                                <a href="{{ route('logout') }}" class="btn-logout flex items-center justify-center gap-2 bg-danger/10 text-danger p-3 rounded-2xl hover:bg-danger hover:text-white transition-all font-black uppercase text-xs tracking-tighter italic">
-                                    <i class="las la-sign-out-alt text-lg"></i>
-                                    Déconnexion
-                                </a>
+                                <form method="POST" action="{{ route('logout') }}">
+                                    @csrf
+                                    <button type="submit" class="btn-logout flex w-full items-center justify-center gap-2 bg-danger/10 text-danger p-3 rounded-2xl hover:bg-danger hover:text-white transition-all font-black uppercase text-xs tracking-tighter italic">
+                                        <i class="las la-sign-out-alt text-lg"></i>
+                                        Déconnexion
+                                    </button>
+                                </form>
                             </li>
                         </ul>
                     </div>

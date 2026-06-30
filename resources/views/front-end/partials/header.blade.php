@@ -157,13 +157,16 @@
                                 </a>
                             </li>
                             <li>
-                                <a href="{{ route('logout') }}"
-                                    class="flex items-center gap-2 rounded-md p-2 duration-300 hover:bg-primary hover:text-n0">
-                                    <span>
-                                        <i class="las la-sign-out-alt mt-1 text-xl"></i>
-                                    </span>
-                                    Déconnexion
-                                </a>
+                                <form method="POST" action="{{ route('logout') }}">
+                                    @csrf
+                                    <button type="submit"
+                                        class="flex w-full items-center gap-2 rounded-md p-2 text-left duration-300 hover:bg-primary hover:text-n0">
+                                        <span>
+                                            <i class="las la-sign-out-alt mt-1 text-xl"></i>
+                                        </span>
+                                        Déconnexion
+                                    </button>
+                                </form>
                             </li>
                         </ul>
                     </div>
@@ -248,15 +251,17 @@
                                 </ul>
                             </li>-->
                             <li class="menu-li">
-                                <button class="menu-btn group bg-n0 dark:!border-n500 dark:!bg-bg4">
-                                    <a href="{{ route('logout') }}" class="flex items-center justify-center gap-2">
-                                        <span class="menu-icon">
-                                            <i class="las la-sign-out-alt "></i>
+                                <form method="POST" action="{{ route('logout') }}">
+                                    @csrf
+                                    <button type="submit" class="menu-btn group bg-n0 dark:!border-n500 dark:!bg-bg4">
+                                        <span class="flex items-center justify-center gap-2">
+                                            <span class="menu-icon">
+                                                <i class="las la-sign-out-alt "></i>
+                                            </span>
+                                            <span class="menu-title font-medium">Déconnexion</span>
                                         </span>
-                                        <span class="menu-title font-medium">Déconnexion</span>
-                                    </a>
-
-                                </button>
+                                    </button>
+                                </form>
                                 <ul class="submenu-hide submenu">
                                 </ul>
                             </li>

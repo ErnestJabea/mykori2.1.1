@@ -162,7 +162,7 @@ Route::get('/test-mail', function () {
 Route::name('login-user')->post('/login-user', [VerificationOtpController::class, 'login']);
 
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'otp.verified'])->group(function () {
 
     Route::post('change-password', [ChangePasswordController::class, 'changePassword'])
         ->name('change-password');
@@ -176,6 +176,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/placement-pmg', [AchatActionCustomerController::class, 'acheterActionPmg'])->name('achat-action-customer-pmg');
 
     Route::name('code-verification')->post('/code-verification', [VerificationOtpController::class, 'verifyCode']);
+    Route::post('/otp/cancel', [VerificationOtpController::class, 'cancelOtp'])->name('otp.cancel');
 
     Route::get('/code-otp', function () {
         return view('front-end.checkCode');
@@ -738,11 +739,6 @@ Route::middleware('auth')->group(function () {
 
 
 
-Route::get('/logout', function () {
-    Auth::logout();
-    return redirect('/login');
-})->name('logout');
-
 Route::group(['prefix' => 'admin'], function () {
     Voyager::routes();
     
@@ -752,7 +748,7 @@ Route::group(['prefix' => 'admin'], function () {
 });
 
 // --- Dossier Compliance (Audit & Risques) ---
-Route::prefix('compliance')->middleware(['auth', 'permission:view_compliance'])->group(function () {
+Route::prefix('compliance')->middleware(['auth', 'otp.verified', 'permission:view_compliance'])->group(function () {
     Route::get('/dashboard', [ComplianceController::class, 'dashboard'])->name('compliance.dashboard');
     Route::get('/clients', [ComplianceController::class, 'clients'])->name('compliance.clients');
     Route::get('/client/{client}', [ComplianceController::class, 'clientHistory'])->name('compliance.client-detail');
@@ -763,14 +759,14 @@ Route::prefix('compliance')->middleware(['auth', 'permission:view_compliance'])-
 });
 
 // --- Dossier Backoffice ---
-Route::prefix('backoffice')->middleware(['auth', 'permission:view_backoffice,validate_compliance,validate_dg'])->group(function () {
+Route::prefix('backoffice')->middleware(['auth', 'otp.verified', 'permission:view_backoffice,validate_compliance,validate_dg'])->group(function () {
     Route::get('/dashboard', [BackofficeController::class, 'dashboard'])->name('backoffice.dashboard');
     Route::get('/transactions', [BackofficeController::class, 'transactions'])->name('backoffice.transactions');
     Route::post('/validate-transaction/{id}/{type}', [BackofficeController::class, 'validateTransaction'])->name('backoffice.validate-transaction');
 });
 
 // --- Dossier Direction Générale ---
-Route::prefix('dg')->middleware(['auth', 'permission:view_dg'])->group(function () {
+Route::prefix('dg')->middleware(['auth', 'otp.verified', 'permission:view_dg'])->group(function () {
     Route::get('/dashboard', [DirectorGeneralController::class, 'dashboard'])->name('dg.dashboard');
     
     // Rapports d'Envoi (Historique DG)
@@ -779,7 +775,7 @@ Route::prefix('dg')->middleware(['auth', 'permission:view_dg'])->group(function 
 });
 
 // --- Administration Frontend ---
-Route::prefix('admin-front')->middleware(['auth', 'permission:view_admin_frontend'])->group(function () {
+Route::prefix('admin-front')->middleware(['auth', 'otp.verified', 'permission:view_admin_frontend'])->group(function () {
     Route::get('/dashboard', [\App\Http\Controllers\AdminFrontendController::class, 'dashboard'])->name('admin.front.dashboard');
     Route::get('/users', [\App\Http\Controllers\AdminFrontendController::class, 'users'])->name('admin.front.users');
     // Ajout de la route pour créer un utilisateur
@@ -796,7 +792,7 @@ Route::prefix('admin-front')->middleware(['auth', 'permission:view_admin_fronten
 });
 
 // --- Gestion Commerciale (CRM) ---
-Route::prefix('crm')->middleware(['auth', 'permission:view_crm'])->group(function () {
+Route::prefix('crm')->middleware(['auth', 'otp.verified', 'permission:view_crm'])->group(function () {
     Route::get('/dashboard', [\App\Http\Controllers\CrmController::class, 'index'])->name('crm.dashboard');
     Route::get('/prospects', [\App\Http\Controllers\CrmController::class, 'prospects'])->name('crm.prospects');
     Route::post('/prospects', [\App\Http\Controllers\CrmController::class, 'storeProspect'])->name('crm.prospects.store');
