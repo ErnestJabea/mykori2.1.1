@@ -308,6 +308,25 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         }
 
+        // User profile and notification dropdown handlers
+        const profileBtn = document.getElementById("profile-btn");
+        const profileDropdown = document.getElementById("profile-dropdown");
+        if (profileBtn && profileDropdown) {
+            profileBtn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                toggleDropdown("profile-btn", "profile-dropdown");
+            });
+        }
+
+        const notificationBtn = document.getElementById("notification-btn");
+        const notificationDropdown = document.getElementById("notification");
+        if (notificationBtn && notificationDropdown) {
+            notificationBtn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                toggleDropdown("notification-btn", "notification");
+            });
+        }
+
         document.addEventListener("keydown", (e) => {
             if (e.key === "Escape" && isMobile()) {
                 closeSidebar();
@@ -321,11 +340,14 @@ document.addEventListener("DOMContentLoaded", () => {
 function toggleDropdown(btnId, dropdownId) {
     const dropdownBtn = document.getElementById(btnId);
     const dropdown = document.getElementById(dropdownId);
+    if (!dropdownBtn || !dropdown) return;
 
     if (dropdown.classList.contains("hide")) {
         dropdown.classList.remove("hide");
         dropdown.classList.add("show");
-        document.addEventListener("click", closeDropdownOutside);
+        setTimeout(() => {
+            document.addEventListener("click", closeDropdownOutside);
+        }, 0);
     } else {
         dropdown.classList.add("hide");
         dropdown.classList.remove("show");
@@ -351,20 +373,6 @@ function toggleDropdown(btnId, dropdownId) {
         }
     }
 }
-
-notificationBtn &&
-notificationBtn.addEventListener("click", () =>
-    toggleDropdown("notification-btn", "notification")
-);
-profileBtn &&
-profileBtn.addEventListener("click", () =>
-    toggleDropdown("profile-btn", "profile")
-);
-
-layoutBtn &&
-    layoutBtn.addEventListener("click", () => {
-        toggleDropdown("layout-btn", "layout");
-    });
 
 if (layoutList) {
     layoutList.forEach((item) => {
