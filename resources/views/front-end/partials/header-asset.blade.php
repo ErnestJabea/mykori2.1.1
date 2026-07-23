@@ -101,7 +101,7 @@
                         @endphp
 
                         @foreach($sidebarGroups as $group)
-                            <p class="menu-heading uppercase text-[10px] font-bold tracking-widest text-n500 mt-6 mb-2">{{ $group['heading'] }}</p>
+                            <p class="menu-heading uppercase text-[10px] font-bold tracking-widest text-n500 dark:text-n30 mt-6 mb-2">{{ $group['heading'] }}</p>
                             <ul class="menu-ul flex flex-col gap-1">
                                 @foreach($group['items'] as $item)
                                     @php
@@ -109,8 +109,8 @@
                                     @endphp
                                     <li class="menu-li">
                                         <a href="{{ \Route::has($item['route']) ? route($item['route']) : url($item['route']) }}"
-                                            class="flex items-center justify-start gap-3 w-full px-4 py-2.5 rounded-xl transition-all duration-200 {{ $isActive ? 'bg-primary text-white font-bold shadow-sm' : 'text-n700 dark:text-n100 hover:bg-primary/10 hover:text-primary' }}">
-                                            <span class="menu-icon text-xl">
+                                            class="flex items-center justify-start gap-3 w-full px-4 py-2.5 rounded-xl transition-all duration-200 {{ $isActive ? 'bg-primary text-white font-bold shadow-sm' : 'text-n700 dark:text-white hover:bg-primary/10 hover:text-primary dark:hover:text-primary' }}">
+                                            <span class="menu-icon text-xl {{ $isActive ? 'text-white' : 'text-primary' }}">
                                                 <i class="{{ $item['icon'] }}"></i>
                                             </span>
                                             <span class="menu-title font-semibold text-sm">{{ $item['title'] }}</span>
@@ -124,7 +124,7 @@
                             <li class="menu-li text-center">
                                 <form method="POST" action="{{ route('logout') }}">
                                     @csrf
-                                    <button type="submit" class="btn-logout flex w-full items-center justify-center gap-2 bg-danger/10 text-danger p-3 rounded-2xl hover:bg-danger hover:text-white transition-all font-bold uppercase text-xs tracking-wider">
+                                    <button type="submit" class="btn-logout flex w-full items-center justify-center gap-2 bg-danger/10 text-danger dark:bg-danger/20 dark:text-red-400 p-3 rounded-2xl hover:bg-danger hover:text-white transition-all font-bold uppercase text-xs tracking-wider">
                                         <i class="las la-sign-out-alt text-lg"></i>
                                         Déconnexion
                                     </button>
