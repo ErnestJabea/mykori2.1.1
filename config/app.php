@@ -233,7 +233,7 @@ return [
     ],
 
     'features' => [
-        'control_adjustments' => env('FEATURE_CONTROL_ADJUSTMENTS', false),
+        'control_adjustments' => env('FEATURE_CONTROL_ADJUSTMENTS', true),
     ],
 
 ];
