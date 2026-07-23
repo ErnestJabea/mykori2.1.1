@@ -1,4 +1,7 @@
 <section class="topbar-container z-30">
+    <!-- Backdrop Overlay for Mobile Sidebar -->
+    <div id="sidebar-overlay" class="fixed inset-0 bg-n900/60 backdrop-blur-sm z-40 hidden transition-opacity duration-300"></div>
+
     <nav class="navbar-top topbarfull z-20 gap-3 bg-n0 py-3 shadow-sm duration-300 border-b border-n0 dark:border-n700 dark:bg-bg4 xl:py-4 xxxl:py-6"
         id="topbar">
         <div class="topbar-inner flex items-center justify-between">
@@ -8,9 +11,9 @@
                         alt="Kori Asset Management" class="logo-full2 hidden lg:block" />
                 </a>
                 <button aria-label="sidebar-toggle-btn"
-                    class="flex items-center rounded-s-2xl bg-primary px-0.5 py-3 text-xl text-n0"
+                    class="flex items-center justify-center h-10 w-10 rounded-xl bg-primary text-white shadow-sm hover:bg-primary/90 transition-all"
                     id="sidebar-toggle-btn">
-                    <i class="las la-angle-left text-lg"></i>
+                    <i class="las la-bars text-2xl"></i>
                 </button>
                 <!-- Select layout -->
                 <div class="topnav-layout">
@@ -265,6 +268,9 @@
                                 <ul class="submenu-hide submenu">
                                 </ul>
                             </li>
+                                <ul class="submenu-hide submenu">
+                                </ul>
+                            </li>
                         </ul>
                     </div>
                 </div>
@@ -272,3 +278,104 @@
         </div>
     </aside>
 </section>
+
+<style>
+    @media (max-width: 1199.98px) {
+        #sidebar {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            bottom: 0 !important;
+            z-index: 50 !important;
+            width: 290px !important;
+            max-width: 85vw !important;
+            transition: transform 0.3s ease-in-out !important;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35) !important;
+        }
+        #sidebar.sidebarhide {
+            transform: translateX(-100%) !important;
+            visibility: hidden !important;
+        }
+        #sidebar.sidebarshow {
+            transform: translateX(0) !important;
+            visibility: visible !important;
+        }
+        #topbar.topbarmargin, #topbar.topbarfull {
+            margin-left: 0 !important;
+            width: 100% !important;
+            left: 0 !important;
+        }
+        .main-content, .main-content.has-sidebar {
+            margin-left: 0 !important;
+            width: 100% !important;
+        }
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const sidebar = document.getElementById('sidebar');
+        const toggleBtn = document.getElementById('sidebar-toggle-btn');
+        const closeBtn = document.getElementById('sidebar-close-btn');
+        const overlay = document.getElementById('sidebar-overlay');
+
+        const isMobile = () => window.innerWidth < 1200;
+
+        const openMobileSidebar = () => {
+            if (!sidebar) return;
+            sidebar.classList.remove('sidebarhide');
+            sidebar.classList.add('sidebarshow');
+            if (overlay && isMobile()) {
+                overlay.classList.remove('hidden');
+            }
+        };
+
+        const closeMobileSidebar = () => {
+            if (!sidebar) return;
+            sidebar.classList.remove('sidebarshow');
+            sidebar.classList.add('sidebarhide');
+            if (overlay) {
+                overlay.classList.add('hidden');
+            }
+        };
+
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                if (sidebar && sidebar.classList.contains('sidebarshow') && isMobile()) {
+                    closeMobileSidebar();
+                } else if (sidebar && sidebar.classList.contains('sidebarshow')) {
+                    sidebar.classList.remove('sidebarshow');
+                    sidebar.classList.add('sidebarhide');
+                } else {
+                    openMobileSidebar();
+                }
+            });
+        }
+
+        if (closeBtn) {
+            closeBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                closeMobileSidebar();
+            });
+        }
+
+        if (overlay) {
+            overlay.addEventListener('click', function() {
+                closeMobileSidebar();
+            });
+        }
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && isMobile()) {
+                closeMobileSidebar();
+            }
+        });
+
+        window.addEventListener('resize', function() {
+            if (!isMobile() && overlay) {
+                overlay.classList.add('hidden');
+            }
+        });
+    });
+</script>

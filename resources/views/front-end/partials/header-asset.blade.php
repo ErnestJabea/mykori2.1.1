@@ -1,4 +1,7 @@
 <section class="topbar-container z-30">
+    <!-- Backdrop Overlay for Mobile Sidebar -->
+    <div id="sidebar-overlay" class="fixed inset-0 bg-n900/60 backdrop-blur-sm z-40 hidden transition-opacity duration-300"></div>
+
     <nav class="navbar-top topbarfull z-20 gap-3 bg-n0 py-3 shadow-sm duration-300 border-b border-n0 dark:border-n700 dark:bg-bg4 xl:py-4 xxxl:py-6"
         id="topbar">
         <div class="topbar-inner flex items-center justify-between">
@@ -8,9 +11,9 @@
                         alt="Kori Asset Management" class="logo-full2 hidden lg:block" />
                 </a>
                 <button aria-label="sidebar-toggle-btn"
-                    class="flex items-center rounded-s-2xl bg-primary px-0.5 py-3 text-xl text-n0"
+                    class="flex items-center justify-center h-10 w-10 rounded-xl bg-primary text-white shadow-sm hover:bg-primary/90 transition-all"
                     id="sidebar-toggle-btn">
-                    <i class="las la-angle-left text-lg"></i>
+                    <i class="las la-bars text-2xl"></i>
                 </button>
                 <!-- Select layout -->
                 <div class="topnav-layout">
@@ -19,7 +22,7 @@
             <div class="flex items-center gap-3 sm:gap-4 xxl:gap-6">
                 <!-- dark mode toggle -->
                 <button id="darkModeToggle" aria-label="dark mode switch"
-                    class="h-10 w-10 shrink-0 rounded-full border border-n30 bg-primary/5 dark:border-n500 dark:bg-bg3 md:h-12 md:w-12">
+                    class="h-10 w-10 shrink-0 rounded-full border border-n30 bg-primary/5 dark:border-n500 dark:bg-bg3 md:h-12 md:w-12 flex items-center justify-center">
                     <i class="las la-sun text-2xl dark:hidden"></i>
                     <span class="hidden text-n30 dark:block">
                         <i class="las la-moon text-2xl"></i>
@@ -30,7 +33,7 @@
                     <div class="user-profile relative">
                         <button id="profile-btn" class="flex items-center gap-3 rounded-full bg-n0 p-1 dark:bg-bg3">
 
-                            <div class="round-fill round-full">
+                            <div class="round-fill round-full flex items-center justify-center bg-primary/10 text-primary font-bold">
                                 @php
                                     $user_ = Auth::user();
                                 @endphp
@@ -75,55 +78,52 @@
         </div>
     </nav>
 
-    <!-- Vertical -->
+    <!-- Vertical Sidebar Drawer -->
     <aside id="sidebar" class="sidebar bg-n0 dark:!bg-bg4">
         <div class="sidebar-inner relative">
             <div class="logo-column">
                 <div class="logo-container">
-                    <div class="logo-inner">
+                    <div class="logo-inner flex items-center justify-between px-4 py-3">
                         <a href="{{ route('dashboard') }}" class="logo-wrapper">
-                            <img src="{{ asset('images/logo-with-text.png') }}" width="174" height="38"
+                            <img src="{{ asset('images/logo-with-text.png') }}" width="150" height="32"
                                 class="logo-full" alt="logo" />
-                            <img src="{{ asset('images/logo-with-text.png') }}" width="37" height="36"
-                                class="logo-icon hidden" alt="logo" />
                         </a>
-                        <img width="141" height="38" class="logo-text hidden"
-                            src="{{ asset('images/logo-text.png') }}" alt="logo text" />
-                        <button class="sidebar-close-btn xl:hidden" id="sidebar-close-btn">
-                            <i class="las la-times"></i>
+                        <button class="sidebar-close-btn xl:hidden flex items-center justify-center h-8 w-8 rounded-full bg-n30 text-n700 dark:bg-n700 dark:text-n100 hover:bg-primary hover:text-white transition-all" id="sidebar-close-btn">
+                            <i class="las la-times text-xl"></i>
                         </button>
                     </div>
                 </div>
-                <div class=" pb-28">
-                    <div class="menu-wrapper">
+                <div class="pb-28">
+                    <div class="menu-wrapper px-4">
                         @php
                             $sidebarGroups = \App\Services\AccessControlService::getSidebarMenus();
                         @endphp
 
                         @foreach($sidebarGroups as $group)
-                            <p class="menu-heading uppercase text-[10px] font-bold tracking-widest text-n500 mt-6">{{ $group['heading'] }}</p>
-                            <ul class="menu-ul">
+                            <p class="menu-heading uppercase text-[10px] font-bold tracking-widest text-n500 mt-6 mb-2">{{ $group['heading'] }}</p>
+                            <ul class="menu-ul flex flex-col gap-1">
                                 @foreach($group['items'] as $item)
+                                    @php
+                                        $isActive = (\Route::has($item['route']) && request()->routeIs($item['route'])) || request()->is($item['route'] . '*');
+                                    @endphp
                                     <li class="menu-li">
-                                        <button class="menu-btn transition-all duration-300 {{ (\Route::has($item['route']) && request()->routeIs($item['route'])) || request()->is($item['route'] . '*') ? 'bg-primary/10 text-primary border-primary' : 'bg-n0 border-n30 hover:border-primary/50' }} dark:bg-bg4 dark:border-n500">
-                                            <a href="{{ \Route::has($item['route']) ? route($item['route']) : url($item['route']) }}"
-                                                class="flex items-center justify-start gap-3 w-full px-4 py-2">
-                                                <span class="menu-icon text-xl">
-                                                    <i class="{{ $item['icon'] }}"></i>
-                                                </span>
-                                                <span class="menu-title font-bold text-sm italic">{{ $item['title'] }}</span>
-                                            </a>
-                                        </button>
+                                        <a href="{{ \Route::has($item['route']) ? route($item['route']) : url($item['route']) }}"
+                                            class="flex items-center justify-start gap-3 w-full px-4 py-2.5 rounded-xl transition-all duration-200 {{ $isActive ? 'bg-primary text-white font-bold shadow-sm' : 'text-n700 dark:text-n100 hover:bg-primary/10 hover:text-primary' }}">
+                                            <span class="menu-icon text-xl">
+                                                <i class="{{ $item['icon'] }}"></i>
+                                            </span>
+                                            <span class="menu-title font-semibold text-sm">{{ $item['title'] }}</span>
+                                        </a>
                                     </li>
                                 @endforeach
                             </ul>
                         @endforeach
 
-                        <ul class="menu-ul mt-8 border-t border-n30 pt-6">
+                        <ul class="menu-ul mt-8 border-t border-n30 pt-6 dark:border-n700">
                             <li class="menu-li text-center">
                                 <form method="POST" action="{{ route('logout') }}">
                                     @csrf
-                                    <button type="submit" class="btn-logout flex w-full items-center justify-center gap-2 bg-danger/10 text-danger p-3 rounded-2xl hover:bg-danger hover:text-white transition-all font-black uppercase text-xs tracking-tighter italic">
+                                    <button type="submit" class="btn-logout flex w-full items-center justify-center gap-2 bg-danger/10 text-danger p-3 rounded-2xl hover:bg-danger hover:text-white transition-all font-bold uppercase text-xs tracking-wider">
                                         <i class="las la-sign-out-alt text-lg"></i>
                                         Déconnexion
                                     </button>
@@ -136,3 +136,104 @@
         </div>
     </aside>
 </section>
+
+<style>
+    @media (max-width: 1199.98px) {
+        #sidebar {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            bottom: 0 !important;
+            z-index: 50 !important;
+            width: 290px !important;
+            max-width: 85vw !important;
+            transition: transform 0.3s ease-in-out !important;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35) !important;
+        }
+        #sidebar.sidebarhide {
+            transform: translateX(-100%) !important;
+            visibility: hidden !important;
+        }
+        #sidebar.sidebarshow {
+            transform: translateX(0) !important;
+            visibility: visible !important;
+        }
+        #topbar.topbarmargin, #topbar.topbarfull {
+            margin-left: 0 !important;
+            width: 100% !important;
+            left: 0 !important;
+        }
+        .main-content, .main-content.has-sidebar {
+            margin-left: 0 !important;
+            width: 100% !important;
+        }
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const sidebar = document.getElementById('sidebar');
+        const toggleBtn = document.getElementById('sidebar-toggle-btn');
+        const closeBtn = document.getElementById('sidebar-close-btn');
+        const overlay = document.getElementById('sidebar-overlay');
+
+        const isMobile = () => window.innerWidth < 1200;
+
+        const openMobileSidebar = () => {
+            if (!sidebar) return;
+            sidebar.classList.remove('sidebarhide');
+            sidebar.classList.add('sidebarshow');
+            if (overlay && isMobile()) {
+                overlay.classList.remove('hidden');
+            }
+        };
+
+        const closeMobileSidebar = () => {
+            if (!sidebar) return;
+            sidebar.classList.remove('sidebarshow');
+            sidebar.classList.add('sidebarhide');
+            if (overlay) {
+                overlay.classList.add('hidden');
+            }
+        };
+
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                if (sidebar && sidebar.classList.contains('sidebarshow') && isMobile()) {
+                    closeMobileSidebar();
+                } else if (sidebar && sidebar.classList.contains('sidebarshow')) {
+                    sidebar.classList.remove('sidebarshow');
+                    sidebar.classList.add('sidebarhide');
+                } else {
+                    openMobileSidebar();
+                }
+            });
+        }
+
+        if (closeBtn) {
+            closeBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                closeMobileSidebar();
+            });
+        }
+
+        if (overlay) {
+            overlay.addEventListener('click', function() {
+                closeMobileSidebar();
+            });
+        }
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && isMobile()) {
+                closeMobileSidebar();
+            }
+        });
+
+        window.addEventListener('resize', function() {
+            if (!isMobile() && overlay) {
+                overlay.classList.add('hidden');
+            }
+        });
+    });
+</script>
