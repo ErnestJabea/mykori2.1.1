@@ -98,8 +98,8 @@ class AccessControlService
                     if (in_array($currentUserRoleId, [1, 8])) {
                         $items[] = ['title' => $menu->title, 'route' => $menu->route, 'icon' => $menu->icon];
                     }
-                    // Autres : vérification par rôle ou par permission (si pas de rôle défini)
-                    elseif (in_array($currentUserRoleId, $roles) || (empty($roles) && self::can($menu->permission))) {
+                    // Autres : vérification par rôle ou par permission
+                    elseif (in_array($currentUserRoleId, $roles) || ($menu->permission && self::can($menu->permission))) {
                          $items[] = ['title' => $menu->title, 'route' => $menu->route, 'icon' => $menu->icon];
                     }
                 }
