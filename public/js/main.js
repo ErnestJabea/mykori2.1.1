@@ -140,6 +140,14 @@ const handleFocus = (e) => {
 };
 // Dark mode toggle
 document.addEventListener("DOMContentLoaded", () => {
+    const darkModeToggle = document.getElementById("darkModeToggle");
+    const lightBtn = document.getElementById("light-btn");
+    const darkBtn = document.getElementById("dark-btn");
+    const profileBtn = document.getElementById("profile-btn");
+    const profileDropdown = document.getElementById("profile-dropdown");
+    const notificationBtn = document.getElementById("notification-btn");
+    const notificationDropdown = document.getElementById("notification");
+
     // Check the user's preference from local storage
     const isDarkMode = localStorage.getItem("darkMode") === "true";
     const dir = localStorage.getItem("dir");
@@ -151,72 +159,60 @@ document.addEventListener("DOMContentLoaded", () => {
         currentlayout = savedLayout;
     }
     changeLayout(currentlayout);
-    // set layout based on localstorage
 
     // Set the initial theme based on the user's preference
     if (isDarkMode) {
-        document.body.classList.add("dark", isDarkMode);
-        if (darkBtn) {
-            darkBtn.classList.add("active");
-            lightBtn.classList.remove("active");
-            logoFull.setAttribute("src", "../images/logo-with-text-dark.png");
-            logoIcon.setAttribute("src", "../images/logo-dark.png");
-            logoText.setAttribute("src", "../images/logo-text-dark.png");
-        }
-        logoFull2 &&
-            logoFull2.setAttribute("src", "../images/logo-with-text-dark.png");
-        qrCodeImg && qrCodeImg.setAttribute("src", "../images/qrcode-dark.png");
+        document.body.classList.add("dark");
+        if (darkBtn) darkBtn.classList.add("active");
+        if (lightBtn) lightBtn.classList.remove("active");
     } else {
-        darkBtn && darkBtn.classList.remove("active");
-        lightBtn && lightBtn.classList.add("active");
+        if (darkBtn) darkBtn.classList.remove("active");
+        if (lightBtn) lightBtn.classList.add("active");
     }
     document.documentElement.style.colorScheme = isDarkMode ? "dark" : "light";
-    // Update the toggle button icon based on the user's preference
 
-    // Toggle the theme when the button is clicked
-    darkModeToggle &&
+    // Toggle theme when darkModeToggle is clicked
+    if (darkModeToggle) {
         darkModeToggle.addEventListener("click", () => {
-            loadImg();
-            if (document.body.classList.contains("dark")) {
+            const isDark = document.body.classList.contains("dark");
+            if (isDark) {
                 document.body.classList.remove("dark");
-                localStorage.setItem("darkMode", false);
-                lightBtn.classList.add("active");
-                darkBtn.classList.remove("active");
+                localStorage.setItem("darkMode", "false");
                 document.documentElement.style.colorScheme = "light";
+                if (lightBtn) lightBtn.classList.add("active");
+                if (darkBtn) darkBtn.classList.remove("active");
             } else {
                 document.body.classList.add("dark");
-                localStorage.setItem("darkMode", true);
-                darkBtn.classList.add("active");
-                lightBtn.classList.remove("active");
+                localStorage.setItem("darkMode", "true");
                 document.documentElement.style.colorScheme = "dark";
+                if (darkBtn) darkBtn.classList.add("active");
+                if (lightBtn) lightBtn.classList.remove("active");
             }
+            if (typeof loadImg === 'function') loadImg();
         });
+    }
 
-    darkBtn &&
+    if (darkBtn) {
         darkBtn.addEventListener("click", () => {
-            loadImg();
-            if (document.body.classList.contains("dark")) {
-                return;
-            } else {
-                document.body.classList.add("dark");
-                localStorage.setItem("darkMode", true);
-                darkBtn.classList.add("active");
-                lightBtn.classList.remove("active");
-                document.documentElement.style.colorScheme = "dark";
-            }
+            document.body.classList.add("dark");
+            localStorage.setItem("darkMode", "true");
+            document.documentElement.style.colorScheme = "dark";
+            darkBtn.classList.add("active");
+            if (lightBtn) lightBtn.classList.remove("active");
+            if (typeof loadImg === 'function') loadImg();
         });
+    }
 
-    lightBtn &&
+    if (lightBtn) {
         lightBtn.addEventListener("click", () => {
-            loadImg();
-            if (document.body.classList.contains("dark")) {
-                document.body.classList.remove("dark");
-                localStorage.setItem("darkMode", false);
-                lightBtn.classList.add("active");
-                darkBtn.classList.remove("active");
-                document.documentElement.style.colorScheme = "light";
-            }
+            document.body.classList.remove("dark");
+            localStorage.setItem("darkMode", "false");
+            document.documentElement.style.colorScheme = "light";
+            lightBtn.classList.add("active");
+            if (darkBtn) darkBtn.classList.remove("active");
+            if (typeof loadImg === 'function') loadImg();
         });
+    }
 
     // Sidebar show and hide
     const sidebar = document.getElementById("sidebar");
