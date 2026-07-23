@@ -219,82 +219,100 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
     // Sidebar show and hide
-
     const sidebar = document.getElementById("sidebar");
     const topbar = document.getElementById("topbar");
     const sidebarToggleBtn = document.getElementById("sidebar-toggle-btn");
     const sidebarCloseBtn = document.getElementById("sidebar-close-btn");
+    const sidebarOverlay = document.getElementById("sidebar-overlay");
     const mainContent = document.querySelector(".main-content");
+
     if (sidebar) {
-        if (window.innerWidth > 1200) {
+        const isMobile = () => window.innerWidth < 1200;
+
+        const updateSidebarState = () => {
+            if (!isMobile()) {
+                sidebar.classList.remove("sidebarhide");
+                sidebar.classList.add("sidebarshow");
+                if (mainContent) mainContent.classList.add("has-sidebar");
+                if (topbar) {
+                    topbar.classList.remove("topbarfull");
+                    topbar.classList.add("topbarmargin");
+                }
+                if (sidebarOverlay) sidebarOverlay.classList.add("hidden");
+            } else {
+                sidebar.classList.remove("sidebarshow");
+                sidebar.classList.add("sidebarhide");
+                if (mainContent) mainContent.classList.remove("has-sidebar");
+                if (topbar) {
+                    topbar.classList.add("topbarfull");
+                    topbar.classList.remove("topbarmargin");
+                }
+                if (sidebarOverlay) sidebarOverlay.classList.add("hidden");
+            }
+        };
+
+        updateSidebarState();
+
+        window.addEventListener("resize", updateSidebarState);
+
+        const openSidebar = () => {
             sidebar.classList.remove("sidebarhide");
             sidebar.classList.add("sidebarshow");
-            mainContent.classList.add("has-sidebar");
-        } else {
+            if (isMobile()) {
+                if (sidebarOverlay) sidebarOverlay.classList.remove("hidden");
+            } else {
+                if (mainContent) mainContent.classList.add("has-sidebar");
+                if (topbar) {
+                    topbar.classList.remove("topbarfull");
+                    topbar.classList.add("topbarmargin");
+                }
+            }
+        };
+
+        const closeSidebar = () => {
             sidebar.classList.remove("sidebarshow");
             sidebar.classList.add("sidebarhide");
-            mainContent.classList.remove("has-sidebar");
-        }
-        // show hide sidebar on resize
-        window.addEventListener("resize", () => {
-            if (window.innerWidth > 1200) {
-                sidebar.classList.remove("sidebarhide");
-                sidebar.classList.add("sidebarshow");
-                mainContent.classList.add("has-sidebar");
-                topbar.classList.remove("topbarfull");
-                topbar.classList.add("topbarmargin");
-            } else {
-                sidebar.classList.remove("sidebarshow");
-                sidebar.classList.add("sidebarhide");
-                mainContent.classList.remove("has-sidebar");
-                topbar.classList.add("topbarfull");
-                topbar.classList.remove("topbarmargin");
-            }
-        });
-
-        if (sidebar.classList.contains("sidebarshow")) {
-            topbar.classList.remove("topbarfull");
-            topbar.classList.add("topbarmargin");
-        }
-
-        sidebarToggleBtn.addEventListener("click", () => {
-            if (sidebar.classList.contains("sidebarshow")) {
-                sidebar.classList.remove("sidebarshow");
-                sidebar.classList.add("sidebarhide");
-                topbar.classList.remove("topbarmargin");
-                mainContent.classList.remove("has-sidebar");
-                topbar.classList.add("topbarfull");
-                if (window.innerWidth < 1400) {
-                    document.addEventListener("click", closeSidebarOutside);
-                }
-            } else {
-                sidebar.classList.remove("sidebarhide");
-                sidebar.classList.add("sidebarshow");
-                mainContent.classList.add("has-sidebar");
-                topbar.classList.remove("topbarfull");
-                topbar.classList.add("topbarmargin");
-                if (window.innerWidth < 1400) {
-                    document.addEventListener("click", closeSidebarOutside);
+            if (sidebarOverlay) sidebarOverlay.classList.add("hidden");
+            if (!isMobile()) {
+                if (mainContent) mainContent.classList.remove("has-sidebar");
+                if (topbar) {
+                    topbar.classList.add("topbarfull");
+                    topbar.classList.remove("topbarmargin");
                 }
             }
-        });
-        sidebarCloseBtn.addEventListener("click", () => {
-            if (sidebar.classList.contains("sidebarshow")) {
-                sidebar.classList.remove("sidebarshow");
-                sidebar.classList.add("sidebarhide");
-            }
-        });
+        };
 
-        function closeSidebarOutside(event) {
-            const isClickedInsideSidebar = sidebar.contains(event.target);
-            const isClickedOnSidebarBtn = sidebarToggleBtn.contains(event.target);
-
-            if (!isClickedInsideSidebar && !isClickedOnSidebarBtn) {
-                sidebar.classList.add("sidebarhide");
-                sidebar.classList.remove("sidebarshow");
-                document.removeEventListener("click", closeSidebarOutside);
-            }
+        if (sidebarToggleBtn) {
+            sidebarToggleBtn.addEventListener("click", (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (sidebar.classList.contains("sidebarshow")) {
+                    closeSidebar();
+                } else {
+                    openSidebar();
+                }
+            });
         }
+
+        if (sidebarCloseBtn) {
+            sidebarCloseBtn.addEventListener("click", (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                closeSidebar();
+            });
+        }
+
+        if (sidebarOverlay) {
+            sidebarOverlay.addEventListener("click", () => {
+                closeSidebar();
+            });
+        }
+
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "Escape" && isMobile()) {
+                closeSidebar();
+            }
+        });
     }
     document.body.classList.remove("hidden");
 });
