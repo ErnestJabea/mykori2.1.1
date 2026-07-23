@@ -1,39 +1,39 @@
 <div class="overflow-x-auto">
     <table class="w-full text-[13px]">
         <thead>
-            <tr class="bg-n10 dark:bg-bg3 text-left">
-                <th class="px-4 py-4 font-bold text-[11px] uppercase opacity-60">Référence</th>
-                <th class="px-4 py-4 font-bold text-[11px] uppercase opacity-60">Client</th>
-                <th class="px-4 py-4 font-bold text-[11px] uppercase opacity-60">Email</th>
-                <th class="px-4 py-4 font-bold text-[11px] uppercase opacity-60">Localisation</th>
-                <th class="px-4 py-4 font-bold text-[11px] uppercase opacity-60 text-center">Actions</th>
+            <tr class="bg-n10 dark:bg-bg4 text-left border-b border-n30 dark:border-n700">
+                <th class="px-4 py-4 font-bold text-[11px] uppercase text-n700 dark:text-slate-200">Référence</th>
+                <th class="px-4 py-4 font-bold text-[11px] uppercase text-n700 dark:text-slate-200">Client</th>
+                <th class="px-4 py-4 font-bold text-[11px] uppercase text-n700 dark:text-slate-200">Email</th>
+                <th class="px-4 py-4 font-bold text-[11px] uppercase text-n700 dark:text-slate-200">Localisation</th>
+                <th class="px-4 py-4 font-bold text-[11px] uppercase text-n700 dark:text-slate-200 text-center">Actions</th>
             </tr>
         </thead>
-        <tbody class="divide-y divide-n30 dark:divide-n500">
+        <tbody class="divide-y divide-n30 dark:divide-n700">
             @forelse($portfolios as $portfolio)
-                <tr class="hover:bg-n10/50 dark:hover:bg-bg3/50 duration-300">
+                <tr class="hover:bg-n10/50 dark:hover:bg-bg4/50 duration-300">
                     <td class="px-4 py-4">
-                        <span class="px-3 py-1 rounded-full text-[10px] font-bold {{ $portfolio->type == 'PMG' ? 'bg-secondary1/10 text-secondary1' : 'bg-primary/10 text-primary' }}">
+                        <span class="px-3 py-1 rounded-full text-[10px] font-bold {{ $portfolio->type == 'PMG' ? 'bg-secondary1/10 text-secondary1 dark:text-blue-400' : 'bg-primary/10 text-primary dark:text-yellow-400' }}">
                             {{ $portfolio->reference }}
                         </span>
                     </td>
                     <td class="px-4 py-4">
                         <div class="flex items-center gap-3">
                             <div class="min-w-0">
-                                <p class="font-bold text-n500 dark:text-n200 truncate" title="{{ $portfolio->user->name ?? 'N/A' }}">
+                                <p class="font-bold text-n900 dark:text-white truncate" title="{{ $portfolio->user->name ?? 'N/A' }}">
                                     {{ $portfolio->user->name ?? 'N/A' }}
                                 </p>
-                                <p class="text-[10px] md:text-[11px] opacity-60">
+                                <p class="text-[10px] md:text-[11px] text-n500 dark:text-slate-300">
                                     @if(($portfolio->user->genre ?? '') == 0) Monsieur @elseif(($portfolio->user->genre ?? '') == 1) Madame @else Entreprise @endif
                                 </p>
                             </div>
                         </div>
                     </td>
                     <td class="px-4 py-4">
-                        <span class="italic opacity-80 break-all">{{ $portfolio->user->email ?? 'N/A' }}</span>
+                        <span class="italic text-n500 dark:text-slate-300 break-all">{{ $portfolio->user->email ?? 'N/A' }}</span>
                     </td>
                     <td class="px-4 py-4">
-                        <span class="truncate block" title="{{ $portfolio->user->localisation ?? '-' }}">{{ $portfolio->user->localisation ?? '-' }}</span>
+                        <span class="truncate block text-n700 dark:text-white" title="{{ $portfolio->user->localisation ?? '-' }}">{{ $portfolio->user->localisation ?? '-' }}</span>
                     </td>
                     <td class="px-4 py-4 text-center">
                         <div class="flex items-center justify-center gap-2">

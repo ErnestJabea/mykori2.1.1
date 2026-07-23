@@ -164,72 +164,68 @@
                     return $order == 'asc' ? '<i class="las la-sort-up text-primary"></i>' : '<i class="las la-sort-down text-primary"></i>';
                 };
             @endphp
-            <tr class="bg-secondary1/5 dark:bg-bg4">
-                <th class="px-6 py-5 text-left font-semibold opacity-70 cursor-pointer hover:bg-secondary1/10 duration-300">
-                    <a href="{{ $sortUrl('name') }}" class="flex items-center gap-2 w-full ajax-sort">
+            <tr class="bg-secondary1/5 dark:bg-bg4 border-b border-n30 dark:border-n700">
+                <th class="px-6 py-5 text-left font-semibold text-n700 dark:text-slate-200 cursor-pointer hover:bg-secondary1/10 duration-300">
+                    <a href="{{ $sortUrl('name') }}" class="flex items-center gap-2 w-full ajax-sort text-n700 dark:text-white">
                         Noms & Prénoms {!! $sortIcon('name') !!}
                     </a>
                 </th>
-                <th class="px-6 py-5 text-right font-semibold opacity-70 cursor-pointer hover:bg-secondary1/10 duration-300">
-                    <a href="{{ $sortUrl('total_capital') }}" class="flex items-center justify-end gap-2 w-full ajax-sort">
+                <th class="px-6 py-5 text-right font-semibold text-n700 dark:text-slate-200 cursor-pointer hover:bg-secondary1/10 duration-300">
+                    <a href="{{ $sortUrl('total_capital') }}" class="flex items-center justify-end gap-2 w-full ajax-sort text-n700 dark:text-white">
                         Total Investi {!! $sortIcon('total_capital') !!}
                     </a>
                 </th>
-                <th class="px-6 py-5 text-right font-semibold opacity-70 cursor-pointer hover:bg-secondary1/10 duration-300">
-                    <a href="{{ $sortUrl('total_interets') }}" class="flex items-center justify-end gap-2 w-full ajax-sort">
+                <th class="px-6 py-5 text-right font-semibold text-n700 dark:text-slate-200 cursor-pointer hover:bg-secondary1/10 duration-300">
+                    <a href="{{ $sortUrl('total_interets') }}" class="flex items-center justify-end gap-2 w-full ajax-sort text-n700 dark:text-white">
                         Gains Actifs {!! $sortIcon('total_interets') !!}
                     </a>
                 </th>
-                <th class="px-6 py-5 text-right font-semibold opacity-70 cursor-pointer hover:bg-secondary1/10 duration-300">
-                    <a href="{{ $sortUrl('total_liquidite_interets') }}" class="flex items-center justify-end gap-2 w-full ajax-sort">
+                <th class="px-6 py-5 text-right font-semibold text-n700 dark:text-slate-200 cursor-pointer hover:bg-secondary1/10 duration-300">
+                    <a href="{{ $sortUrl('total_liquidite_interets') }}" class="flex items-center justify-end gap-2 w-full ajax-sort text-n700 dark:text-white">
                         Liquidité {!! $sortIcon('total_liquidite_interets') !!}
                     </a>
                 </th>
-                <th class="px-6 py-5 text-right font-semibold opacity-70 cursor-pointer hover:bg-secondary1/10 duration-300">
-                    <a href="{{ $sortUrl('portefeuille_total') }}" class="flex items-center justify-end gap-2 w-full ajax-sort">
+                <th class="px-6 py-5 text-right font-semibold text-n700 dark:text-slate-200 cursor-pointer hover:bg-secondary1/10 duration-300">
+                    <a href="{{ $sortUrl('portefeuille_total') }}" class="flex items-center justify-end gap-2 w-full ajax-sort text-n700 dark:text-white">
                         Portefeuille Global {!! $sortIcon('portefeuille_total') !!}
                     </a>
                 </th>
-                <th class="px-6 py-5 text-center font-semibold opacity-70">Action</th>
+                <th class="px-6 py-5 text-center font-semibold text-n700 dark:text-slate-200">Action</th>
             </tr>
         </thead>
-        <div class="px-6 py-2">
-            <small class="text-xs text-muted">Affichage de {{ $customers->firstItem() }} à
-                {{ $customers->lastItem() }} sur {{ $customers->total() }} clients</small>
-        </div>
         <tbody>
             @foreach ($customers as $client)
-                <tr class="border-b border-secondary1/10 dark:border-bg4 hover:bg-primary/5 duration-300">
+                <tr class="border-b border-n30/50 dark:border-n700 hover:bg-primary/5 dark:hover:bg-bg4/50 duration-300">
                     <td class="px-6 py-4">
                         <div class="flex items-center gap-3">
                             <div class="text-left">
-                                <p class="font-semibold text-base">{{ $client->name }}</p>
-                                <span class="text-xs opacity-70">{{ $client->email }}</span>
+                                <p class="font-bold text-base text-n900 dark:text-white">{{ $client->name }}</p>
+                                <span class="text-xs text-n500 dark:text-slate-300">{{ $client->email }}</span>
                             </div>
                         </div>
                     </td>
 
                     <td class="px-6 py-4 text-right">
-                        <p class="font-medium">
+                        <p class="font-semibold text-n700 dark:text-white">
                             {{ number_format($client->total_capital, 0, ' ', ' ') }}
                         </p>
                     </td>
 
                     <td class="px-6 py-4 text-right" style="white-space: nowrap;">
-                        <p class="font-medium text-success" style="color: #10b981">
+                        <p class="font-semibold text-success dark:text-emerald-400">
                             + {{ number_format($client->total_interets, 0, ' ', ' ') }}
                         </p>
                     </td>
 
                     <td class="px-6 py-4 text-right" style="white-space: nowrap;">
-                        <p class="font-medium text-secondary1">
+                        <p class="font-semibold text-secondary1 dark:text-blue-400">
                             {{ number_format($client->total_liquidite_interets ?? 0, 0, ' ', ' ') }}
                         </p>
                     </td>
 
                     <td class="px-6 py-4 text-right">
-                        <div class="rounded bg-primary/10 px-3 py-1 inline-block">
-                            <p class="font-bold text-primary">
+                        <div class="rounded-xl bg-primary/10 px-3 py-1.5 inline-block border border-primary/20">
+                            <p class="font-extrabold text-primary dark:text-yellow-400">
                                 {{ number_format($client->portefeuille_total, 0, ' ', ' ') }}
                             </p>
                         </div>
@@ -237,8 +233,8 @@
 
                     <td class="px-6 py-4 text-center">
                         <a href="{{ route('customer-detail', ['customer' => $client->id]) }}"
-                            class="btn-outline border-primary text-primary hover:bg-primary hover:text-white px-3 py-1 rounded-md text-sm duration-300">
-                            <i class="las la-eye"></i> Détails
+                            class="btn-outline border border-primary/40 text-primary dark:text-yellow-400 hover:bg-primary hover:text-white px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-300 inline-flex items-center gap-1 shadow-sm">
+                            <i class="las la-eye text-sm"></i> Détails
                         </a>
                     </td>
                 </tr>
@@ -255,6 +251,6 @@
         'status' => $statusFilter ?? 'all',
         'sort_by' => $sortBy ?? 'name',
         'order' => $order ?? 'asc'
-    ])->links() }}
+    ])->links('front-end.partials.pagination') }}
 </div>
 </div>

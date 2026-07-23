@@ -5,23 +5,22 @@
 @endphp
 @section('content')
     <main class="main-content has-sidebar">
-        <div class="grid grid-cols-12 gap-4 xxl:gap-6">
-            <div class="col-span-12 flex flex-col gap-4 md:col-span-7 lg:col-span-8 xxl:gap-6">
-                <h3>GESTION DES CLIENTS</h3>
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-bg3 p-4 sm:p-6 rounded-2xl shadow-sm border border-n30 dark:border-n700 mb-6">
+            <div>
+                <h3 class="text-xl sm:text-2xl font-extrabold tracking-tight text-n900 dark:text-white uppercase">GESTION DES CLIENTS</h3>
+                <p class="text-xs sm:text-sm text-n500 dark:text-slate-300 mt-1">Supervision et suivi des portefeuilles investisseurs</p>
             </div>
-            <div class="col-span-12 md:col-span-5 lg:col-span-4">
-                <div class="row flex items-center justify-end gap-3">
-                    <p style="text-align: right">{{ date('d-m-Y') }}</p>
-                    <div class="content-right">
-                        <button class="btn ac-modal-btn buy">
-                            <a href="{{ route('releve-client') }}">Validation des relevés</a>
-                        </button>
-                    </div>
+            <div class="flex flex-wrap items-center gap-4 w-full sm:w-auto justify-between sm:justify-end border-t sm:border-t-0 pt-3 sm:pt-0 border-n30 dark:border-n700">
+                <div class="text-left sm:text-right">
+                    <p class="font-bold text-xs sm:text-sm text-n700 dark:text-white">{{ date('d-m-Y') }}</p>
+                    <span class="text-[10px] sm:text-xs text-n500 dark:text-slate-400">Date du jour</span>
                 </div>
+                <a href="{{ route('releve-client') }}"
+                    class="btn bg-primary text-white rounded-xl px-4 py-2.5 hover:bg-primary/90 duration-300 flex items-center gap-2 text-xs sm:text-sm font-bold shadow-sm whitespace-nowrap">
+                    <i class="las la-check-circle text-base"></i> Validation des relevés
+                </a>
             </div>
         </div>
-
-        <div class="content-separator" style="height:30px"></div>
 
 
         <div id="ajax-container">
