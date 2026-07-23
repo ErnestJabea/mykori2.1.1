@@ -7985,3 +7985,56 @@ tr.line-customer a {
     text-align: right;
     margin-top: 15px;
 }
+
+/* ========================================================
+   GLOBAL PURE WHITE TEXT OVERRIDES FOR DARK MODE (PROJECT-WIDE)
+   ======================================================== */
+body.dark,
+body.dark h1, body.dark h2, body.dark h3, body.dark h4, body.dark h5, body.dark h6,
+body.dark p, body.dark span, body.dark div:not(.bg-primary):not(.btn), body.dark td, body.dark th,
+body.dark label, body.dark input, body.dark select, body.dark textarea,
+body.dark li, body.dark a:not(.text-primary):not(.text-danger):not(.btn-logout), body.dark strong, body.dark b, body.dark small,
+body.dark .menu-title, body.dark .menu-heading, body.dark .menu-btn,
+body.dark .box *, body.dark .table *, body.dark .card * {
+    color: #FFFFFF !important;
+}
+
+body.dark .menu-heading,
+body.dark .text-n500,
+body.dark .opacity-70,
+body.dark .opacity-50 {
+    color: #CBD5E1 !important;
+}
+
+body.dark table th {
+    color: #FFFFFF !important;
+    background-color: #181F2C !important;
+}
+
+body.dark table td {
+    color: #FFFFFF !important;
+}
+
+body.dark input,
+body.dark select,
+body.dark textarea {
+    background-color: #1E293B !important;
+    color: #FFFFFF !important;
+    border-color: #475569 !important;
+}
+
+body.dark select option {
+    background-color: #0F172A !important;
+    color: #FFFFFF !important;
+}
+
+body.dark .text-primary,
+body.dark i.text-primary {
+    color: #EAB308 !important;
+}
+
+body.dark .text-danger,
+body.dark i.text-danger,
+body.dark .btn-logout {
+    color: #F87171 !important;
+}

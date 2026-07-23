@@ -21,7 +21,7 @@
     <link rel="stylesheet" href="{{ asset('css/1.3.6/quill.snow.css') }}">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;display=swap" />
     <link rel="stylesheet" href="{{ asset('css/line-awesome/css/line-awesome.min.css') }}" />
-    <link rel="stylesheet" href="{{ asset('css/style.css') }}" />
+    <link rel="stylesheet" href="{{ asset('css/style.css?ver=3') }}" />
     <!-- PWA Meta & Manifest -->
     <meta name="theme-color" content="#0F766E" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
