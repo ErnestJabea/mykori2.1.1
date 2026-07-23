@@ -10,24 +10,24 @@
         <div class="grid grid-cols-12 gap-4 xxl:gap-6">
             <div class="col-span-12 flex flex-col gap-4 md:col-span-12 xxl:gap-6">
                 <div
-                    class="flex justify-between items-center bg-white dark:bg-bg3 p-6 rounded-2xl shadow-sm border border-n30">
-                    <div>
-                        <h3 class="h3">TABLEAU DE BORD</h3>
-                        <p class="text-sm opacity-70">Bienvenue sur votre espace Asset Manager</p>
+                    class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-bg3 p-4 sm:p-6 rounded-2xl shadow-sm border border-n30">
+                    <div class="min-w-0">
+                        <h3 class="text-xl sm:text-2xl font-bold tracking-tight text-n900 dark:text-white uppercase whitespace-nowrap">TABLEAU DE BORD</h3>
+                        <p class="text-xs sm:text-sm text-n500 dark:text-n200 mt-1">Bienvenue sur votre espace Asset Manager</p>
                     </div>
-                    <div class="flex items-center gap-3">
-                        <div class="hidden md:block text-right mr-4 border-r border-n30 pr-4">
-                            <p class="font-medium">{{ $metrics['reference_date']->format('d/m/Y') }}</p>
-                            <span class="text-xs opacity-50">Date de valorisation</span>
+                    <div class="flex flex-wrap items-center justify-between sm:justify-end gap-3 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-n30 dark:border-n700">
+                        <div class="text-left sm:text-right sm:mr-2 sm:border-r sm:border-n30 sm:pr-4 dark:sm:border-n700">
+                            <p class="font-bold text-xs sm:text-sm text-n700 dark:text-white">{{ $metrics['reference_date']->format('d/m/Y') }}</p>
+                            <span class="text-[10px] sm:text-xs text-n500 opacity-80">Date de valorisation</span>
                         </div>
-                        <div class="flex gap-2">
+                        <div class="flex items-center gap-2 grow sm:grow-0">
                             <a href="{{ route('releve-client') }}"
-                                class="btn bg-primary text-white rounded-lg px-4 py-2 hover:bg-primary/90 duration-300 flex items-center gap-2 text-sm shadow-sm">
-                                <i class="las la-file-alt"></i> Générer Relevés
+                                class="flex-1 sm:flex-none btn bg-primary text-white rounded-xl px-3 sm:px-4 py-2 sm:py-2.5 hover:bg-primary/90 duration-300 flex items-center justify-center gap-2 text-xs sm:text-sm font-semibold shadow-sm whitespace-nowrap">
+                                <i class="las la-file-alt text-base"></i> Générer Relevés
                             </a>
                             <a href="{{ route('customer') }}"
-                                class="btn bg-secondary1 text-white rounded-lg px-4 py-2 hover:bg-secondary1/90 duration-300 flex items-center gap-2 text-sm shadow-sm">
-                                <i class="las la-user-cog"></i> Gérer Clients
+                                class="flex-1 sm:flex-none btn bg-secondary1 text-white rounded-xl px-3 sm:px-4 py-2 sm:py-2.5 hover:bg-secondary1/90 duration-300 flex items-center justify-center gap-2 text-xs sm:text-sm font-semibold shadow-sm whitespace-nowrap">
+                                <i class="las la-user-cog text-base"></i> Gérer Clients
                             </a>
                         </div>
                     </div>
