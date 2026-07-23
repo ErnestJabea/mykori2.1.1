@@ -130,12 +130,12 @@
                             <span id="modalMaturity" class="ktm-info-val ktm-maroon">—</span>
                         </div>
                         <div class="ktm-info-cell">
-                            <span class="ktm-info-key">Durée</span>
-                            <span id="modalDuration" class="ktm-info-val">0 mois</span>
-                        </div>
-                        <div class="ktm-info-cell">
                             <span class="ktm-info-key">Mode de paiement</span>
                             <span id="modalPaymentPmg" class="ktm-info-val">N/A</span>
+                        </div>
+                        <div class="ktm-info-cell"style="opacity:0">
+                            <span class="ktm-info-key" style ="opacity:0">Durée</span>
+                            <span id="modalDuration" style ="opacity:0" class="ktm-info-val">0 mois</span>
                         </div>
                     </div>
                 </div>

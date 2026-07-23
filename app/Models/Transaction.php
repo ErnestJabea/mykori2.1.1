@@ -38,11 +38,7 @@ class Transaction extends Model
 
     public function checkValidationStatus()
     {
-        if (
-            $this->is_compliance_validated
-            && $this->is_backoffice_validated
-            && $this->is_dg_validated
-        ) {
+        if ($this->is_compliance_validated) {
             $this->status = 'Succès';
             $this->saveQuietly();
             return true;

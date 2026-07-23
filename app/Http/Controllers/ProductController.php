@@ -216,12 +216,18 @@ class ProductController extends Controller
 
         foreach ($products as $product) {
             $transactions = Transaction::where('user_id', $user_id)
-                ->where('status', 'Succès')
+                ->where(function($q) {
+                    $q->where('status', 'Succès')
+                      ->orWhere('is_compliance_validated', 1);
+                })
                 ->where('product_id', $product->id)
                 ->get();
 
             $additionalTransactions = TransactionSupplementaire::where('user_id', $user_id)
-                ->where('status', 'Succès')
+                ->where(function($q) {
+                    $q->where('status', 'Succès')
+                      ->orWhere('is_compliance_validated', 1);
+                })
                 ->where('product_id', $product->id)
                 ->get();
 
@@ -1279,7 +1285,10 @@ class ProductController extends Controller
 
         // 2. Historique brut de TOUTES les transactions (Souscriptions & Versements Libres)
         $officialTrans = Transaction::where('user_id', $customer_id)
-            ->where('status', 'Succès')
+            ->where(function($q) {
+                $q->where('status', 'Succès')
+                  ->orWhere('is_compliance_validated', 1);
+            })
             ->with('product')
             ->get()
             ->map(function($t) { 
@@ -1289,7 +1298,10 @@ class ProductController extends Controller
             });
 
         $supplementalTrans = TransactionSupplementaire::where('user_id', $customer_id)
-            ->where('status', 'Succès')
+            ->where(function($q) {
+                $q->where('status', 'Succès')
+                  ->orWhere('is_compliance_validated', 1);
+            })
             ->with('product')
             ->get()
             ->map(function($t) { 
