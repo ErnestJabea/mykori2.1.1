@@ -21,8 +21,8 @@
             </div>
             <div class="flex items-center gap-3 sm:gap-4 xxl:gap-6">
                 <!-- dark mode toggle -->
-                <button id="darkModeToggle" aria-label="dark mode switch"
-                    class="h-10 w-10 shrink-0 rounded-full border border-n30 bg-primary/5 dark:border-n500 dark:bg-bg3 md:h-12 md:w-12 flex items-center justify-center">
+                <button id="darkModeToggle" onclick="toggleDarkMode(event)" aria-label="dark mode switch"
+                    class="h-10 w-10 shrink-0 rounded-full border border-n30 bg-primary/5 dark:border-n500 dark:bg-bg3 md:h-12 md:w-12 flex items-center justify-center cursor-pointer">
                     <i class="las la-sun text-2xl dark:hidden"></i>
                     <span class="hidden text-n30 dark:block">
                         <i class="las la-moon text-2xl"></i>
@@ -31,7 +31,7 @@
 
                 <div class="flex items-center gap-3 md:gap-4">
                     <div class="user-profile relative">
-                        <button id="profile-btn" class="flex items-center gap-3 rounded-full bg-n0 p-1 dark:bg-bg3">
+                        <button id="profile-btn" onclick="toggleProfileMenu(event)" class="flex items-center gap-3 rounded-full bg-n0 p-1 dark:bg-bg3 cursor-pointer">
 
                             <div class="round-fill round-full flex items-center justify-center bg-primary/10 text-primary font-bold">
                                 @php
@@ -47,7 +47,8 @@
                             <i class="las la-angle-down hidden text-lg lg:block"></i>
                         </button>
                         <div id="profile-dropdown"
-                            class="hide absolute top-full ltr:right-0 rtl:left-0 z-20 w-[200px] origin-top rounded-md bg-n0 p-4 shadow-lg duration-300 dark:bg-bg4">
+                            style="display: none;"
+                            class="hide hidden absolute top-full ltr:right-0 rtl:left-0 z-50 w-[200px] origin-top rounded-md bg-n0 p-4 shadow-lg duration-300 dark:bg-bg4">
                             <ul class="flex flex-col gap-2">
                                 <li>
                                     <a href="{{ route('profile') }}"
@@ -169,3 +170,54 @@
         }
     }
 </style>
+
+<script>
+    function toggleDarkMode(e) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        const isDark = document.body.classList.contains('dark');
+        if (isDark) {
+            document.body.classList.remove('dark');
+            localStorage.setItem('darkMode', 'false');
+            document.documentElement.style.colorScheme = 'light';
+        } else {
+            document.body.classList.add('dark');
+            localStorage.setItem('darkMode', 'true');
+            document.documentElement.style.colorScheme = 'dark';
+        }
+        if (typeof loadImg === 'function') loadImg();
+    }
+
+    function toggleProfileMenu(e) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        const dropdown = document.getElementById('profile-dropdown');
+        if (!dropdown) return;
+
+        const isHidden = dropdown.style.display === 'none' || dropdown.classList.contains('hidden') || dropdown.classList.contains('hide');
+
+        if (isHidden) {
+            dropdown.style.display = 'block';
+            dropdown.classList.remove('hidden', 'hide');
+            dropdown.classList.add('block', 'show');
+        } else {
+            dropdown.style.display = 'none';
+            dropdown.classList.add('hidden', 'hide');
+            dropdown.classList.remove('block', 'show');
+        }
+    }
+
+    document.addEventListener('click', function(e) {
+        const dropdown = document.getElementById('profile-dropdown');
+        const profileBtn = document.getElementById('profile-btn');
+        if (dropdown && profileBtn && !dropdown.contains(e.target) && !profileBtn.contains(e.target)) {
+            dropdown.style.display = 'none';
+            dropdown.classList.add('hidden', 'hide');
+            dropdown.classList.remove('block', 'show');
+        }
+    });
+</script>
