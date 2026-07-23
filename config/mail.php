@@ -96,6 +96,19 @@ return [
         'name' => env('MAIL_FROM_NAME', 'Example'),
     ],
 
+    'statement_senders' => [
+        'pmg' => [
+            'address' => env('MAIL_PMG_FROM_ADDRESS', env('MAIL_FROM_ADDRESS', 'hello@example.com')),
+            'name' => env('MAIL_PMG_FROM_NAME', env('MAIL_FROM_NAME', 'KORI Asset Management')),
+        ],
+        'fcp' => [
+            'address' => env('MAIL_FCP_FROM_ADDRESS', env('MAIL_FROM_ADDRESS', 'hello@example.com')),
+            'name' => env('MAIL_FCP_FROM_NAME', env('MAIL_FROM_NAME', 'KORI Asset Management')),
+        ],
+    ],
+
+    'statement_relay_to' => env('MAIL_STATEMENT_RELAY_TO', 'onboarding@koriassetmanagement.com'),
+
     /*
     |--------------------------------------------------------------------------
     | Markdown Mail Settings

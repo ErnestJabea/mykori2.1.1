@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use App\Mail\AnniversaryNotificationMail;
 use App\Http\Controllers\ProductController;
+use App\Support\PmgAlertRecipients;
 
 class NotifyAnniversaries extends Command
 {
@@ -45,12 +46,11 @@ class NotifyAnniversaries extends Command
             ->whereHas('product', function ($q) {
                 $q->where('products_category_id', 2);
             })
-            ->where(function($q) {
-                $q->whereNull('date_echeance')
-                  ->orWhere('date_echeance', '>=', Carbon::today()->toDateString());
-            })
-            ->whereRaw('MONTH(date_validation) = ?', [$targetDate->month])
-            ->whereRaw('DAY(date_validation) = ?', [$targetDate->day])
+            ->whereHas('user', fn ($query) => $query->where('role_id', 2))
+            ->whereDate('date_echeance', '>=', $targetDate->toDateString())
+            ->whereMonth('date_validation', $targetDate->month)
+            ->whereDay('date_validation', $targetDate->day)
+            ->whereYear('date_validation', '<', $targetDate->year)
             ->get();
 
         // 2. Récupérer toutes les transactions supplémentaires PMG actives
@@ -58,12 +58,11 @@ class NotifyAnniversaries extends Command
             ->whereHas('product', function ($q) {
                 $q->where('products_category_id', 2);
             })
-            ->where(function($q) {
-                $q->whereNull('date_echeance')
-                  ->orWhere('date_echeance', '>=', Carbon::today()->toDateString());
-            })
-            ->whereRaw('MONTH(date_validation) = ?', [$targetDate->month])
-            ->whereRaw('DAY(date_validation) = ?', [$targetDate->day])
+            ->whereHas('user', fn ($query) => $query->where('role_id', 2))
+            ->whereDate('date_echeance', '>=', $targetDate->toDateString())
+            ->whereMonth('date_validation', $targetDate->month)
+            ->whereDay('date_validation', $targetDate->day)
+            ->whereYear('date_validation', '<', $targetDate->year)
             ->get();
 
         $allTrans = collect();
@@ -112,21 +111,7 @@ class NotifyAnniversaries extends Command
             return 0;
         }
 
-        // Récupérer la liste des emails destinataires depuis Voyager, sinon .env, sinon valeur par défaut
-        $emailsRaw = null;
-        if (function_exists('setting')) {
-            try {
-                $emailsRaw = setting('site.anniversary_emails');
-            } catch (\Exception $e) {
-                // Fallback
-            }
-        }
-
-        if (!$emailsRaw) {
-            $emailsRaw = env('ANNIVERSARY_EMAILS', 'onboarding@koriassetmanagement.com, admin@koriassetmanagement.com');
-        }
-
-        $emails = array_filter(array_map('trim', explode(',', $emailsRaw)));
+        $emails = PmgAlertRecipients::resolve()['emails'];
 
         if (empty($emails)) {
             Log::error("Anniversary Alerts : Aucun destinataire valide configuré.");

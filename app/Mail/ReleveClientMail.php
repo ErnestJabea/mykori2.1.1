@@ -10,12 +10,18 @@ class ReleveClientMail extends Mailable
     public User $client;
     public array $pdfFiles;
     public string $periode;
+    public ?string $statementType;
 
-    public function __construct(User $client, array $pdfFiles, ?string $periode = null)
+    public function __construct(User $client, array $pdfFiles, ?string $periode = null, ?string $statementType = null)
     {
         $this->client = $client;
         $this->pdfFiles = $pdfFiles;
-        
+        $this->statementType = $statementType ? strtolower($statementType) : null;
+
+        if ($this->statementType !== null && !in_array($this->statementType, ['pmg', 'fcp'], true)) {
+            throw new \InvalidArgumentException('Type de releve inconnu.');
+        }
+
         // Si période non fournie, utiliser le mois précédent
         $this->periode = $periode ?? now()->subMonth()->locale('fr')->isoFormat('MMMM YYYY');
     }
@@ -25,6 +31,11 @@ class ReleveClientMail extends Mailable
         $mail = $this
             ->subject('[CLIENT:' . $this->client->email . '] Relevé mensuel de votre portefeuille - ' . $this->periode)
             ->view('front-end.releves.releve-relay');
+
+        if ($this->statementType !== null) {
+            $sender = config("mail.statement_senders.{$this->statementType}");
+            $mail->from($sender['address'], $sender['name']);
+        }
 
         foreach ($this->pdfFiles as $file) {
             if (file_exists($file)) {

@@ -23,7 +23,7 @@ class InvestmentService
 
         $movements = DB::table('financial_movements')
             ->where('transaction_id', $transactionId)
-            ->where('date_operation', '<=', $target->toDateString())
+            ->where('date_operation', '<=', $target->toDateTimeString())
             ->orderBy('date_operation')
             ->orderBy('id')
             ->get();

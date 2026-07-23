@@ -1,4 +1,4 @@
-<div class="overflow-x-hidden">
+<div class="overflow-x-auto">
     <table class="w-full text-[13px]">
         <thead>
             <tr class="bg-n10 dark:bg-bg3 text-left">

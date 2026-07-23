@@ -808,6 +808,20 @@ Route::get('/preview/500', function () { return view('errors.500'); });
 Route::get('/preview/419', function () { return view('errors.419'); });
 }
 
+// --- Module Contrôle et Ajustements ---
+Route::prefix('backoffice/control-adjustments')
+    ->middleware(['auth', 'otp.verified', 'permission:view_control_adjustments', 'control.adjustments'])
+    ->group(function () {
+        Route::get('/', [\App\Http\Controllers\ControlAdjustmentController::class, 'index'])->name('control-adjustments.index');
+        Route::get('/client/{id}', [\App\Http\Controllers\ControlAdjustmentController::class, 'show'])->name('control-adjustments.show');
+        Route::post('/simulate', [\App\Http\Controllers\ControlAdjustmentController::class, 'simulate'])->name('control-adjustments.simulate');
+        Route::post('/store', [\App\Http\Controllers\ControlAdjustmentController::class, 'storeCorrection'])->name('control-adjustments.store');
+        Route::post('/validate/{id}', [\App\Http\Controllers\ControlAdjustmentController::class, 'validateCorrection'])->name('control-adjustments.validate');
+        Route::post('/reject/{id}', [\App\Http\Controllers\ControlAdjustmentController::class, 'rejectCorrection'])->name('control-adjustments.reject');
+        Route::get('/history', [\App\Http\Controllers\ControlAdjustmentController::class, 'auditHistory'])->name('control-adjustments.history');
+        Route::get('/proof/{id}', [\App\Http\Controllers\ControlAdjustmentController::class, 'downloadProof'])->name('control-adjustments.download-proof');
+    });
+
 Route::fallback(function () {
     return response()->view('errors.404', [], 404);
 });

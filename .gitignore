@@ -26,5 +26,10 @@ yarn-error.log
 *.txt
 *.json
 *.log
-verify_esono.php
 tmp_check_*.php
+scratch/
+.edge-kori-manual-profile/
+*.sql
+docs/__pycache__/
+verify_esono.php
+

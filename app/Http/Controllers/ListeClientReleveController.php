@@ -13,14 +13,20 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use App\Http\Controllers\ProductController;
 use App\Mail\ReleveClientMail;
 use App\Support\FinancialDecimal;
+use App\Services\StatementVersioningService;
 
 class ListeClientReleveController extends Controller
 {
     protected $productController;
+    protected $statementVersioningService;
 
-    public function __construct(ProductController $productController)
+    public function __construct(
+        ProductController $productController,
+        StatementVersioningService $statementVersioningService
+    )
     {
         $this->productController = $productController;
+        $this->statementVersioningService = $statementVersioningService;
     }
 
     private function getPositiveFcpStatementValue(int $clientId, Carbon $date): float
@@ -618,15 +624,20 @@ public function sendSelected(Request $request)
                 $has_fcp = $this->getPositiveFcpStatementValue($client->id, $statementDate) > 0;
 
                 $pdfFiles = [];
+                $generatedStatements = [];
                 $productLabels = [];
                 $type = $request->type; // 'fcp' ou 'pmg' (ou null pour tout, mais on va forcer un type)
                 
                 if (($type === 'pmg' || empty($type)) && $has_pmg) {
-                    $pdfFiles[] = $this->genererPdfPmg($client->id);
+                    $pdfPath = $this->genererPdfPmg($client->id);
+                    $pdfFiles[] = $pdfPath;
+                    $generatedStatements[] = ['path' => $pdfPath, 'type' => 'PMG'];
                     $productLabels[] = "PMG";
                 }
                 if (($type === 'fcp' || empty($type)) && $has_fcp) {
-                    $pdfFiles[] = $this->genererPdfFcp($client->id);
+                    $pdfPath = $this->genererPdfFcp($client->id);
+                    $pdfFiles[] = $pdfPath;
+                    $generatedStatements[] = ['path' => $pdfPath, 'type' => 'FCP'];
                     $productLabels[] = "FCP";
                 }
 
@@ -647,10 +658,32 @@ public function sendSelected(Request $request)
                     'ejabea@koriassetmanagement.com',
                 ];
 
-                // ✅ Envoyer à releves@ avec l'email client dans le sujet
-                Mail::to('onboarding@koriassetmanagement.com')
-                    ->bcc($emailsCopie) 
-                    ->send(new ReleveClientMail($client, $pdfFiles, $periode));
+                $statementsByType = collect($generatedStatements)
+                    ->groupBy(function (array $statement) {
+                        return strtolower($statement['type']);
+                    });
+
+                foreach ($statementsByType as $statementType => $statements) {
+                    Mail::to(config('mail.statement_relay_to'))
+                        ->bcc($emailsCopie)
+                        ->send(new ReleveClientMail(
+                            $client,
+                            $statements->pluck('path')->all(),
+                            $periode,
+                            $statementType
+                        ));
+                }
+
+                foreach ($generatedStatements as $statementFile) {
+                    $this->statementVersioningService->recordSentPdf(
+                        $client,
+                        $statementFile['path'],
+                        $statementFile['type'],
+                        $statementDate,
+                        $periode,
+                        auth()->id()
+                    );
+                }
 
                 $reportData[] = [
                     'Client' => $client->name,
@@ -716,7 +749,7 @@ public function sendSelected(Request $request)
     }
 }
 
-private function genererPdfPmg(int $clientId): string
+public function genererPdfPmg(int $clientId): string
 {
     $client = User::findOrFail($clientId);
     $productController = app(ProductController::class);
@@ -1030,7 +1063,7 @@ private function genererPdfPmg(int $clientId): string
     }
 }
 
-private function genererPdfFcp(int $clientId): string
+public function genererPdfFcp(int $clientId): string
 {
     $client = User::findOrFail($clientId);
     $service = new \App\Services\InvestmentService();

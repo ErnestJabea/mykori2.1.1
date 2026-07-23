@@ -524,7 +524,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                                         <td class="px-5 py-4 text-center">
                                             @if(!($th->is_rachat_virtual ?? false))
                                                 <button type="button"
-                                                    onclick="openEditModal('{{ $th->id }}', '{{ $th->is_supp ? 'true' : 'false' }}', '{{ $th->ref }}', '{{ $th->amount }}', '{{ $th->vl_buy }}', '{{ \Carbon\Carbon::parse($th->date_validation ?? $th->created_at)->toDateString() }}', '{{ $th->date_echeance ?? '' }}', '{{ $th->product_id }}', '{{ optional($th->product)->products_category_id }}', '{{ $th->interest_management ?? '' }}', '{{ $th->op_type ?? 'souscription' }}')"
+                                                    onclick="openEditModal('{{ $th->id }}', '{{ $th->is_supp ? 'true' : 'false' }}', '{{ $th->ref }}', '{{ $th->amount }}', '{{ $th->vl_buy }}', '{{ \Carbon\Carbon::parse($th->date_validation ?? $th->created_at)->toDateString() }}', '{{ $th->date_echeance ?? '' }}', '{{ $th->product_id }}', '{{ optional($th->product)->products_category_id }}', '{{ $th->interest_management ?? '' }}', '{{ $th->op_type ?? 'souscription' }}', '{{ $th->movement_category ?? '' }}', '{{ rawurlencode($th->movement_comment ?? '') }}')"
                                                     class="w-8 h-8 rounded-lg bg-orange-100 text-orange-600 hover:bg-orange-200 transition-all flex items-center justify-center mx-auto">
                                                     <i class="las la-edit"></i>
                                                 </button>
@@ -678,7 +678,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
         class="ac-modal-overlay modalhide fixed inset-0 z-[100] bg-n900/50 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="modal-inner bg-white dark:bg-bg4 w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden">
             <div class="p-6 border-b border-n30 flex justify-between items-center bg-primary/10">
-                <h3 class="text-xl font-bold text-n900 dark:text-n0">Modifier la Transaction</h3>
+                <h3 id="edit-modal-title" class="text-xl font-bold text-n900 dark:text-n0">Modifier la Transaction</h3>
                 <button type="button" onclick="closeEditModal()"
                     class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white transition-all text-n500">
                     <i class="las la-times text-xl"></i>
@@ -690,6 +690,8 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                     <input type="hidden" name="trans_id" id="edit-trans-id">
                     <input type="hidden" name="is_supp" id="edit-is-supp">
                     <input type="hidden" name="op_type" id="edit-op-type">
+                    <input type="hidden" id="edit-movement-category">
+                    <input type="hidden" id="edit-movement-comment">
                     <input type="hidden" id="edit-prod-id">
                     <input type="hidden" id="edit-cat-id">
 
@@ -701,7 +703,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                             <input type="number" step="0.01" name="amount" id="edit-amount"
                                 class="w-full h-[50px] p-4 rounded-xl border border-n30 focus:border-primary outline-none text-sm font-bold bg-n10/50">
                         </div>
-                        <div>
+                        <div id="edit-vl-container">
                             <label
                                 class="block text-[10px] font-bold uppercase text-n500 mb-2 font-Inter tracking-widest italic flex items-center justify-between"
                                 id="edit-label-vl">
@@ -863,7 +865,7 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
         let pickerEditEch = null;
         let pickerEcheance = null;
 
-        function openEditModal(id, isSupp, ref, amount, vl, dateVal, dateEch, prodId, catId, interestMgmt = null, opType = 'souscription') {
+        function openEditModal(id, isSupp, ref, amount, vl, dateVal, dateEch, prodId, catId, interestMgmt = null, opType = 'souscription', movementCategory = '', movementCommentEncoded = '') {
             console.log("Opening edit modal for:", ref);
             const modal = $('#modal-edit-transaction');
             if (!modal.length) {
@@ -882,6 +884,17 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
             $('#edit-date-ech').val(dateEch);
             $('#edit-interest-management').val(interestMgmt || "");
             $('#edit-op-type').val(opType);
+            $('#edit-movement-category').val(movementCategory);
+            $('#edit-movement-comment').val(decodeURIComponent(movementCommentEncoded || ''));
+            $('#edit-modal-title').text(opType === 'rachat' ? 'Modifier le Rachat' : 'Modifier la Transaction');
+
+            if (opType === 'rachat') {
+                $('#edit-date-ech').parent().hide();
+                $('#edit-interest-container').addClass('hidden');
+                $('#edit-vl-container').toggle(catId == 1);
+            } else {
+                $('#edit-vl-container').show();
+            }
 
             // SYNC picker min date on open
             if (pickerEditEch && dateVal) {
@@ -904,9 +917,13 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                     window.pickerEditVal.setMin(null); // Pas de limite dans le passé pour les corrections
                 }
             } else { // PMG
-                $('#edit-date-ech').parent().show();
+                if (opType !== 'rachat') {
+                    $('#edit-date-ech').parent().show();
+                }
                 $('#edit-vl').prop('readonly', false).removeClass('bg-gray-100');
-                $('#edit-interest-container').removeClass('hidden');
+                if (opType !== 'rachat') {
+                    $('#edit-interest-container').removeClass('hidden');
+                }
 
                 // RESTRICTION DATE : Aujourd'hui (max) uniquement pour la modification
                 if (window.pickerEditVal) {
@@ -1086,10 +1103,23 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                 btn.disabled = true;
                 btn.textContent = "Mise à jour...";
 
+                const isRedemption = document.getElementById('edit-op-type').value === 'rachat';
+                const requestData = isRedemption ? {
+                    _token: this.querySelector('input[name="_token"]').value,
+                    op_id: document.getElementById('edit-trans-id').value,
+                    op_category: document.getElementById('edit-movement-category').value,
+                    amount: document.getElementById('edit-amount').value,
+                    vl_applied: document.getElementById('edit-vl').value,
+                    date_operation: document.getElementById('edit-date-val').value,
+                    comments: document.getElementById('edit-movement-comment').value
+                } : $(this).serialize();
+
                 $.ajax({
-                    url: "{{ route('customer.transaction.edit') }}",
+                    url: isRedemption
+                        ? "{{ route('financial-movement.edit') }}"
+                        : "{{ route('customer.transaction.edit') }}",
                     method: 'POST',
-                    data: $(this).serialize(),
+                    data: requestData,
                     success: function(data) {
                         resp.textContent = data.message;
                         resp.className =
@@ -1099,8 +1129,8 @@ bg-secondary1/5 dark:bg-bg3 my-products-page other-page',
                             window.location.reload();
                         }, 1000);
                     },
-                    error: function() {
-                        resp.textContent = "Erreur lors de la modification.";
+                    error: function(xhr) {
+                        resp.textContent = xhr.responseJSON?.message || "Erreur lors de la modification.";
                         resp.className =
                             "block bg-red-100 text-red-700 p-3 rounded-xl text-xs font-bold uppercase italic mt-4";
                         resp.classList.remove('hidden');

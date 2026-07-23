@@ -14,7 +14,11 @@ use Illuminate\Support\Facades\Log;
 use DateTime;
 use Illuminate\Support\Facades\Session;
 use App\Models\FinancialMovement;
+use App\Services\AssetManagerDashboardService;
+use App\Services\AssetManagerHistoryService;
+use App\Services\PmgValuationService;
 use App\Support\FinancialDecimal;
+use App\Support\PmgAlertRecipients;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
 
@@ -643,71 +647,18 @@ class ProductController extends Controller
 
 
 
-    public function indexAssetManager()
+    public function indexAssetManager(
+        AssetManagerDashboardService $dashboardService,
+        AssetManagerHistoryService $historyService
+    )
     {
-        $customers = User::where('role_id', '2')
-            ->with(['transactions' => fn($q) => $q->where('status', 'Succès'), 
-                    'transactionssupplementaires' => fn($q) => $q->where('status', 'Succès')])
-            ->orderBy('created_at', 'desc')
-            ->get();
         $currentDate = Carbon::now();
-        $globalAum = 0;
-        $globalTotalInvested = 0;
-        $activeClientsCount = 0;
-        $totalFcpAum = 0;
-        $totalPmgAum = 0;
-
-        foreach ($customers as $customer) {
-            $userTotalInvestiGross = 0;
-            $userTotalInvestiNet = 0;
-            $totalValorization = 0;
-            $allTrans = $customer->transactions->concat($customer->transactionssupplementaires);
-            $processedFcpProducts = [];
-            $activeFcpProducts = [];
-
-            foreach ($allTrans as $trans) {
-                if ($trans->status != 'Succès') continue;
-                $dateEcheance = Carbon::parse($trans->date_echeance);
-                if ($dateEcheance->gte($currentDate)) {
-                    $principalInitial = (float)($trans->amount);
-                    $fees = (float)($trans->fees ?? 0);
-                    
-                    $userTotalInvestiGross += $principalInitial;
-                    $userTotalInvestiNet += ($principalInitial - $fees);
-
-                    if ($trans->product->products_category_id == 2) {
-                        $valo = (float)$this->calculatePMGValorization($trans, $currentDate);
-                        $totalValorization += $valo;
-                        $totalPmgAum += $valo;
-                    } else {
-                        if (!in_array($trans->product_id, $processedFcpProducts)) {
-                            $fcpData = $this->getFcpPortfolioValue($customer->id, $trans->product_id, $currentDate);
-                            $totalValorization += (float)$fcpData['valorisation'];
-                            $totalFcpAum += (float)$fcpData['valorisation'];
-                            $processedFcpProducts[] = $trans->product_id;
-                        }
-                    }
-                }
-            }
-
-            if ($userTotalInvestiGross > 0) {
-                $activeClientsCount++;
-            }
-            $globalTotalInvested += $userTotalInvestiGross;
-            $globalAum += $totalValorization;
-
-            $customer->total_capital = $userTotalInvestiGross;
-            $customer->total_capital_net = $userTotalInvestiNet;
-            $customer->portefeuille_total = $totalValorization;
-            $customer->total_interets = max(0, $totalValorization - $userTotalInvestiNet);
-            $customer->product_count = $allTrans->count();
-            $customer->has_fcp = $customer->transactions->where('product.products_category_id', 1)->count() > 0;
-        }
-
-        $globalTotalInterests = 0;
-        foreach ($customers as $customer) {
-            $globalTotalInterests += $customer->total_interets;
-        }
+        $customers = User::where('role_id', 2)->get(['id']);
+        $dashboardMetrics = $dashboardService->build(
+            $currentDate,
+            fn ($transaction, Carbon $asOf) => $this->calculatePMGValorization($transaction, $asOf)
+        );
+        $dashboardHistory = $historyService->build($currentDate);
 
         $fcpProductsList = Product::where('products_category_id', 1)
             ->where('status', 1)
@@ -719,46 +670,21 @@ class ProductController extends Controller
                 ->get()
                 ->sortBy('date_vl');
         }
-        $startOfMonth = $currentDate->copy()->startOfMonth()->toDateString();
-        $endOfMonth = $currentDate->copy()->endOfMonth()->toDateString();
-
-        $expiringPmgCount = Transaction::where('status', 'Succès')
-            ->whereHas('product', fn($q) => $q->where('products_category_id', 2))
-            ->whereBetween('date_echeance', [$startOfMonth, $endOfMonth])
-            ->count();
-            
-        $expiringPmgSuppCount = TransactionSupplementaire::where('status', 'Succès')
-            ->whereHas('product', fn($q) => $q->where('products_category_id', 2))
-            ->whereBetween('date_echeance', [$startOfMonth, $endOfMonth])
-            ->count();
-
-        $totalExpiringPmgThisMonth = $expiringPmgCount + $expiringPmgSuppCount;
-
-        $anniversaryPmgCount = Transaction::where('status', 'Succès')
-            ->whereHas('product', fn($q) => $q->where('products_category_id', 2))
-            ->whereMonth('date_validation', $currentDate->month)
-            ->whereYear('date_validation', '<', $currentDate->year)
-            ->count();
-            
-        $anniversaryPmgSuppCount = TransactionSupplementaire::where('status', 'Succès')
-            ->whereHas('product', fn($q) => $q->where('products_category_id', 2))
-            ->whereMonth('date_validation', $currentDate->month)
-            ->whereYear('date_validation', '<', $currentDate->year)
-            ->count();
-
-        $totalAnniversariesThisMonth = $anniversaryPmgCount + $anniversaryPmgSuppCount;
 
         return view('front-end.asset-manager', [
             'customers' => $customers,
-            'globalAum' => $globalAum,
-            'globalTotalInvested' => $globalTotalInvested,
-            'globalTotalInterests' => $globalTotalInterests,
-            'activeClientsCount' => $activeClientsCount,
+            'dashboardMetrics' => $dashboardMetrics,
+            'dashboardHistory' => $dashboardHistory,
+            'globalAum' => $dashboardMetrics['active_valuation'],
+            'globalTotalInvested' => $dashboardMetrics['active_investment'],
+            'globalTotalInterests' => $dashboardMetrics['active_performance'],
+            'activeClientsCount' => $dashboardMetrics['active_clients_count'],
             'fcpProducts' => $fcpProductsList,
-            'totalFcpAum' => $totalFcpAum,
-            'totalPmgAum' => $totalPmgAum,
-            'totalExpiringPmgThisMonth' => $totalExpiringPmgThisMonth,
-            'totalAnniversariesThisMonth' => $totalAnniversariesThisMonth
+            'totalFcpAum' => $dashboardMetrics['fcp_aum'],
+            'totalPmgAum' => $dashboardMetrics['pmg_aum'],
+            'totalExpiringPmgThisMonth' => $dashboardMetrics['expiring_pmg_count'],
+            'totalAnniversariesThisMonth' => $dashboardMetrics['anniversary_pmg_count'],
+            'pmgAlertConfiguration' => PmgAlertRecipients::resolve(),
         ]);
     }
 
@@ -768,100 +694,8 @@ class ProductController extends Controller
      */
     public function calculatePMGValorization($trans, $refDate)
     {
-    $targetDate = Carbon::parse($refDate)->min(Carbon::parse($trans->date_echeance));
-    $rate = (float)$trans->vl_buy / 100;
-
-    $isSupplementaire = ($trans instanceof \App\Models\TransactionSupplementaire);
-    $parentId = $isSupplementaire ? $trans->transaction_id : $trans->id;
-
-    $totalRedemption = DB::table('financial_movements')
-        ->where('transaction_id', $parentId)
-        ->where('type', 'rachat_total')
-        ->where('date_operation', '<=', $targetDate->toDateString())
-        ->exists();
-
-    if ($totalRedemption) return 0;
-
-    $lastMovementQuery = DB::table('financial_movements')
-        ->where('transaction_id', $parentId)
-        ->where('date_operation', '<=', $targetDate->toDateString());
-
-    if ($isSupplementaire) {
-        $lastMovementQuery->where('type', 'capitalisation_interets')
-            ->where('comments', 'LIKE', "%versement complémentaire ID {$trans->id}%");
-    } else {
-        $lastMovementQuery->whereIn('type', ['capitalisation_interets', 'rachat_partiel'])
-            ->where(function($q) {
-                $q->where('comments', 'NOT LIKE', "%versement complémentaire ID %")
-                  ->orWhereNull('comments');
-            });
+        return app(PmgValuationService::class)->calculate($trans, $refDate);
     }
-
-    $lastMovement = $lastMovementQuery->orderBy('date_operation', 'desc')
-        ->orderBy('id', 'desc')
-        ->first();
-
-    if ($lastMovement && ($lastMovement->type === 'rachat_total' || (float)$lastMovement->capital_after <= 0)) {
-        return 0;
-    }
-
-    $baseCapital = $this->getPmgOriginalCapital($parentId, $trans, $isSupplementaire);
-    $startDate = Carbon::parse($trans->date_validation);
-
-    if ($lastMovement) {
-        $baseCapital = (float)$lastMovement->capital_after;
-        $startDate = Carbon::parse($lastMovement->date_operation);
-    } else {
-        // Si aucun mouvement n'a eu lieu avant la date cible, mais qu'il y a des mouvements enregistrés plus tard,
-        // le capital initial est le capital_before du tout premier mouvement de cette transaction.
-        $earliestMovementQuery = DB::table('financial_movements')
-            ->where('transaction_id', $parentId);
-
-        if ($isSupplementaire) {
-            $earliestMovementQuery->where('comments', 'LIKE', "%versement complémentaire ID {$trans->id}%");
-        } else {
-            $earliestMovementQuery->where(function($q) {
-                $q->where('comments', 'NOT LIKE', "%versement complémentaire ID %")
-                  ->orWhereNull('comments');
-            });
-        }
-
-        $earliestMovement = $earliestMovementQuery->orderBy('date_operation', 'asc')->first();
-        if ($earliestMovement) {
-            $baseCapital = $earliestMovement->type === 'souscription_initiale'
-                ? (float)$earliestMovement->capital_after
-                : (float)$earliestMovement->capital_before;
-        }
-    }
-
-    // 2. Calcul des intérêts courus (Base 360 stricte)
-    $totalInterest = 0;
-    if ($targetDate->gt($startDate)) {
-        $days = $this->calculate30_360Days($startDate, $targetDate);
-        $totalInterest = ($baseCapital * $rate * $days) / 360;
-    }
-
-    $payoutsQuery = DB::table('financial_movements')
-        ->where('transaction_id', $parentId)
-        ->whereIn('type', self::PMG_INTEREST_PAYOUT_TYPES)
-        ->where('date_operation', '<=', $targetDate->toDateString());
-
-    $this->excludeLiquidityInterestPayments($payoutsQuery);
-
-    if ($isSupplementaire) {
-        $payoutsQuery->where('comments', 'LIKE', "%versement complémentaire ID {$trans->id}%");
-    } else {
-        $payoutsQuery->where(function($q) {
-            $q->where('comments', 'NOT LIKE', "%versement complémentaire ID %")
-              ->orWhereNull('comments');
-        });
-    }
-
-    $payouts = $payoutsQuery->sum('amount') ?? 0;
-
-    // Valorisation = (Capital à l'instant T - (Somme des intérêts déjà payés/précomptés)) + Intérêts courus du cycle
-    return round(($baseCapital - $payouts) + $totalInterest, 0);
-}
 
     /**
      * Version simplifiée pour le Client (Calcul linéaire Base 360)
@@ -1388,21 +1222,14 @@ class ProductController extends Controller
         $isSupp = $request->input('is_supp') == 'true';
         $opType = $request->input('op_type') ?? 'souscription';
 
-        // Si c'est un rachat qui vient d'un mouvement direct (ID virtuel), on cherche la transaction liée
-        if ($opType == 'rachat') {
-            // On essaie de trouver une transaction de type rachat ou liée au mouvement
-            $item = Transaction::where('id', $id)->first();
-            if (!$item) {
-                // Si on ne trouve pas par ID direct, c'est peut-être un mouvement FCP/PMG qui n'a pas encore de transaction
-                // Dans ce cas, on crée une transaction de rachat "fantôme" pour porter la validation
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Ce rachat est un mouvement historique direct et ne peut pas être modifié via ce formulaire. Contactez l\'administrateur.'
-                ], 422);
-            }
-        } else {
-            $item = $isSupp ? TransactionSupplementaire::findOrFail($id) : Transaction::findOrFail($id);
+        if ($opType === 'rachat') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Un rachat doit etre modifie depuis son mouvement financier.',
+            ], 422);
         }
+
+        $item = $isSupp ? TransactionSupplementaire::findOrFail($id) : Transaction::findOrFail($id);
 
         $oldAmount = $item->amount;
         $wasValidated = $item->is_compliance_validated == 1;
@@ -1478,7 +1305,7 @@ class ProductController extends Controller
             ->get()
             ->map(function($r) {
                 return (object)[
-                    'id' => $r->transaction_id ?? $r->id,
+                    'id' => $r->id,
                     'ref' => 'RACHAT-FCP-'.$r->id,
                     'amount' => abs($r->amount_xaf),
                     'vl_buy' => $r->vl_applied,
@@ -1488,7 +1315,9 @@ class ProductController extends Controller
                     'product' => \App\Models\Product::find($r->product_id),
                     'is_supp' => false,
                     'op_type' => 'rachat',
-                    'is_rachat_virtual' => ($r->transaction_id == null)
+                    'movement_category' => 'FCP',
+                    'movement_comment' => $r->comment ?? '',
+                    'is_rachat_virtual' => false,
                 ];
             });
 
@@ -1500,7 +1329,7 @@ class ProductController extends Controller
             ->get()
             ->map(function($r) {
                 return (object)[
-                    'id' => $r->trans_id ?? $r->id,
+                    'id' => $r->id,
                     'ref' => 'RACHAT-PMG-'.$r->id,
                     'amount' => abs($r->amount),
                     'vl_buy' => 0, 
@@ -1510,7 +1339,9 @@ class ProductController extends Controller
                     'product' => \App\Models\Product::find($r->product_id),
                     'is_supp' => false,
                     'op_type' => 'rachat',
-                    'is_rachat_virtual' => false
+                    'movement_category' => 'PMG',
+                    'movement_comment' => $r->comments ?? '',
+                    'is_rachat_virtual' => false,
                 ];
             });
 

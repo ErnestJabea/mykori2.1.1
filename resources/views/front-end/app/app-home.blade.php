@@ -22,6 +22,14 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;display=swap" />
     <link rel="stylesheet" href="{{ asset('css/line-awesome/css/line-awesome.min.css') }}" />
     <link rel="stylesheet" href="{{ asset('css/style.css') }}" />
+    <!-- PWA Meta & Manifest -->
+    <meta name="theme-color" content="#0F766E" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="MyKori" />
+    <link rel="manifest" href="{{ asset('manifest.json') }}" />
+    <link rel="apple-touch-icon" href="{{ asset('assets/images/pwa/icon-192.png') }}" />
+
     <title>{{ isset($title) ? $title . ' | ' . config('app.name') : config('app.name') }}</title>
 
 <body @unless (empty($body_class)) class="{{ $body_class }}" @endunless>
@@ -39,6 +47,18 @@
     @yield('content')
 
     @include('front-end/partials/footer')
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register("{{ asset('sw.js') }}").then(function(reg) {
+                    console.log('MyKori PWA ServiceWorker registered:', reg.scope);
+                }).catch(function(err) {
+                    console.warn('MyKori PWA ServiceWorker registration failed:', err);
+                });
+            });
+        }
+    </script>
 
     @yield('script_front_end')
 

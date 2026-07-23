@@ -1,5 +1,5 @@
 <!-- Category Tabs -->
-<div class="flex items-center gap-4 mb-6 border-b border-n30">
+<div class="flex items-center gap-4 mb-6 border-b border-n30 overflow-x-auto whitespace-nowrap pb-2">
     <a href="{{ route('customer', ['search' => $search ?? '', 'category' => 'all', 'filter' => '', 'status' => 'all', 'sort_by' => 'name', 'order' => 'asc', 'page' => 1]) }}" 
        class="ajax-tab px-6 py-3 text-sm font-bold border-b-2 transition-all duration-300 {{ ($categoryFilter ?? 'all') == 'all' ? 'border-primary text-primary' : 'border-transparent opacity-50 hover:opacity-100' }}">
         TOUS LES CLIENTS

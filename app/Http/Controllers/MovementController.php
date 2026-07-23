@@ -735,72 +735,167 @@ class MovementController extends Controller
 
     public function editMovement(Request $request)
     {
-        $id = $request->input('op_id');
-        $category = $request->input('op_category');
-        $amount = $request->input('amount');
-        $dateOp = $request->input('date_operation');
-        $comment = $request->input('comments');
+        $validated = $request->validate([
+            'op_id' => 'required|integer|min:1',
+            'op_category' => 'required|in:PMG,FCP',
+            'amount' => 'required|numeric|min:0.01',
+            'date_operation' => 'required|date|before_or_equal:today',
+            'vl_applied' => 'nullable|numeric|min:0',
+            'comments' => 'nullable|string|max:1000',
+        ]);
 
-        if ($category === 'PMG') {
-            $mvt = DB::table('financial_movements')->where('id', $id)->first();
-            if (!$mvt) {
-                return response()->json(['status' => 'error', 'message' => 'Mouvement PMG introuvable.'], 404);
-            }
+        try {
+            return DB::transaction(function () use ($request, $validated) {
+                $id = (int) $validated['op_id'];
+                $category = $validated['op_category'];
+                $date = Carbon::parse($validated['date_operation']);
 
-            // Ensure date has a time part
-            if (strlen($dateOp) === 10) {
-                $origTime = date('H:i:s', strtotime($mvt->date_operation));
-                $dateOp .= ' ' . $origTime;
-            }
+                if ($category === 'PMG') {
+                    $mvt = DB::table('financial_movements')->where('id', $id)->lockForUpdate()->first();
+                    if (!$mvt) {
+                        abort(404, 'Mouvement PMG introuvable.');
+                    }
 
-            DB::table('financial_movements')->where('id', $id)->update([
-                'amount' => $amount,
-                'date_operation' => $dateOp,
-                'comments' => $comment,
-                'updated_at' => now(),
-            ]);
+                    $transaction = Transaction::where('id', $mvt->transaction_id)->lockForUpdate()->firstOrFail();
+                    $isRedemption = in_array($mvt->type, ['rachat_partiel', 'rachat_total'], true);
+                    if ($date->lt(Carbon::parse($transaction->date_validation))) {
+                        throw new \DomainException('La date du rachat ne peut pas preceder la date de valeur du placement.');
+                    }
+                    if ($isRedemption && $transaction->date_echeance && $date->gt(Carbon::parse($transaction->date_echeance))) {
+                        throw new \DomainException('La date du rachat ne peut pas depasser la date d echeance du placement.');
+                    }
 
-            $this->recalculatePMGMovements($mvt->transaction_id);
+                    $dateOp = $date->format('Y-m-d') . ' ' . Carbon::parse($mvt->date_operation)->format('H:i:s');
+                    $comment = $request->has('comments') ? ($validated['comments'] ?? null) : $mvt->comments;
+                    $oldValues = [
+                        'amount' => $mvt->amount,
+                        'date_operation' => $mvt->date_operation,
+                        'comments' => $mvt->comments,
+                    ];
 
+                    DB::table('financial_movements')->where('id', $id)->update([
+                        'amount' => FinancialDecimal::money($validated['amount']),
+                        'date_operation' => $dateOp,
+                        'comments' => $comment,
+                        'updated_at' => now(),
+                    ]);
+
+                    $this->recalculatePMGMovements($mvt->transaction_id);
+                    $updated = DB::table('financial_movements')->where('id', $id)->first();
+
+                    if ($isRedemption) {
+                        if ((float) $updated->capital_after < -0.005) {
+                            throw new \DomainException('Le montant du rachat depasse la valorisation disponible a cette date.');
+                        }
+
+                        $movementType = (float) $updated->capital_after <= 0.005
+                            ? 'rachat_total'
+                            : 'rachat_partiel';
+                        DB::table('financial_movements')->where('id', $id)->update(['type' => $movementType]);
+                    }
+
+                    \App\Models\UserActivityLog::log(
+                        'MODIFICATION_MOUVEMENT_PMG',
+                        $transaction,
+                        "Modification du mouvement PMG #{$id} sans suppression de l historique.",
+                        [
+                            'before' => $oldValues,
+                            'after' => [
+                                'amount' => FinancialDecimal::money($validated['amount']),
+                                'date_operation' => $dateOp,
+                                'comments' => $comment,
+                            ],
+                        ]
+                    );
+
+                    return response()->json([
+                        'status' => 'success',
+                        'message' => $isRedemption
+                            ? 'Rachat PMG mis a jour et soldes recalcules.'
+                            : 'Operation PMG mise a jour et soldes recalcules.',
+                    ]);
+                }
+
+                $mvt = DB::table('fcp_movements')->where('id', $id)->lockForUpdate()->first();
+                if (!$mvt) {
+                    abort(404, 'Mouvement FCP introuvable.');
+                }
+
+                $vlEntry = DB::table('asset_values')
+                    ->where('product_id', $mvt->product_id)
+                    ->where('date_vl', '<=', $date->toDateString())
+                    ->orderByDesc('date_vl')
+                    ->first();
+                if (!$vlEntry || FinancialDecimal::of($vlEntry->vl)->isLessThanOrEqualTo('0')) {
+                    throw new \DomainException('Aucune valeur liquidative valide n existe a cette date.');
+                }
+
+                $amount = FinancialDecimal::money($validated['amount']);
+                $vlApplied = FinancialDecimal::vl($vlEntry->vl);
+                $isRachat = str_contains(strtolower($mvt->type), 'rachat') || (float) $mvt->nb_parts_change < 0;
+                $nbPartsChange = FinancialDecimal::partsFromAmount($amount, $vlApplied);
+                if ($isRachat) {
+                    $nbPartsChange = FinancialDecimal::of($nbPartsChange)->abs()->negated()->__toString();
+                }
+
+                $dateOp = $date->format('Y-m-d') . ' ' . Carbon::parse($mvt->date_operation)->format('H:i:s');
+                $comment = $request->has('comments') ? ($validated['comments'] ?? null) : $mvt->comment;
+                $oldValues = [
+                    'amount_xaf' => $mvt->amount_xaf,
+                    'vl_applied' => $mvt->vl_applied,
+                    'nb_parts_change' => $mvt->nb_parts_change,
+                    'date_operation' => $mvt->date_operation,
+                    'comment' => $mvt->comment,
+                ];
+
+                DB::table('fcp_movements')->where('id', $id)->update([
+                    'amount_xaf' => $amount,
+                    'vl_applied' => $vlApplied,
+                    'nb_parts_change' => $nbPartsChange,
+                    'date_operation' => $dateOp,
+                    'comment' => $comment,
+                    'updated_at' => now(),
+                ]);
+
+                $this->recalculateFCPMovements($mvt->user_id, $mvt->product_id);
+                $minimumParts = DB::table('fcp_movements')
+                    ->where('user_id', $mvt->user_id)
+                    ->where('product_id', $mvt->product_id)
+                    ->min('nb_parts_total');
+
+                if (FinancialDecimal::of($minimumParts)->isLessThan('0')) {
+                    throw new \DomainException('Le rachat depasse le nombre de parts disponible a cette date.');
+                }
+
+                \App\Models\UserActivityLog::log(
+                    'MODIFICATION_MOUVEMENT_FCP',
+                    null,
+                    "Modification du mouvement FCP #{$id} sans suppression de l historique.",
+                    [
+                        'movement_id' => $id,
+                        'user_id' => $mvt->user_id,
+                        'product_id' => $mvt->product_id,
+                        'before' => $oldValues,
+                        'after' => [
+                            'amount_xaf' => $amount,
+                            'vl_applied' => $vlApplied,
+                            'nb_parts_change' => $nbPartsChange,
+                            'date_operation' => $dateOp,
+                            'comment' => $comment,
+                        ],
+                    ]
+                );
+
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Rachat FCP mis a jour et parts recalculees.',
+                ]);
+            });
+        } catch (\DomainException $exception) {
             return response()->json([
-                'status' => 'success',
-                'message' => 'Opération PMG mise à jour et soldes recalculés.'
-            ]);
-        } else {
-            $mvt = DB::table('fcp_movements')->where('id', $id)->first();
-            if (!$mvt) {
-                return response()->json(['status' => 'error', 'message' => 'Mouvement FCP introuvable.'], 404);
-            }
-
-            $amount = FinancialDecimal::money($amount);
-            $vlApplied = (string) $request->input('vl_applied', $mvt->vl_applied);
-
-            $isRachat = str_contains(strtolower($mvt->type), 'rachat') || $mvt->nb_parts_change < 0;
-            $nbPartsChange = FinancialDecimal::partsFromAmount($amount, $vlApplied);
-            if ($isRachat) {
-                $nbPartsChange = FinancialDecimal::of($nbPartsChange)->abs()->negated()->__toString();
-            }
-
-            if (strlen($dateOp) === 10) {
-                $origTime = date('H:i:s', strtotime($mvt->date_operation));
-                $dateOp .= ' ' . $origTime;
-            }
-
-            DB::table('fcp_movements')->where('id', $id)->update([
-                'amount_xaf' => $amount,
-                'vl_applied' => $vlApplied,
-                'nb_parts_change' => $nbPartsChange,
-                'date_operation' => $dateOp,
-                'comment' => $comment,
-                'updated_at' => now(),
-            ]);
-
-            $this->recalculateFCPMovements($mvt->user_id, $mvt->product_id);
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Opération FCP mise à jour et parts recalculées.'
-            ]);
+                'status' => 'error',
+                'message' => $exception->getMessage(),
+            ], 422);
         }
     }
 

@@ -12,15 +12,15 @@ class AccessControlService
      */
     protected static $rolePermissions = [
         1 => ['*'], // Super Admin : tout accès
-        3 => ['view_asset_manager', 'manage_customers'], // KAM
-        4 => ['view_asset_manager', 'manage_customers'], // Manager
-        5 => ['view_compliance', 'validate_compliance'], // Compliance
-        6 => ['view_backoffice', 'validate_backoffice'], // Backoffice
-        7 => ['view_dg', 'validate_dg'], // Directeur Général
+        3 => ['view_asset_manager', 'manage_customers', 'view_control_adjustments'], // KAM
+        4 => ['view_asset_manager', 'manage_customers', 'view_control_adjustments'], // Manager
+        5 => ['view_compliance', 'validate_compliance', 'view_control_adjustments'], // Compliance
+        6 => ['view_backoffice', 'validate_backoffice', 'view_control_adjustments'], // Backoffice
+        7 => ['view_dg', 'validate_dg', 'view_control_adjustments'], // Directeur Général
         8 => [
             'view_admin_frontend', 
             'manage_users', 
-            'manage_menus', // Nouveau
+            'manage_menus',
             'view_audit_logs', 
             'export_logs', 
             'view_asset_manager',
@@ -28,7 +28,8 @@ class AccessControlService
             'view_backoffice',
             'view_dg',
             'view_crm',
-            'manage_prospects'
+            'manage_prospects',
+            'view_control_adjustments'
         ], // Admin Frontend : Accès complet pour supervision
         9 => ['view_crm', 'manage_prospects'], // Commercial / CRM
     ];
