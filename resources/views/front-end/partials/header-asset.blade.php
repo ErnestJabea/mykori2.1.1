@@ -169,6 +169,15 @@
             width: 100% !important;
         }
     }
+
+    /* Force pure white text on dark mode sidebar menus */
+    body.dark #sidebar .menu-title,
+    body.dark #sidebar a:not(.btn-logout) {
+        color: #ffffff !important;
+    }
+    body.dark #sidebar .menu-heading {
+        color: #cbd5e1 !important;
+    }
 </style>
 
 <script>
