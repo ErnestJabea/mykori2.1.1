@@ -7987,34 +7987,72 @@ tr.line-customer a {
 }
 
 /* ========================================================
-   GLOBAL PURE WHITE TEXT OVERRIDES FOR DARK MODE (PROJECT-WIDE)
+   MASTER PURE WHITE TEXT OVERRIDES FOR DARK MODE (ALL VIEWS)
    ======================================================== */
 body.dark,
+body.dark * {
+    --n700: #FFFFFF;
+    --n800: #FFFFFF;
+    --n900: #FFFFFF;
+}
+
+/* Force pure white text on all headings, titles, paragraphs, spans, labels, and table cells in dark mode */
 body.dark h1, body.dark h2, body.dark h3, body.dark h4, body.dark h5, body.dark h6,
-body.dark p, body.dark span, body.dark div:not(.bg-primary):not(.btn), body.dark td, body.dark th,
-body.dark label, body.dark input, body.dark select, body.dark textarea,
-body.dark li, body.dark a:not(.text-primary):not(.text-danger):not(.btn-logout), body.dark strong, body.dark b, body.dark small,
+body.dark p, body.dark span, body.dark td, body.dark th, body.dark label,
+body.dark input, body.dark select, body.dark textarea, body.dark li,
+body.dark strong, body.dark b, body.dark small,
 body.dark .menu-title, body.dark .menu-heading, body.dark .menu-btn,
-body.dark .box *, body.dark .table *, body.dark .card * {
+body.dark .text-n700, body.dark .text-n800, body.dark .text-n900, body.dark .text-black,
+body.dark .text-slate-700, body.dark .text-slate-800, body.dark .text-slate-900,
+body.dark .text-gray-700, body.dark .text-gray-800, body.dark .text-gray-900 {
     color: #FFFFFF !important;
 }
 
+/* Ensure links in dark mode are pure white unless explicitly styled with colored accent */
+body.dark a:not(.text-primary):not(.text-secondary1):not(.text-danger):not(.text-success):not(.btn-logout):not(.bg-primary):not(.bg-secondary1):not(.bg-success):not(.bg-danger) {
+    color: #FFFFFF !important;
+}
+
+/* Secondary / Muted subtexts in dark mode: crisp silver-white */
 body.dark .menu-heading,
 body.dark .text-n500,
+body.dark .text-n200,
+body.dark .text-n100,
+body.dark .opacity-50,
+body.dark .opacity-60,
 body.dark .opacity-70,
-body.dark .opacity-50 {
-    color: #CBD5E1 !important;
+body.dark small,
+body.dark .text-xs,
+body.dark .text-[10px],
+body.dark .text-[9px] {
+    color: #E2E8F0 !important;
 }
 
+/* Table headers & cells in dark mode */
 body.dark table th {
     color: #FFFFFF !important;
-    background-color: #181F2C !important;
+    background-color: #1E293B !important;
+    border-color: #334155 !important;
 }
 
 body.dark table td {
     color: #FFFFFF !important;
+    border-color: #334155 !important;
 }
 
+body.dark table tr:hover {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Card boxes & containers in dark mode */
+body.dark .box,
+body.dark .bg-white,
+body.dark .bg-n0 {
+    background-color: #181F2C !important;
+    border-color: #334155 !important;
+}
+
+/* Form input, select, search elements, and placeholders in dark mode */
 body.dark input,
 body.dark select,
 body.dark textarea {
@@ -8023,18 +8061,51 @@ body.dark textarea {
     border-color: #475569 !important;
 }
 
+body.dark input::placeholder,
+body.dark textarea::placeholder {
+    color: #94A3B8 !important;
+}
+
 body.dark select option {
     background-color: #0F172A !important;
     color: #FFFFFF !important;
 }
 
+/* Colored accent texts & icons in dark mode */
 body.dark .text-primary,
-body.dark i.text-primary {
+body.dark i.text-primary,
+body.dark .highlight-text {
     color: #EAB308 !important;
+}
+
+body.dark .text-secondary1,
+body.dark i.text-secondary1 {
+    color: #60A5FA !important;
 }
 
 body.dark .text-danger,
 body.dark i.text-danger,
 body.dark .btn-logout {
     color: #F87171 !important;
+}
+
+body.dark .text-success,
+body.dark i.text-success {
+    color: #4ADE80 !important;
+}
+
+/* Pagination links in dark mode */
+body.dark .pagination a,
+body.dark .pagination span,
+body.dark .ajax-pagination a,
+body.dark .ajax-pagination span {
+    color: #FFFFFF !important;
+    background-color: #1E293B !important;
+    border-color: #334155 !important;
+}
+
+body.dark .pagination .active span,
+body.dark .ajax-pagination .active span {
+    background-color: #EAB308 !important;
+    color: #FFFFFF !important;
 }

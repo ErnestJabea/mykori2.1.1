@@ -32,13 +32,13 @@
 
     <!-- Card 1: Total Investi -->
     <a href="{{ $cardUrl(['category' => 'all', 'filter' => '', 'status' => 'active', 'sort_by' => 'total_capital', 'order' => 'desc']) }}"
-       class="ajax-card flex-1 min-w-[200px] box bg-white dark:bg-bg3 border border-n30 p-4 rounded-2xl flex items-center gap-3 hover:border-primary/50 duration-300 transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
-        <div class="w-10 h-10 rounded-full bg-n30 flex items-center justify-center text-n500 shrink-0">
+       class="ajax-card flex-1 min-w-[200px] box bg-white dark:bg-bg3 border border-n30 dark:border-n700 p-4 rounded-2xl flex items-center gap-3 hover:border-primary/50 duration-300 transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+        <div class="w-10 h-10 rounded-full bg-n30 dark:bg-n700 flex items-center justify-center text-n500 dark:text-white shrink-0">
             <i class="las la-wallet text-xl"></i>
         </div>
         <div>
-            <p class="text-[9px] uppercase font-bold opacity-50 mb-1 leading-none">Capital Investi</p>
-            <h4 class="text-base font-bold mb-0 text-n700 leading-none whitespace-nowrap">
+            <p class="text-[10px] uppercase font-bold opacity-80 text-n500 dark:text-n30 mb-1 leading-none">Capital Investi</p>
+            <h4 class="text-base font-bold mb-0 text-n700 dark:text-white leading-none whitespace-nowrap">
                 {{ number_format($globalTotalInvesti, 0, ' ', ' ') }}</h4>
         </div>
     </a>
@@ -96,9 +96,9 @@
     </a>
 </div>
 
-<div class="box col-span-12 shadow-sm border border-n30 p-6">
-    <div class="bb-dashed mb-4 flex flex-wrap items-center justify-between gap-4 pb-4 lg:mb-6 lg:pb-6">
-        <h4 class="h4 flex items-center gap-2" id="table-title">
+<div class="box col-span-12 shadow-sm border border-n30 dark:border-n700 bg-white dark:bg-bg3 p-6 rounded-2xl">
+    <div class="bb-dashed mb-4 flex flex-wrap items-center justify-between gap-4 pb-4 lg:mb-6 lg:pb-6 dark:border-n700">
+        <h4 class="h4 flex items-center gap-2 text-n700 dark:text-white font-bold" id="table-title">
             <i class="las la-users text-primary"></i> 
             @if(($categoryFilter ?? 'all') == '1')
                 Récapitulatif des Portefeuilles FCP
@@ -110,7 +110,7 @@
             @if(($statusFilter ?? 'all') == 'active')
                 <span class="rounded-full bg-secondary1/10 px-3 py-1 text-xs font-bold text-secondary1">Actifs</span>
             @elseif(($statusFilter ?? 'all') == 'inactive')
-                <span class="rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-500">Inactifs</span>
+                <span class="rounded-full bg-red-100 dark:bg-red-900/30 px-3 py-1 text-xs font-bold text-red-500">Inactifs</span>
             @endif
         </h4>
 
@@ -124,7 +124,7 @@
                 @if(isset($statusFilter)) <input type="hidden" name="status" value="{{ $statusFilter }}"> @endif
                 
                 <input type="text" name="search" id="ajax-search" value="{{ $search ?? '' }}" placeholder="Chercher un client..."
-                    class="w-64 rounded-full border border-n30 bg-secondary1/5 px-6 py-2 dark:border-n500 dark:bg-bg3 focus:border-primary focus:ring-1 focus:ring-primary outline-none text-sm">
+                    class="w-64 rounded-full border border-n30 bg-secondary1/5 px-6 py-2 dark:border-n500 dark:bg-bg4 text-n700 dark:text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none text-sm">
                 <button type="submit"
                     class="absolute right-1 top-1/2 -translate-y-1/2 bg-primary text-white p-1 rounded-full w-8 h-8 flex items-center justify-center hover:bg-primary/90 transition-all">
                     <i class="las la-search text-base"></i>
