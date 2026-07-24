@@ -77,8 +77,8 @@
                 <div class="box bg-white dark:bg-bg3 rounded-2xl border border-n30 shadow-sm overflow-hidden">
                     <div class="p-6 border-b border-n30 flex justify-between items-center bg-n10/30">
                         <h4 class="h4 flex items-center gap-2">
-                            <i class="las la-exchange-alt text-primary font-bold"></i> Flux de Souscriptions à Valider
-                            (Initiale & Complémentaire)
+                            <i class="las la-exchange-alt text-primary font-bold"></i> Flux de Souscriptions à Valider (Groupe KAM)
+                            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary uppercase ml-2">Initiés par le Groupe KAM</span>
                         </h4>
                     </div>
                     <div class="overflow-x-auto">

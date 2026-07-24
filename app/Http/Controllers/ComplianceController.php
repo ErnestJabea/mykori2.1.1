@@ -36,18 +36,41 @@ class ComplianceController extends Controller
     {
         $today = Carbon::now();
         
+        // Identifiants des utilisateurs du Groupe KAM (Asset Manager & KAM : role_id 3, 4, 1, 8)
+        $kamUserIds = User::whereIn('role_id', [1, 3, 4, 8])->pluck('id')->toArray();
+
+        // Identifiants des transactions dont les flux ont été initiés par le groupe KAM (via logs d'activité)
+        $kamTransactionIds = \App\Models\UserActivityLog::whereIn('user_id', $kamUserIds)
+            ->whereIn('action', ['Nouvelle Souscription', 'Nouvelle Transaction', 'Nouveau Versement', 'MODIFICATION_OPERATION', 'Creation Client'])
+            ->pluck('target_id')
+            ->filter()
+            ->unique()
+            ->toArray();
+
         // Statistiques globales
         $totalClients = User::where('role_id', 2)->count();
         $totalTransactions = Transaction::where('status', 'Succès')->count();
         
-        // Mouvements à valider (unifiés)
+        // Mouvements à valider (unifiés) - Filtrés exclusivement pour le groupe KAM
         $recentTransactions = Transaction::with(['user', 'product'])
             ->where('status', 'En attente')
+            ->where(function($q) use ($kamTransactionIds, $kamUserIds) {
+                $q->whereIn('id', $kamTransactionIds)
+                  ->orWhereHas('user', function($u) use ($kamUserIds) {
+                      $u->whereIn('commercial_id', $kamUserIds);
+                  });
+            })
             ->get()
             ->map(function($t) { $t->type_flux = 'main'; return $t; });
 
         $recentSupps = TransactionSupplementaire::with(['user', 'product'])
             ->where('status', 'En attente')
+            ->where(function($q) use ($kamTransactionIds, $kamUserIds) {
+                $q->whereIn('id', $kamTransactionIds)
+                  ->orWhereHas('user', function($u) use ($kamUserIds) {
+                      $u->whereIn('commercial_id', $kamUserIds);
+                  });
+            })
             ->get()
             ->map(function($t) { $t->type_flux = 'supp'; return $t; });
 
